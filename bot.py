@@ -260,6 +260,28 @@ class Bot:
         travel = math.hypot(goal[0] - me["pos"][0], goal[1] - me["pos"][1]) / walk
         return float(zone["shrink_end"]) - t < travel + 15
 
+    def _projectile_from_mech(self, mech: Dict[str, Any], p: Dict[str, Any]) -> bool:
+        """True if projectile looks like it left this mech's muzzle (own/enemy shots)."""
+        pos = p.get("pos") or [0.0, 0.0, 0.0]
+        vel = p.get("vel") or [0.0, 0.0, 0.0]
+        speed_xy = math.hypot(float(vel[0]), float(vel[1]))
+        if speed_xy < 1.0:
+            return False
+        mpos = mech["pos"]
+        aim = mech.get("aim") or [0.0, 0.0]
+        shot_yaw = math.atan2(float(vel[1]), float(vel[0]))
+        # Back-project a short flight window; muzzle is ~radius+0.5 ahead of feet.
+        for dt in (0.02, 0.05, 0.1, 0.2, 0.35):
+            ox = float(pos[0]) - float(vel[0]) * dt
+            oy = float(pos[1]) - float(vel[1]) * dt
+            if math.hypot(ox - mpos[0], oy - mpos[1]) < 8.0:
+                if abs(_angdiff(shot_yaw, float(aim[0]))) < math.radians(35):
+                    return True
+        # Also: still very close to the mech and flying along their aim.
+        if math.dist(mpos[:2], pos[:2]) < 6.0 and abs(_angdiff(shot_yaw, float(aim[0]))) < math.radians(25):
+            return True
+        return False
+
     def _is_ffa(self, obs: mf.Observation) -> bool:
         """F1: free-for-all detector. Latches mem.ffa once True; practice stays False."""
         if not levers.on("F1"):
@@ -290,18 +312,25 @@ class Bot:
                         self.mem.ffa = True
                         mf.log(f"ffa latch via beam t={t:.1f}")
                         return True
-        for p in obs.get("projectiles") or []:
-            # Projectiles are never ours; if one is near a non-us mech (not just flying),
-            # treat as crossfire evidence when ≥2 other mechs are visible.
-            others = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
-            if len(others) >= 2:
-                # Soft signal: pack + enemy projectiles in view → FFA chaos.
-                # Require a near-miss on a visible mech to avoid false practice triggers.
+        others = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        if len(others) >= 2:
+            for p in obs.get("projectiles") or []:
+                # NPC bullets are not mech-vs-mech crossfire.
+                if p.get("kind") == "npc":
+                    continue
+                # Exclude our own gun/mortar shots (protocol omits them, but be safe).
+                if self._projectile_from_mech(me, p):
+                    continue
+                # Soft signal: pack + foreign projectile near-missing a visible mech.
+                # Skip muzzle-exit of that same mech (them shooting us ≠ FFA).
                 for m in others:
-                    if math.dist(m["pos"][:2], p["pos"][:2]) < 6.0:
-                        self.mem.ffa = True
-                        mf.log(f"ffa latch via projectile t={t:.1f}")
-                        return True
+                    if math.dist(m["pos"][:2], p["pos"][:2]) >= 6.0:
+                        continue
+                    if self._projectile_from_mech(m, p):
+                        continue
+                    self.mem.ffa = True
+                    mf.log(f"ffa latch via projectile t={t:.1f}")
+                    return True
 
         # (a) alive dropped ≥2 times with no our kill this/prev tick.
         if self.mem.alive_prev is not None and alive < self.mem.alive_prev:

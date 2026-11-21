@@ -394,6 +394,83 @@ def test_f1_detector(bot: Bot) -> None:
     ffa2 = bot._is_ffa(obs2)  # type: ignore[arg-type]
     check("F1 two unexplained alive drops latch", ffa2 is True and bot.mem.ffa is True)
 
+    # Own gun bullet near two hunters must NOT latch (false practice FFA).
+    bot.mem.ffa = False
+    bot.mem.alive_prev = 14
+    bot.mem.unexplained_alive_drops = 0
+    h1 = {
+        "id": 5,
+        "kind": "mech",
+        "pos": [40.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    h2 = {
+        "id": 6,
+        "kind": "mech",
+        "pos": [42.0, 8.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    # Bullet just left our muzzle toward h1 (aim yaw 0).
+    own_shot = {
+        "id": 9001,
+        "kind": "gun",
+        "pos": [3.5, 0.0, 7.0],
+        "vel": [280.0, 0.0, 0.0],
+    }
+    obs_own = _base_obs(
+        mechs=[h1, h2],
+        projectiles=[own_shot],
+        self={"pos": [0.0, 0.0, 1.0], "aim": [0.0, 0.0]},
+        t=50.0,
+        alive=14,
+    )
+    ffa_own = bot._is_ffa(obs_own)  # type: ignore[arg-type]
+    check("F1 own bullet with 2 hunters does not latch", ffa_own is False and bot.mem.ffa is False)
+
+    # Enemy muzzle-exit toward us with 2 hunters visible must NOT latch.
+    bot.mem.ffa = False
+    enemy_shot = {
+        "id": 9002,
+        "kind": "gun",
+        "pos": [37.0, 0.0, 7.0],
+        "vel": [-280.0, 0.0, 0.0],
+    }
+    obs_enemy_muzzle = _base_obs(
+        mechs=[h1, h2],
+        projectiles=[enemy_shot],
+        self={"pos": [0.0, 0.0, 1.0], "aim": [0.0, 0.0]},
+        t=50.1,
+        alive=14,
+    )
+    ffa_muzzle = bot._is_ffa(obs_enemy_muzzle)  # type: ignore[arg-type]
+    check("F1 enemy muzzle-exit at us does not latch", ffa_muzzle is False and bot.mem.ffa is False)
+
+    # True crossfire: projectile near victim, not from that victim's muzzle.
+    bot.mem.ffa = False
+    cross = {
+        "id": 9003,
+        "kind": "gun",
+        "pos": [41.5, 7.5, 7.0],
+        "vel": [0.0, 200.0, 0.0],
+    }
+    obs_cross = _base_obs(
+        mechs=[h1, h2],
+        projectiles=[cross],
+        self={"pos": [0.0, 0.0, 1.0], "aim": [0.0, 0.0]},
+        t=50.2,
+        alive=14,
+    )
+    ffa_cross = bot._is_ffa(obs_cross)  # type: ignore[arg-type]
+    check("F1 true crossfire near-miss latches", ffa_cross is True and bot.mem.ffa is True)
+
     # Smoke: FFA forced → no FIGHT on unaware 80m enemy; no boost while walking.
     bot.mem.ffa = True
     enemy = {
