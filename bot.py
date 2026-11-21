@@ -1287,14 +1287,36 @@ class Bot:
                 act["boost"] = True
             return
 
-        # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
-        if not clear or dist > close_at:
-            move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
+        # Gun / laser ground: stand-off. Live tests (~1,500 shots): house-bot guns hit
+        # 94% inside 40 m, 58% at 40-80, 31% at 80-130 and 12% at 130-230 m, while our
+        # lead aim hits ~65% at every range. So hold 135-200 m: back off when they close,
+        # creep in only when out of reach, strafe in between. Never rush to 75 m.
+        gun_range = float((self.combat.weapons.get("gun") or {}).get("range", 230.0))
+        far_band = min(200.0, gun_range - 25.0)
+        near_band = 135.0
+        z = obs["zone"]
+        zc, zr = z["center"], float(z["radius"])
+        side = bearing + (math.pi / 2) * self.mem.strafe_sign
+        if dist < near_band:
+            away = bearing + math.pi
+            # lean sideways so we keep moving across their aim while opening range
+            ang = away + 0.45 * self.mem.strafe_sign
+            goal = [me["pos"][0] + math.cos(ang) * 30.0, me["pos"][1] + math.sin(ang) * 30.0]
+            if math.hypot(goal[0] - zc[0], goal[1] - zc[1]) > 0.9 * zr:
+                goal = [me["pos"][0] + math.cos(side) * 30.0, me["pos"][1] + math.sin(side) * 30.0]
+            move, _ = self.nav.steer(me, goal, 1.0, t)
             act["move"] = move
-            act["boost"] = energy_ok and (dist > 50 or push_hard)
+            act["boost"] = energy_ok and dist < 95.0
+        elif not clear:
+            # no lane: slide sideways to find one rather than walking into their range
+            move, _ = self.nav.steer(
+                me, [me["pos"][0] + math.cos(side) * 25.0, me["pos"][1] + math.sin(side) * 25.0], 0.8, t
+            )
+            act["move"] = move
+        elif dist > far_band:
+            move, _ = self.nav.steer(me, chase["pos"], 0.6, t)
+            act["move"] = move
         else:
-            side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
