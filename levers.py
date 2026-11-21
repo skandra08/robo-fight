@@ -22,6 +22,8 @@ LEVERS: Dict[str, bool] = {
     "F1": False,  # FFA detector + survival mode
     "DUAL_FIRE": True,  # gun keeps firing on lead while laser/lightning charge/fire
     "HOLD_FIGHT": True,  # no chase in fight; hold roof / half-strafe; idle aim no fire
+    "GROUND_ANCHOR": False,  # choke/pocket hold phases 0-2; roof fallback late
+    "LIGHTNING_FIRST": False,  # loot lightning > laser > mortar; prefer pocket anchors
 }
 
 

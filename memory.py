@@ -77,6 +77,11 @@ class Memory:
         self.precharge_active = False
         self.disengage_rearm_t = -1e9
         self.last_our_kill_t = -1e9
+        # GROUND_ANCHOR: choke/pocket hold
+        self.choke_lane_yaw: Optional[float] = None
+        self.choke_kind: Optional[str] = None
+        self.anchor_kills = 0
+        self.anchor_site_key: Optional[str] = None
 
     def seed(self, seed: int) -> None:
         self.rng_state = int(seed) & 0x7FFFFFFF or 1
@@ -243,6 +248,7 @@ class Memory:
         world: Any = None,
         on_roof: bool = False,
         step_up: float = 1.2,
+        lightning_first: bool = False,
     ) -> Optional[Dict[str, Any]]:
         best = None
         best_score = -1e9
@@ -262,7 +268,17 @@ class Memory:
                         continue
             d = ((p["pos"][0] - pos[0]) ** 2 + (p["pos"][1] - pos[1]) ** 2) ** 0.5
             age = t - p["last_seen_t"]
-            if kind == "laser" and d <= 160:
+            # Default laser > mortar > lightning. lightning_first → lightning > laser > mortar.
+            if lightning_first:
+                if kind == "lightning" and d <= 80:
+                    score = 400 - d - age
+                elif kind == "laser" and d <= 160:
+                    score = 280 - d - age
+                elif kind == "mortar" and d <= 120:
+                    score = 140 - d - age
+                else:
+                    continue
+            elif kind == "laser" and d <= 160:
                 score = 400 - d - age
             elif kind == "mortar" and d <= 120:
                 score = 280 - d - age

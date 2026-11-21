@@ -108,7 +108,8 @@ class Bot:
         elapsed = time.perf_counter() - t0
         mf.log(
             f"init {elapsed*1000:.0f}ms roofs={len(self.cover.roofs)} "
-            f"cover={self.cover.cover_ok} variant={levers.LABEL}"
+            f"chokes={len(self.cover.choke_sites)} cover={self.cover.cover_ok} "
+            f"variant={levers.LABEL}"
         )
 
     def act(self, obs: mf.Observation) -> mf.Action:
@@ -129,7 +130,14 @@ class Bot:
         self.mem.world_on_roof = self.world.on_roof(me["pos"])
         if self.mem.world_on_roof:
             self.mem.time_on_roof += 0.1
+        prev_kill_t = self.mem.last_our_kill_t
         self.mem.update(obs, near_range=self.near_range, world=self.world)
+        if (
+            levers.on("GROUND_ANCHOR")
+            and self.mem.choke_lane_yaw is not None
+            and self.mem.last_our_kill_t > prev_kill_t
+        ):
+            self.mem.anchor_kills += 1
 
         act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
 
@@ -231,8 +239,14 @@ class Bot:
         if self.mem.positioned and self.mem.loadout_goal:
             if math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 18.0:
                 return True
+        # GROUND_ANCHOR: hold a choke/pocket on foot (late phase may still use roof).
+        if levers.on("GROUND_ANCHOR") and self.mem.choke_lane_yaw is not None and self.mem.loadout_goal:
+            if math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 10.0 and not self.mem.world_on_roof:
+                return True
         # S1: every loadout camps on a roof.
         if levers.on("S1") or second == "laser":
+            if levers.on("GROUND_ANCHOR") and self.mem.choke_lane_yaw is not None:
+                return False
             return bool(self.mem.world_on_roof)
         if second == "mortar":
             # Far from zone edge and not on a roof (ground mortar camp).
@@ -514,7 +528,12 @@ class Bot:
         if self.mem.mode == "DISENGAGE":
             return None
         loot = self.mem.best_loot(
-            me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
+            me["pos"],
+            t,
+            world=self.world,
+            on_roof=self.mem.world_on_roof,
+            step_up=self.step_up,
+            lightning_first=levers.on("LIGHTNING_FIRST"),
         )
         if loot is None:
             return None
@@ -525,8 +544,9 @@ class Bot:
         if d > 90.0:
             return None
         kind = loot["kind"]
-        # Prefer laser > mortar > lightning. Never drop mortar to grab lightning.
-        if second == "mortar" and kind == "lightning":
+        # Prefer laser > mortar > lightning (or lightning-first). Never drop mortar to grab lightning
+        # unless LIGHTNING_FIRST is on.
+        if second == "mortar" and kind == "lightning" and not levers.on("LIGHTNING_FIRST"):
             return None
         if second == "laser":
             return None  # already top tier
@@ -788,7 +808,12 @@ class Bot:
         recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
         visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
         loot = self.mem.best_loot(
-            me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
+            me["pos"],
+            t,
+            world=self.world,
+            on_roof=self.mem.world_on_roof,
+            step_up=self.step_up,
+            lightning_first=levers.on("LIGHTNING_FIRST"),
         )
         loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
         enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
@@ -827,7 +852,13 @@ class Bot:
                 self.mem.post_kill_pos = None
 
         # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us.
-        if second is not None and not self.mem.world_on_roof:
+        # Skip roof-climb priority while GROUND_ANCHOR is holding a choke in early phases.
+        ground_hold = (
+            levers.on("GROUND_ANCHOR")
+            and self.mem.choke_lane_yaw is not None
+            and self._ground_anchor_phase(obs["zone"])
+        )
+        if second is not None and not self.mem.world_on_roof and not ground_hold:
             ct = self.mem.climb_target
             climb_d = math.dist(me["pos"][:2], ct[:2]) if ct is not None else 1e9
             near_climb = climb_d <= 10.0
@@ -1432,7 +1463,12 @@ class Bot:
             self.mem.post_kill_phase = "heal"
 
         best = self.mem.best_loot(
-            me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
+            me["pos"],
+            t,
+            world=self.world,
+            on_roof=self.mem.world_on_roof,
+            step_up=self.step_up,
+            lightning_first=levers.on("LIGHTNING_FIRST"),
         )
         # Prefer currently visible ids for take
         visible = {int(p["id"]): p for p in (obs.get("pickups") or []) if p.get("kind") != "gun"}
@@ -1508,6 +1544,41 @@ class Bot:
         # Return fire while arming
         self._try_fight_overlay(obs, act)
 
+    def _ground_anchor_phase(self, zone: Dict[str, Any]) -> bool:
+        """Phases 0–2 (next_radius > 140): choke available; phase 3+ falls back to roof."""
+        return float(zone.get("next_radius") or zone.get("radius") or 0) > 140.0
+
+    def _pick_ground_anchor(
+        self, me: Dict[str, Any], zone: Dict[str, Any], second: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        prefer_kind = None
+        prefer_min_sight = 80.0
+        if second == "lightning" or levers.on("LIGHTNING_FIRST"):
+            prefer_kind = "pocket"
+            prefer_min_sight = 0.0
+        elif second == "mortar":
+            prefer_min_sight = 48.0
+        return self.cover.pick_choke(
+            me["pos"],
+            zone["next_center"],
+            float(zone["next_radius"]),
+            prefer_kind=prefer_kind,
+            prefer_min_sight=prefer_min_sight,
+            max_travel=200.0,
+        )
+
+    def _bind_ground_anchor(self, site: Dict[str, Any]) -> None:
+        key = f"{site['x']:.0f},{site['y']:.0f}"
+        if self.mem.anchor_site_key != key:
+            self.mem.anchor_site_key = key
+            self.mem.anchor_kills = 0
+            self.mem.reset_camp_counters()
+        self.mem.choke_lane_yaw = float(site.get("lane_yaw") or 0.0)
+        self.mem.choke_kind = str(site.get("kind") or "choke")
+        self.mem.loadout_goal = [float(site["x"]), float(site["y"])]
+        self.mem.roof_id = None
+        self.mem.climb_target = None
+
     def _do_relocate(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
         me = obs["self"]
         t = float(obs["t"])
@@ -1521,6 +1592,36 @@ class Bot:
             ]
         elif enemies:
             away = enemies[0]["pos"]
+
+        # GROUND_ANCHOR: walk silently to a choke/pocket in phases 0–2.
+        if levers.on("GROUND_ANCHOR") and self._ground_anchor_phase(z):
+            site = self._pick_ground_anchor(me, z, second)
+            if site is not None:
+                self._bind_ground_anchor(site)
+                goal = self.mem.loadout_goal
+                assert goal is not None
+                # Silent approach (<5 m/s): no boost, capped move.
+                move, yaw = self.nav.steer(me, goal, 0.45, t)
+                act["move"] = move
+                act["boost"] = False
+                act["jump"] = False
+                lane = self.mem.choke_lane_yaw if self.mem.choke_lane_yaw is not None else yaw
+                act["aim"] = [lane, -0.05]
+                if enemies:
+                    self._try_fight_overlay(obs, act)
+                return
+            # No site in circle → ground_spot, then roof fallback below.
+            spot = self.cover.ground_spot(me["pos"], z["center"], float(z["radius"]))
+            if spot is not None:
+                self.mem.choke_lane_yaw = None
+                self.mem.loadout_goal = list(spot[:2])
+                move, yaw = self.nav.steer(me, spot, 0.55, t)
+                act["move"] = move
+                act["boost"] = False
+                act["aim"] = [yaw, -0.05]
+                if enemies:
+                    self._try_fight_overlay(obs, act)
+                return
 
         # Without S1: mortar far-ground / lightning corner (kept for F1 / A/B off).
         if not levers.on("S1") and second == "mortar":
@@ -1652,6 +1753,54 @@ class Bot:
                     act["move"] = move
                     act["aim"] = [yaw, -0.05]
                     return
+
+        # GROUND_ANCHOR camp: hold choke, aim lane_yaw ±60° sweep, fight in place.
+        if (
+            levers.on("GROUND_ANCHOR")
+            and self.mem.choke_lane_yaw is not None
+            and self.mem.loadout_goal is not None
+            and self._ground_anchor_phase(obs["zone"])
+        ):
+            # Relocate after 3+ kills at the same site (corpses mark it) or zone push.
+            if self.mem.anchor_kills >= 3 or self._zone_forces_reloc(me, obs["zone"], t):
+                self.mem.choke_lane_yaw = None
+                self.mem.anchor_site_key = None
+                self.mem.positioned = False
+                self.mem.loadout_goal = None
+                return self._do_relocate(obs, act, second)
+            goal = self.mem.loadout_goal
+            dist_g = math.dist(me["pos"][:2], goal[:2])
+            if dist_g > 4.0:
+                move, yaw = self.nav.steer(me, goal, 0.4, t)
+                act["move"] = move
+            else:
+                # Strafe ±3 m across the lane at half speed while trading; else stand.
+                visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+                if visible:
+                    side = self.mem.choke_lane_yaw + (math.pi / 2) * self.mem.strafe_sign
+                    act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
+                    if int(t * 2) % 7 == 0:
+                        self.mem.strafe_sign *= -1.0
+                else:
+                    act["move"] = [0.0, 0.0]
+            act["boost"] = False
+            act["jump"] = False
+            lane = float(self.mem.choke_lane_yaw)
+            # Sweep ±60° so the 120° cone covers the lane.
+            sweep = math.sin(t * 0.7) * (math.pi / 3.0)
+            aim_yaw = lane + sweep
+            if self.mem.last_threat_bearing is not None:
+                # Prefer threat if it's roughly in the lane cone.
+                if abs(_angdiff(self.mem.last_threat_bearing, lane)) < math.radians(75):
+                    aim_yaw = self.mem.last_threat_bearing
+            act["aim"] = [aim_yaw, -0.05]
+            hunters = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+            if hunters:
+                self._try_fight_overlay(obs, act)
+            else:
+                # Between waves: don't fire (crates/NPCs reset regen).
+                act["fire"] = [False, False]
+            return
 
         if not levers.on("S1") and second == "mortar":
             goal = self.mem.loadout_goal

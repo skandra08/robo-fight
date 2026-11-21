@@ -17,6 +17,17 @@ class CoverBook:
                 self.roofs = json.load(f)
         self._by_id = {int(r["id"]): r for r in self.roofs}
 
+        self.choke_sites: List[Dict[str, Any]] = []
+        choke_path = os.path.join(data_dir, "choke_sites.json")
+        if os.path.isfile(choke_path):
+            try:
+                with open(choke_path) as f:
+                    raw = json.load(f)
+                if isinstance(raw, list):
+                    self.choke_sites = raw
+            except (OSError, json.JSONDecodeError, ValueError):
+                self.choke_sites = []
+
         self.cover_ok = False
         self.minx = self.miny = self.step = 0.0
         self.nx = self.ny = 0
@@ -120,6 +131,49 @@ class CoverBook:
         if len(chunk) < 17:
             return None
         return chunk[0], list(chunk[1:17])
+
+    def pick_choke(
+        self,
+        pos: Sequence[float],
+        next_center: Sequence[float],
+        next_radius: float,
+        prefer_kind: Optional[str] = None,
+        prefer_min_sight: float = 0.0,
+        max_travel: float = 200.0,
+    ) -> Optional[Dict[str, Any]]:
+        """Nearest foot-reachable choke/pocket inside 0.8×next zone, within max_travel."""
+        if not self.choke_sites:
+            return None
+        rlim = 0.8 * next_radius
+        cx, cy = next_center[0], next_center[1]
+        best = None
+        best_s = -1e9
+        for s in self.choke_sites:
+            x, y = float(s["x"]), float(s["y"])
+            if (x - cx) ** 2 + (y - cy) ** 2 > rlim * rlim:
+                continue
+            travel = math.hypot(x - pos[0], y - pos[1])
+            if travel > max_travel:
+                continue
+            sight = float(s.get("max_sight_m") or 0)
+            kind = s.get("kind") or "choke"
+            # Prefer requested kind (pocket) and sight floor (laser wants 80+).
+            kind_bonus = 40.0 if prefer_kind and kind == prefer_kind else 0.0
+            sight_bonus = 0.0
+            if prefer_min_sight > 0:
+                if sight >= prefer_min_sight:
+                    sight_bonus = 25.0 + 0.05 * sight
+                else:
+                    sight_bonus = 0.02 * sight
+            elif kind == "pocket":
+                sight_bonus = 10.0
+            else:
+                sight_bonus = 0.05 * sight
+            score = kind_bonus + sight_bonus - 0.05 * travel
+            if score > best_s:
+                best_s = score
+                best = s
+        return best
 
     def ground_spot(self, pos: Sequence[float], zone_c: Sequence[float], zone_r: float) -> Optional[List[float]]:
         if not self.cover_ok:
