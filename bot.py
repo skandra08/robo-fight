@@ -52,7 +52,7 @@ UPGRADE_PRIORITY = [
     "sensors",
 ]
 
-WEAPON_RANK = {"laser": 3, "mortar": 2, "lightning": 1}
+WEAPON_RANK = {"laser": 3, "mortar": 0, "lightning": 1}  # rw-nomortar: never pick up a mortar (sim +0.16 over 7 seed sets)
 
 # Tunables (one place, so variants are one-line changes).
 FARM_EARLY_S = 1e9  # search for farm targets instead of roof camping (noroof 2.90 > g-zone 2.81)
