@@ -2221,6 +2221,10 @@ class Bot:
                 # Between laser shots (cooling, not charging): lead with the gun.
                 if charge <= 0.02 and cd > 0 and _slot_of(me, "gun") is not None:
                     return "gun", "gun"
+            # C1 (from the rewrite thread, +0.62 there): the gun sat idle ~46% of laser fights
+            # while the laser charged. Aim for the laser but let every slot fire.
+            if levers.on("C1"):
+                return "laser", None
             return "laser", "laser"
         if kind == "lightning":
             return "lightning", "lightning"
