@@ -1465,7 +1465,22 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # burst-then-break: after a short burst of shots, break LOS ~1.2s then re-peek.
         close_at = 55.0 if push_hard else 75.0
+        shots_here = int(getattr(self.mem, "shots_here", 0) or 0)
+        break_until = getattr(self.mem, "_burst_break_until", -1e9)
+        if shots_here >= 8 and t >= break_until:
+            self.mem._burst_break_until = t + 1.2
+            self.mem.shots_here = 0
+            break_until = self.mem._burst_break_until
+        if t < break_until:
+            away = bearing + math.pi
+            side = away + (math.pi / 2) * 0.35 * self.mem.strafe_sign
+            act["move"] = [math.cos(side) * 0.9, math.sin(side) * 0.9]
+            act["boost"] = energy_ok
+            # Keep aiming/firing while breaking — movement is the only change.
+            self.nav.update_stuck(me, t, True)
+            return
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
