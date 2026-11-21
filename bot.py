@@ -196,6 +196,10 @@ class Bot:
             self._do_supply(obs, act)
         elif mode == "CUBE":
             self._do_cube(obs, act)
+        elif mode == "CUBE_EDGE":
+            move, yaw = self.nav.steer(me, self._edge_goal, 0.8, t)
+            act["move"] = move
+            act["aim"] = [yaw + math.pi, -0.02]
         elif mode == "DRONE":
             self._do_drone(obs, act)
         elif mode == "ARM":
@@ -912,6 +916,18 @@ class Bot:
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
+
+        # BET edge: from 3:00, hold just inside the circle on the side away from hunters.
+        if t >= 180.0 and not visible and second is not None and hp_frac > 0.4:
+            z = obs["zone"]
+            r = float(z["radius"])
+            if r > 40.0:
+                cx, cy = z["center"]
+                ang = math.atan2(me["pos"][1] - cy, me["pos"][0] - cx)
+                goal = [cx + math.cos(ang) * (r - 20.0), cy + math.sin(ang) * (r - 20.0)]
+                if math.dist(goal, me["pos"][:2]) > 8.0 and (float(z.get("shrink_start", 0)) > t or r > 90):
+                    self._edge_goal = goal
+                    return "CUBE_EDGE"
 
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
