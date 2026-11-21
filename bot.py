@@ -104,6 +104,7 @@ class Bot:
         if levers.on("N5"):
             self.mem.cubes_want = self.cube_stat_cap
         self.mem.strafe_sign = 1.0 if self.mem.rand() > 0.5 else -1.0
+        self._npc_hit_t: Dict[int, float] = {}
         self.mem.positioned = False
         elapsed = time.perf_counter() - t0
         mf.log(
@@ -182,6 +183,8 @@ class Bot:
             self._do_heal(obs, act)
         elif mode == "CUBE":
             self._do_cube(obs, act)
+        elif mode == "DRONE":
+            self._do_drone(obs, act)
         elif mode == "ARM":
             self._do_arm(obs, act)
         elif mode == "RELOCATE":
@@ -788,6 +791,21 @@ class Bot:
             self.mem.laser_threat_id = None
 
         recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
+
+        # DRONE: a drone shooting us (often from behind, out of view) is handled before mech logic
+        # unless a mech is also hitting us right now. Live: one drone took us 414 -> 0 HP over 23 s.
+        mech_hit_t = -1e9
+        for e in obs.get("events") or []:
+            if e.get("type") == "damaged" and e.get("weapon") == "npc":
+                self._npc_hit_bearing = e.get("bearing")
+                self._npc_hit_last_t = t
+            elif e.get("type") == "damaged" and e.get("weapon") not in (None, "zone", "npc"):
+                self._mech_hit_last_t = t
+        if (
+            t - getattr(self, "_npc_hit_last_t", -1e9) < 2.5
+            and t - getattr(self, "_mech_hit_last_t", -1e9) > 2.0
+        ):
+            return "DRONE"
         visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
         loot = self.mem.best_loot(
             me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
@@ -1151,6 +1169,45 @@ class Bot:
         if "fire" not in act:
             act["fire"] = [False, False]
 
+    def _hostile_drone(self, obs: mf.Observation, me: Dict[str, Any], t: float) -> Optional[Dict[str, Any]]:
+        for e in obs.get("events") or []:
+            if e.get("type") == "damaged" and e.get("weapon") == "npc" and e.get("by") is not None:
+                self._npc_hit_t[int(e["by"])] = t
+        best = None
+        best_d = 1e9
+        for m in obs.get("mechs") or []:
+            if m.get("kind") != "npc":
+                continue
+            nid = int(m["id"])
+            if t - self._npc_hit_t.get(nid, -99.0) > 3.0:
+                continue
+            d = math.dist(m["pos"][:2], me["pos"][:2])
+            if d > 110.0 or d >= best_d:
+                continue
+            aimpt = self._drone_aim_target(m)
+            if not self.combat.clear_shot(me, aimpt["pos"], None):
+                continue
+            best, best_d = m, d
+        return best
+
+    def _drone_aim_target(self, m: Dict[str, Any]) -> Dict[str, Any]:
+        """combat.aim_at aims at a mech's centre (feet + height/2); shift a drone so it aims at its centre."""
+        nh = float((self.cfg.get("npc") or {}).get("height", 3.5))
+        mh = float((self.cfg.get("mech") or {}).get("height", 9.0))
+        x, y, z = m["pos"]
+        return {"id": m["id"], "kind": "npc", "pos": [x, y, z + nh * 0.5 - mh * 0.5], "vel": m.get("vel") or [0, 0, 0]}
+
+    def _shoot_drone(self, obs: mf.Observation, act: Dict[str, Any], me: Dict[str, Any], drone: Dict[str, Any], t: float) -> None:
+        tgt = self._drone_aim_target(drone)
+        aim = self.combat.aim_at(me, tgt, "gun")
+        act["aim"] = aim
+        fire, reload, _ = self.combat.fire_slots(me, aim, tgt, t, self.mem, aim_kind="gun")
+        act["fire"] = [fire[0], False]
+        act["reload"] = reload
+        bearing = math.atan2(drone["pos"][1] - me["pos"][1], drone["pos"][0] - me["pos"][0])
+        side = bearing + (math.pi / 2) * self.mem.strafe_sign
+        act["move"] = [math.cos(side) * 0.6, math.sin(side) * 0.6]
+
     def _do_fight(
         self,
         obs: mf.Observation,
@@ -1177,6 +1234,13 @@ class Bot:
                     chase = m
                     target = m
                     break
+
+        # Drone discipline: a drone shooting us does ~25-38 dps (rear hits while we face a mech),
+        # as much as a mech's gun. Kill it first (350 HP, 2 cubes) unless the mech is nearly dead.
+        drone = self._hostile_drone(obs, me, t)
+        if drone is not None and (target is None or float(target.get("hp", 1400)) > 300.0):
+            self._shoot_drone(obs, act, me, drone, t)
+            return
 
         if chase is None:
             bearing = self.mem.last_threat_bearing
@@ -1367,6 +1431,26 @@ class Bot:
                     best = None
         self._cube_target = best
         return best
+
+    def _do_drone(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        me = obs["self"]
+        t = float(obs["t"])
+        drone = self._hostile_drone(obs, me, t)
+        if drone is None:
+            # Not in view (rear hit) or no clear shot: nearest visible drone, else turn to the bearing.
+            npcs = [m for m in (obs.get("mechs") or []) if m.get("kind") == "npc"]
+            npcs = [m for m in npcs if math.dist(m["pos"][:2], me["pos"][:2]) < 110.0]
+            if npcs:
+                drone = min(npcs, key=lambda m: math.dist(m["pos"][:2], me["pos"][:2]))
+        if drone is not None:
+            self._shoot_drone(obs, act, me, drone, t)
+            return
+        b = getattr(self, "_npc_hit_bearing", None)
+        if b is None:
+            b = me["aim"][0]
+        act["aim"] = [float(b), -0.15]
+        side = float(b) + (math.pi / 2) * self.mem.strafe_sign
+        act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
 
     def _do_cube(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
