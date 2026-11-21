@@ -62,6 +62,8 @@ REST_HP = 0.70  # rest (stop shooting) below this when nobody is in view
 HEAL_DONE_HP = 0.90
 BAND_LO = 55.0  # fight band: back off inside this
 BAND_HI = 125.0  # ...and close in beyond this
+GROUND_LO = 0.0  # >0: on open ground, back off inside this instead (house guns are deadly at 40-80 m)
+GROUND_HI = 0.0  # >0: matching upper edge on open ground
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
@@ -738,6 +740,10 @@ class Bot:
             return
 
         lo, hi = BAND_LO, BAND_HI
+        if GROUND_LO > 0:
+            lo = GROUND_LO
+        if GROUND_HI > 0:
+            hi = GROUND_HI
         if LIGHTNING_CLOSE and second == "lightning" and _slot_of(me, "lightning") is not None:
             lo, hi = 20.0, 40.0
         if finishing:
