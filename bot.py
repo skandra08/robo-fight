@@ -833,7 +833,7 @@ class Bot:
 
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
-        if t < 75.0 and not recent_dmg:
+        if me["cubes"] < 10 and t < 150.0 and not recent_dmg:
             if self._cube_goal(obs, [], 1e9) is not None:
                 return "CUBE"
             if not visible:
@@ -1441,7 +1441,7 @@ class Bot:
         if best is None and enemy_d > 90.0:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
-                if d > (220.0 if t < 75.0 else 150.0) or d < 1.0:
+                if d > (220.0 if (me["cubes"] < 10 and t < 150.0) else 150.0) or d < 1.0:
                     continue
                 center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
                 if self.world.blocked_segment(self.combat.muzzle(me), center, step=2.0):
