@@ -180,6 +180,8 @@ class Bot:
             self._do_reset(obs, act)
         elif mode == "HEAL":
             self._do_heal(obs, act)
+        elif mode == "CUBE":
+            self._do_cube(obs, act)
         elif mode == "ARM":
             self._do_arm(obs, act)
         elif mode == "RELOCATE":
@@ -878,6 +880,11 @@ class Bot:
                 if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
                     return "FIGHT"
 
+        # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
+        # live matches). Scoop / break them whenever no hunter is close.
+        if not recent_dmg and self._cube_goal(obs, visible, enemy_d) is not None:
+            return "CUBE"
+
         if self._want_third(me, second, visible, t):
             return "THIRD"
 
@@ -1300,6 +1307,92 @@ class Bot:
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
             act["boost"] = True
+
+    def _cube_goal(self, obs: mf.Observation, visible: List[Dict[str, Any]], enemy_d: float) -> Optional[Dict[str, Any]]:
+        """Pick a cube to scoop, a kill site to loot, or a crate to break. None when unsafe."""
+        me = obs["self"]
+        t = float(obs["t"])
+        self._cube_target = None
+        if me["cubes"] >= self.cube_stat_cap + 6:
+            return None
+        mx, my, mz = me["pos"]
+        best = None
+        best_d = 1e9
+        # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
+        reach = 45.0 if not visible else min(45.0, enemy_d * 0.4)
+        for c in obs.get("cubes") or []:
+            d = math.dist(c["pos"][:2], (mx, my))
+            if c["pos"][2] - mz > 3.0 or d > reach:
+                continue
+            if d < best_d:
+                best_d, best = d, {"kind": "cube", "pos": list(c["pos"])}
+        if best is None and self.mem.post_kill_pos is not None:
+            pk = self.mem.post_kill_pos
+            d = math.dist(pk[:2], (mx, my))
+            fresh = t - self.mem.post_kill_t < 30.0
+            if fresh and d > self.cube_r and d < 170.0 and pk[2] - mz < 3.0 and (not visible or enemy_d > d + 80.0):
+                best = {"kind": "site", "pos": list(pk)}
+            elif not fresh or d <= self.cube_r:
+                self.mem.post_kill_pos = None
+        if best is None and not visible:
+            for c in obs.get("crates") or []:
+                d = math.dist(c["pos"][:2], (mx, my))
+                if d > 70.0 or d < 1.0:
+                    continue
+                center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
+                if self.world.blocked_segment(self.combat.muzzle(me), center, step=2.0):
+                    continue
+                if d < best_d:
+                    best_d, best = d, {"kind": "crate", "pos": center, "id": c["id"]}
+        if best is not None and not me.get("in_zone", True):
+            return None
+        if best is not None:
+            zc = obs["zone"]["center"]
+            if math.dist(best["pos"][:2], zc[:2]) > float(obs["zone"]["radius"]) - 10.0:
+                return None
+        if best is not None:
+            key = (best["kind"], best.get("id"), round(best["pos"][0] / 4.0), round(best["pos"][1] / 4.0))
+            bl = self.__dict__.setdefault("_cube_bl", {})
+            if bl.get(key, -1e9) > t:
+                best = None
+            else:
+                if getattr(self, "_cube_key", None) != key:
+                    self._cube_key = key
+                    self._cube_since = t
+                limit = 5.0 if best["kind"] == "crate" else 18.0
+                if t - self._cube_since > limit:
+                    bl[key] = t + 60.0
+                    if best["kind"] == "site":
+                        self.mem.post_kill_pos = None
+                    best = None
+        self._cube_target = best
+        return best
+
+    def _do_cube(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        me = obs["self"]
+        t = float(obs["t"])
+        goal = getattr(self, "_cube_target", None)
+        if goal is None:
+            return
+        if goal["kind"] == "crate":
+            mx, my, mz = self.combat.muzzle(me)
+            gx, gy, gz = goal["pos"]
+            yaw = math.atan2(gy - my, gx - mx)
+            pitch = math.atan2(gz - mz, math.hypot(gx - mx, gy - my) or 1e-6)
+            act["aim"] = [yaw, pitch]
+            act["move"] = [0.0, 0.0]
+            if self.combat.aligned(me, [yaw, pitch], tol_deg=3.0):
+                act["fire"] = [True, False]
+            return
+        move, yaw = self.nav.steer(me, goal["pos"], 1.0, t)
+        act["move"] = move
+        act["aim"] = [yaw, -0.05]
+        efrac = me["energy"] / max(1.0, me["max_energy"])
+        act["boost"] = efrac > 0.5 and math.dist(goal["pos"][:2], me["pos"][:2]) > 12.0
+        self.nav.update_stuck(me, t, True)
+        if self.mem.stuck_until > t:
+            act["jump"] = bool(me.get("grounded"))
+        self._try_fight_overlay(obs, act)
 
     def _do_heal(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
