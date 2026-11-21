@@ -11,8 +11,8 @@
 | check.py | **PASS** (`lh-roof-ctr`, 300/300) |
 | test_strategy | **PASS** (S1/N1) |
 | behavior probes | S1 32/32 + N1 32/32 = **64/64** |
-| early N=10 | mean **2.3** (cut 2.3) |
-| N=64 | mean **2.5** (σ≈1.195) |
+| early N=10 | mean **2.2** (cut 2.3) |
+| N=64 | mean **2.5** (σ≈1.168) |
 | mean@50 | **2.4** |
 | bar | best-265 **2.65** |
 
@@ -27,10 +27,10 @@
 
 ## Why superseded
 
-1. Early-watch **2.3** meets cut **2.3** (not ≪) — not an early-ditch loser.
+1. Early-watch **2.2** near cut **2.3** — not an early-ditch wipeout (≪2.3).
 2. Mean **2.5** still **< bar 2.65** — missing N5/CUBE stack that lifted roof-all ~2.29 → best-265.
 3. **S1+N1 already absorbed** into `try/best-265` / cubes-drones (`b7b5c383…`, 2.65). Raw roof-ctr is the lineage base, not a fresh submit.
-4. Model: roof-all official 2.29 + N1 ~+0.20 → μ≈2.49; sensitivity low/mid/high = WATCH/WATCH/KEEP — only the optimistic μ=2.65 keeps.
+4. Model μ≈2.49 (roof-all 2.29 + N1 ~+0.20); without cubes cannot close the bar.
 
 ## Offline context (not a score)
 
@@ -39,7 +39,7 @@
 | calibrated proxy | 64 | practice-style 16−place |
 | S1/N1 behavior probes | 64 | all PASS |
 | check-stream | 300 | PASS |
-| live private-room | 0 | mm busy; waiter `/tmp/mech_roof_ctr_live_waiter.py` |
+| live private-room | 0 | mm busy; waiter running |
 
 ## Next (mandatory)
 
@@ -53,7 +53,7 @@ Bar **2.65**. Cut if ≪2.3 @8–12 after Sameer submit.
 
 ## Artifacts
 
+- Branch: `cursor/eval-roof-ctr-51dc` @ `8e5ece8`
 - Worktree: `/private/tmp/mech-worktrees/sim19-roof-ctr` @ `55f5015e213a097c6a9695801d56efa7cc808798`
-- JSON: `/tmp/mech-roof-ctr-sim.json`
+- JSON: `docs/agent19-roof-ctr-sim.json` / `/tmp/mech-roof-ctr-sim.json`
 - Check: `/tmp/mech-roof-ctr-check.txt`
-- Live waiter log: `/tmp/mech-roof-ctr-harness.log`
