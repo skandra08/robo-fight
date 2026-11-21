@@ -1377,22 +1377,37 @@ class Bot:
         push_hard = aggressive and (flank or undetected) and len(enemies) <= 1
 
         dist = math.dist(chase["pos"][:2], me["pos"][:2])
-        # R1: gun is primary whenever it has a clear shot. Specials only when useful.
+        # Mid-fight swap by range / HP: gun finishes chips and close brawls;
+        # laser / lightning / mortar only when the trade wins on that band.
+        our_frac = me["hp"] / max(1.0, me["max_hp"])
+        thp = chase.get("hp")
+        finishing = thp is not None and thp <= 320
+        hurt = our_frac < 0.42
         kind = "gun"
         if second == "laser":
-            kind = "laser" if clear else "gun"
+            if clear:
+                # Charge costs 0.75 s + half-speed: dump mag on close finishes.
+                if finishing and dist < 55.0:
+                    kind = "gun"
+                elif hurt or dist >= 32.0 or (thp is not None and thp > 550):
+                    kind = "laser"
+                else:
+                    kind = "gun"
         elif second == "mortar":
             mw = self.combat.weapons.get("mortar") or {}
             v = float(mw.get("speed", 72))
             g = float(mw.get("gravity", 22))
             mortar_max = (v * v / g) if g > 0 else 235.0
-            if not clear and 12.0 < dist < mortar_max:
-                kind = "mortar"
-            else:
-                kind = "gun"
+            # No-LOS lob, or hurt standoff lob at long clear range (don't walk in).
+            lob = 12.0 < dist < mortar_max and (
+                not clear or (hurt and not finishing and dist > 95.0)
+            )
+            kind = "mortar" if lob else "gun"
         elif second == "lightning":
             lr = float((self.combat.weapons.get("lightning") or {}).get("range", 45))
-            kind = "lightning" if clear and dist <= lr else "gun"
+            # Soft cone edge: gun-finish past 36 m unless hurt (need arc DPS).
+            if clear and dist <= lr and not (finishing and dist > 36.0 and not hurt):
+                kind = "lightning"
         # Bug #8: invalid mortar lob → gun (never pitch-0.6 skyfire).
         if kind == "mortar":
             feet = [chase["pos"][0], chase["pos"][1], chase["pos"][2]]
