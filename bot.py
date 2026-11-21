@@ -80,7 +80,7 @@ REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
 FARM_CUBE_D = 200.0  # rwm: cube pickup reach with no mech in view
 FARM_CRATE_D = 160.0  # rwm: crates farther than this are ignored
-FARM_DRONE_D = 150.0  # rwm: drones farther than this are ignored
+FARM_DRONE_D = 80.0  # rwm: drones farther than this are ignored (was 150; sim +0.26/+0.34)
 FARM_SITE_VAL = 3.0  # rwm: value of walking to a fresh kill site
 FARM_DRONE_VAL = 2.0  # rwm: value of a drone (cube = 1)
 ZONE_IN = 0.85  # rwm: count as safely inside the next circle within this fraction of its radius
