@@ -71,6 +71,9 @@ LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
+SUPPLY_MAX_D = 450.0  # rwm: farthest supply drop we walk to
+SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than this (0 = never)
+SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
 SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
 
@@ -407,6 +410,12 @@ class Bot:
         speed = self.walk_speed * 0.8
         zone = obs["zone"]
         best, best_d = None, 1e9
+        if me["hp"] / max(1.0, me["max_hp"]) >= SUPPLY_MIN_HP and self.mode != "SUPPLY":
+            return None
+        if SUPPLY_SKIP_VIS > 0 and any(m.get("kind") == "mech" and _d2(m["pos"], me["pos"]) < SUPPLY_SKIP_VIS
+                                       for m in (obs.get("mechs") or [])):
+            self._supply = None
+            return None
         for d in obs.get("drops") or []:
             if d.get("holder") is not None and int(d["holder"]) != my_id:
                 continue
@@ -416,7 +425,7 @@ class Bot:
                 continue  # leave when the walk there ends about when it lands
             if self.__dict__.setdefault("_sup_ban", {}).get(int(d["id"]), -1e9) > float(obs["t"]):
                 continue
-            if dist <= 450.0 and dist < best_d:
+            if dist <= SUPPLY_MAX_D and dist < best_d:
                 best, best_d = d, dist
         if best is not None and SUPPLY_GIVEUP_S > 0:
             # rwm-supply: a drop on a ledge we can't step onto held us 10-25 m away for 45 s
