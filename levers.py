@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "gz-noroof"
+LABEL = "gz-supply"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -19,7 +19,8 @@ LEVERS: Dict[str, bool] = {
     "N5": False,  # cube snowball (drones + kill cubes)
     "N6": False,  # contest supply drop 1
     "S4": False,  # ROTATE gatekeep off in practice
-    "F1": False,  # FFA detector + survival mode
+    "F1": False,
+    "N7": True,  # take every supply drop (full heal + 3 cubes), fight from the ring  # FFA detector + survival mode
 }
 
 

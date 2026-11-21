@@ -185,6 +185,8 @@ class Bot:
             self._do_reset(obs, act)
         elif mode == "HEAL":
             self._do_heal(obs, act)
+        elif mode == "SUPPLY":
+            self._do_supply(obs, act)
         elif mode == "CUBE":
             self._do_cube(obs, act)
         elif mode == "DRONE":
@@ -199,7 +201,7 @@ class Bot:
         climbing = bool(act.get("boost") or act.get("jump")) and mode in ("RELOCATE", "ROTATE")
         # Bug #4: avoid walks off roofs / can steer ESCAPE back out of the zone.
         if (
-            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE", "DISENGAGE", "THIRD")
+            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE", "DISENGAGE", "THIRD", "SUPPLY")
             and not climbing
             and not self.mem.world_on_roof
         ):
@@ -830,6 +832,11 @@ class Bot:
             self.mem.disengage_until = t + 4.0
             self.mem.positioned = False
             return "DISENGAGE"
+
+        # N7: supply drops = full HP + full energy + 3 cubes, 3x per match, never contested by
+        # the practice squad. Take every one we can reach; fight from inside the ring.
+        if levers.on("N7") and self._supply_goal(obs, visible, enemy_d) is not None:
+            return "SUPPLY"
 
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
@@ -2069,6 +2076,41 @@ class Bot:
                     break
 
         # Always take fights from the roof when we can see someone.
+        self._try_fight_overlay(obs, act)
+
+    def _supply_goal(self, obs, visible, enemy_d):
+        me = obs["self"]
+        speed = float((self.cfg.get("mech") or {}).get("boost_speed", 19.5)) * 0.8
+        best, best_d = None, 1e9
+        for d in obs.get("drops") or []:
+            if d.get("holder") is not None and int(d["holder"]) != int(me.get("id", self.slot)):
+                continue
+            dist = math.dist(d["pos"][:2], me["pos"][:2])
+            eta = dist / max(1.0, speed)
+            lands = float(d.get("lands_in") or 0.0)
+            if lands > eta + 8.0:
+                continue  # don't wait on an open ring for long
+            limit = 260.0 if not visible else (70.0 if me["hp"] < 0.9 * me["max_hp"] else 30.0)
+            if dist <= limit and dist < best_d:
+                best, best_d = d, dist
+        self.mem.supply_goal = best
+        return best
+
+    def _do_supply(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        me = obs["self"]
+        t = float(obs["t"])
+        d = self.mem.supply_goal
+        goal = d["pos"]
+        dist = math.dist(me["pos"][:2], goal[:2])
+        if dist > self.drop_radius * 0.5:
+            move, yaw = self.nav.steer(me, goal, 1.0, t)
+            act["move"] = move
+            act["aim"] = [yaw, 0.0]
+            act["boost"] = dist > 25.0 and me["energy"] / max(1.0, me["max_energy"]) > 0.3
+        else:
+            act["move"] = [0.0, 0.0]
+            if self.mem.last_threat_bearing is not None:
+                act["aim"] = [self.mem.last_threat_bearing, 0.0]
         self._try_fight_overlay(obs, act)
 
     def _try_fight_overlay(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
