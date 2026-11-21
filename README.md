@@ -70,24 +70,24 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 ## Trying variants
 
-A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>`. Strategy levers live in `levers.py`. Base: `b6aa100` (v1.19).
+A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>` via `levers.LABEL`. Base: `b6aa100` (v1.19).
 
 | # | label | Bot.name | tag | full hash | tweak | try this if… |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 | v-safe | lh-v-safe | `try/v-safe` | _(see tag)_ | v1.19 main as-is (no R3 levers) | baseline / control |
-| 1 | roof-all | lh-roof-all | `try/roof-all` | _(fill on emit)_ | **S1** all loadouts on roof | first R3 submit; mortar/lightning die on ground |
-| 2 | laser-ctr | lh-laser-ctr | `try/laser-ctr` | _(fill on emit)_ | **N1** laser counter any loadout | eating laser cook-offs / 70%+ laser damage |
-| 3 | edge-guard | lh-edge-guard | `try/edge-guard` | _(fill on emit)_ | **N2** hold threat-edge vs climbers | dying to roof rushers one-by-one |
-| 4 | post-kill | lh-post-kill | `try/post-kill` | _(fill on emit)_ | **N3** loot then heal ≥90% | winning fights then dying under-healed |
-| 5 | no-ambush | lh-no-ambush | `try/no-ambush` | _(fill on emit)_ | **S2** no 1v1 ambush FIGHT | dying mid-setup to unaware hunters |
-| 6 | arm-quiet | lh-arm-quiet | `try/arm-quiet` | _(fill on emit)_ | **S3** no ARM boost in zone | hunted while looting / no climb energy |
-| 7 | laser-peek | lh-laser-peek | `try/laser-peek` | _(fill on emit)_ | **N4** pre-charged peeks | laser peeks whiff / charge in open |
-| 8 | cube-farm | lh-cube-farm | `try/cube-farm` | _(fill on emit)_ | **N5** drones + cube snowball | losing long HP races / thin cubes |
-| 9 | drop1 | lh-drop1 | `try/drop1` | _(fill on emit)_ | **N6** contest first supply drop | need early cubes/repair, drop lands near |
-| 10 | no-gate | lh-no-gate | `try/no-gate` | _(fill on emit)_ | **S4** ROTATE gatekeep off | gatekeep wastes time / dies on ring |
-| 11 | ffa | lh-ffa | `try/ffa` | _(fill on emit)_ | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
-| 12 | r3-core | lh-r3-core | `try/r3-core` | _(fill on emit)_ | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
-| 13 | r3-full | lh-r3-full | `try/r3-full` | _(fill on emit)_ | all S/N/F levers | full plan in one submit |
+| 0 | v-safe | lh-v-safe | `try/v-safe` | `dcbf62c6c6b21216a1c599d6487b43cde5945ea2` | v1.19 main as-is (no R3 levers) | baseline / control |
+| 1 | roof-all | lh-roof-all | `try/roof-all` | `9b820d14888fe6050429c98daff4871584cb3d9a` | **S1** all loadouts on roof | first R3 submit; mortar/lightning die on ground |
+| 2 | laser-ctr | lh-laser-ctr | `try/laser-ctr` | `73821ee9b5e88678ee742c3a3b9b71d640368d2a` | **N1** laser counter any loadout | eating laser cook-offs / 70%+ laser damage |
+| 3 | edge-guard | lh-edge-guard | `try/edge-guard` | `41b972ac54fb8c99eb45d5319a01e9996e08c693` | **N2** hold threat-edge vs climbers | dying to roof rushers one-by-one |
+| 4 | post-kill | lh-post-kill | `try/post-kill` | `52335de017527588762821d0d23716ecd4c866cc` | **N3** loot then heal ≥90% | winning fights then dying under-healed |
+| 5 | no-ambush | lh-no-ambush | `try/no-ambush` | `9065b8f3ded0ad85250479cfda439e938893a292` | **S2** no 1v1 ambush FIGHT | dying mid-setup to unaware hunters |
+| 6 | arm-quiet | lh-arm-quiet | `try/arm-quiet` | `896375f111fa91425abfe5b7390db1c6f9ce6383` | **S3** no ARM boost in zone | hunted while looting / no climb energy |
+| 7 | laser-peek | lh-laser-peek | `try/laser-peek` | `8a48f236f4f334663e7cb25736291eff9d68692a` | **N4** pre-charged peeks | laser peeks whiff / charge in open |
+| 8 | cube-farm | lh-cube-farm | `try/cube-farm` | `8fbde1857cb73af8713efd832c8edac38c167283` | **N5** drones + cube snowball | losing long HP races / thin cubes |
+| 9 | drop1 | lh-drop1 | `try/drop1` | `93bede5f5814e0f6688a11379673080b552b4b98` | **N6** contest first supply drop | need early cubes/repair, drop lands near |
+| 10 | no-gate | lh-no-gate | `try/no-gate` | `c11cfdeaf0195e2584a4b0e4ffac4e2a18b62c8e` | **S4** ROTATE gatekeep off | gatekeep wastes time / dies on ring |
+| 11 | ffa | lh-ffa | `try/ffa` | `450ebfc7de4762023ff99d4f6cb1c1a2d9bafb8f` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
+| 12 | r3-core | lh-r3-core | `try/r3-core` | `3737f2636dde5ec00e880ca0201142b1ed2c1f77` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
+| 13 | r3-full | lh-r3-full | `try/r3-full` | `eeac3cceed02ad928cc4c4f3dd8ed0f6d2958a83` | all S/N/F levers | full plan in one submit |
 
 Prior A/B (still on origin): `try/camp-hold`, `try/arm-first`, `try/fight-ready`, `try/third-armed`, `try/no-third`.
 
