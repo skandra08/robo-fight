@@ -7,6 +7,7 @@ One simple loop, in priority order each decision:
   DRONE   a drone is shooting us and no mech is: kill it (350 HP, 2 cubes).
   HEAL    low HP: break line of sight, face the threat, stop shooting once safe, regen.
   FIGHT   a mech we can shoot (or one hitting us): fight the nearest, from a roof if on one.
+          Offensive commits require ≥50% HP (ENGAGE_HP); return-fire under damage still fights.
   FARM    cubes, kill sites, drones, crates, weapons: the best value per metre.
   ROOF    nothing to farm: climb a roof inside the next circle and hold it (peek camp).
 
@@ -58,6 +59,7 @@ WEAPON_RANK = {"laser": 3, "mortar": 2, "lightning": 1}
 FARM_EARLY_S = 1e9  # search for farm targets instead of roof camping (noroof 2.90 > g-zone 2.81)
 CUBE_GOAL = 45  # last upgrade threshold; keep collecting until here
 RETREAT_HP = 0.40  # back off to heal below this (in a fight)
+ENGAGE_HP = 0.50  # no offensive FIGHT below this (heal instead; return-fire still fights)
 REST_HP = 0.70  # rest (stop shooting) below this when nobody is in view
 HEAL_DONE_HP = 0.90
 BAND_LO = 55.0  # fight band: back off inside this
@@ -314,6 +316,8 @@ class Bot:
             return "DRONE"
 
         # Back off to heal when low, unless the target is about to die.
+        # HP gate: do not *start* offensive fights below ENGAGE_HP; return-fire
+        # (hit_by_mech) and finishing blows still commit to FIGHT.
         if mechs or hit_by_mech or target is not None:
             finishing = target is not None and self._nearly_dead(target)
             if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP * 0.85 and not finishing:
@@ -321,7 +325,9 @@ class Bot:
             if hp_frac < RETREAT_HP and not finishing:
                 return "HEAL"
             if target is not None:
-                return "FIGHT"
+                if hit_by_mech or finishing or hp_frac >= ENGAGE_HP:
+                    return "FIGHT"
+                return "HEAL"
         else:
             # Nobody in view: rest when hurt (no shooting, so regen runs).
             want_rest = (self.mode == "HEAL" and hp_frac < HEAL_DONE_HP) or (

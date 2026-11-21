@@ -180,6 +180,19 @@ def test_fight(md: str) -> None:
     check("low HP but target nearly dead -> FIGHT",
           mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST, hp=150.0)], t=90.0, tick=1800)) == "FIGHT")
 
+    # HP gate (ENGAGE_HP=0.50): don't start offensive fights between RETREAT and ENGAGE.
+    midhp = {"hp": 630.0}  # 45% — above RETREAT_HP, below ENGAGE_HP
+    bot = fresh(md)
+    check("HP gate: 45% HP cold commit -> HEAL",
+          mode_of(bot, _obs(self=midhp, mechs=[_mech(5, WEST)], t=90.0, tick=1800)) == "HEAL")
+    bot = fresh(md)
+    bot._mech_hit_last_t = 89.5  # return-fire window
+    check("HP gate: 45% HP under fire -> FIGHT",
+          mode_of(bot, _obs(self=midhp, mechs=[_mech(5, WEST)], t=90.0, tick=1800)) == "FIGHT")
+    bot = fresh(md)
+    check("HP gate: 55% HP cold commit -> FIGHT",
+          mode_of(bot, _obs(self={"hp": 770.0}, mechs=[_mech(5, WEST)], t=90.0, tick=1800)) == "FIGHT")
+
 
 def test_heal(md: str) -> None:
     bot = fresh(md)

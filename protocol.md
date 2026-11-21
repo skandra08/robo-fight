@@ -288,7 +288,7 @@ With 100 energy you can climb about 60 m (almost every campus roof; the 70 m tow
 
 ### Health
 
-You start with 1400 HP. After `regen_delay` (5 s) without dealing or taking damage, you regenerate `regen_per_s` (45) HP/s, except while outside the zone. Zone damage counts as taking damage: the 5 s timer starts again when you step back inside. Armor (upgrades) reduces weapon damage, not zone damage.
+You start with 1400 HP. After `regen_delay` (5 s) without dealing or taking damage, you regenerate `regen_per_s` (45) HP/s, except while outside the zone. Zone damage counts as taking damage: the 5 s timer starts again when you step back inside. Armor (upgrades) reduces weapon damage, not zone damage. Opening a fight deals damage and restarts the regen timer, so cold commits while hurt often never recover — gate offensive engages on HP fraction, and keep return-fire uncapped.
 
 ### Rear armor
 
