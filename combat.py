@@ -299,9 +299,11 @@ class Combat:
                     fire[i] = False
                 continue
             if kind == "gun":
-                # Hold the trigger whenever aimed: server fires at exact cooldown rate.
+                # mag-dump-discipline: save last 3 rounds unless tightly aligned; reload early.
                 ammo = w.get("ammo", 1)
-                if aimed and (ammo is None or ammo > 0):
+                tight = self.aligned(me, desired_aim, 2.0)
+                save_mag = ammo is not None and ammo <= 3 and not tight
+                if aimed and (ammo is None or ammo > 0) and not save_mag:
                     fire[i] = True
                     # Count real shots via ammo drop / cooldown edge — not every hold tick.
                     prev_ammo = getattr(mem, "_gun_ammo_seen", None)
@@ -317,7 +319,9 @@ class Combat:
                     if ammo is not None:
                         mem._gun_ammo_seen = ammo
                     mem._gun_held_last = False
-                    if aimed and ammo is not None and ammo <= 0 and w.get("reload", 0) == 0:
+                    if ammo is not None and w.get("reload", 0) == 0 and (
+                        ammo <= 0 or (ammo <= 3 and not tight)
+                    ):
                         reload = True
             if kind == "lightning" and aimed and cd <= 0:
                 rng = float((self.weapons.get("lightning") or {}).get("range", 45))
