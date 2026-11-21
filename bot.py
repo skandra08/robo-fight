@@ -1418,6 +1418,27 @@ class Bot:
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
 
+        # Prefight cover: first ~1.5s of FIGHT, if we're exposed on the ground and
+        # CoverBook has a nearby spot, briefly slide into it (break LOS) before the
+        # full commit — less HP lost opening the duel. Skip ambush/flank pushes and
+        # knife-range; keep aim+fire while sliding.
+        if (
+            not self.mem.world_on_roof
+            and self.mem.fight_start_t > 0
+            and (t - self.mem.fight_start_t) < 1.5
+            and clear
+            and dist > 35.0
+            and not push_hard
+            and _enemy_aware(chase, me["pos"])
+        ):
+            goal = self._safe_cover_goal(me, obs["zone"], bearing)
+            gd = math.dist(goal[:2], me["pos"][:2])
+            if 4.0 < gd < 45.0:
+                move, _ = self.nav.steer(me, goal, 1.0, t)
+                act["move"] = move
+                act["boost"] = energy_ok and gd > 12.0
+                return
+
         # Laser on roof: hold firing edge for vision.
         if second == "laser" and self.mem.world_on_roof:
             roof = self.cover.roof(self.mem.roof_id) if self.mem.roof_id is not None else None
