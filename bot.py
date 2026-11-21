@@ -1379,13 +1379,13 @@ class Bot:
         me = obs["self"]
         t = float(obs["t"])
         self._cube_target = None
-        if me["cubes"] >= self.cube_stat_cap + 6:
+        if me["cubes"] >= 45:
             return None
         mx, my, mz = me["pos"]
         best = None
         best_d = 1e9
         # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 160.0 if not visible else min(80.0, enemy_d * 0.5)
+        reach = 200.0 if not visible else min(100.0, enemy_d * 0.6)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
@@ -1400,10 +1400,10 @@ class Bot:
                 best = {"kind": "site", "pos": list(pk)}
             elif not fresh or d <= self.cube_r:
                 self.mem.post_kill_pos = None
-        if best is None and enemy_d > 90.0:
+        if best is None and enemy_d > 70.0:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
-                if d > 150.0 or d < 1.0:
+                if d > 200.0 or d < 1.0:
                     continue
                 center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
                 if self.world.blocked_segment(self.combat.muzzle(me), center, step=2.0):
