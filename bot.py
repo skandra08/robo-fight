@@ -64,7 +64,7 @@ BAND_LO = 55.0  # fight band: back off inside this
 BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
-FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
+FARM_FIGHT_S = 45.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
 DUAL_FIRE = True  # gun fires while the laser charges
 LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
@@ -73,7 +73,7 @@ REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
 SEARCH_NEXT = True
 KITE = True  # 2+ mechs in view: back off from the group while shooting the nearest (sim +0.37 on na-arm)
-KITE_N = 2
+KITE_N = 3
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
