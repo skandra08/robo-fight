@@ -113,7 +113,7 @@ REGEN_QUIET_S = 3.0
 # Snowball (Sameer): each cube is +4% HP and +4% damage up to 10, plus upgrades at 1/3/6/10.
 # At 10 cubes a duel is ~2.5x in our favour. Below SNOW_CUBES: farm, only fight what hits us,
 # never wake far mechs. At or above: go hunting, retreat only at SNOW_RETREAT.
-SNOW_CUBES = 0  # 0 = off
+SNOW_CUBES = 1  # 0 = off
 SNOW_RETREAT = 0.25
 SNOW_HUNT = True  # above the threshold, also chase remembered mechs (not just visible ones)  # "not under fire" = no weapon hit on us for this long
 
