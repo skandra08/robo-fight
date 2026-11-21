@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
-"""Unit checks for strategy-plan rows (S1/N1/N2/N3/S2/N5/N6/F1). Stdlib only."""
+"""Unit checks for the farm-fight-heal loop (try/rewrite). Stdlib only."""
 from __future__ import annotations
 
+import copy
 import math
 import os
+import random
 import sys
-import tempfile
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 import levers  # noqa: E402
 from bot import Bot  # noqa: E402
+
+# Open ground near the start-zone centre (checked against arena/v2): clear lines of sight
+# from ME to WEST (80 m) and NORTH (80 m).
+ME = [30.0, -60.0, 1.53]
+WEST = [-50.0, -60.0]
+NORTH = [30.0, 20.0, 1.25]
 
 
 def _hello(map_dir: str) -> Dict[str, Any]:
@@ -26,80 +34,43 @@ def _hello(map_dir: str) -> Dict[str, Any]:
             "loot": {"pickup_radius": 4.0},
             "cubes": {"pickup_radius": 3.5, "stat_cap": 10},
             "vision": {"near_range": 45.0, "memory_s": 5.0},
-            "mech": {
-                "step_up": 1.2,
-                "regen_delay": 5.0,
-                "walk_speed": 11.7,
-                "height": 9.0,
-                "eye_height": 8.0,
-            },
+            "mech": {"step_up": 1.2, "regen_delay": 5.0, "walk_speed": 11.7, "height": 9.0, "eye_height": 8.0},
             "weapons": {
-                "gun": {"damage": 22, "rate": 8, "spread": 0.02, "speed": 280, "range": 200},
-                "laser": {
-                    "damage": 315,
-                    "charge": 0.75,
-                    "min_charge": 0.15,
-                    "min_frac": 0.35,
-                    "hold_s": 2.0,
-                    "cooldown": 1.65,
-                    "range": 280,
-                },
-                "mortar": {"damage": 140, "cooldown": 2.6, "speed": 72, "gravity": 22, "splash": 7},
-                "lightning": {"damage": 90, "range": 45, "cooldown": 1.2},
+                "gun": {"damage": 45, "cooldown": 0.24, "speed": 252, "range": 230},
+                "laser": {"damage": 315, "charge": 0.75, "min_charge": 0.15, "hold_s": 2.0, "cooldown": 1.65, "range": 280},
+                "mortar": {"damage": 200, "cooldown": 2.6, "speed": 72, "gravity": 22},
+                "lightning": {"damage": 60, "range": 45, "cooldown": 0.25, "cone_deg": 30},
             },
-            "drops": {"times": [70, 140, 210], "radius": 8.0, "fall_s": 25},
+            "npc": {"height": 3.5, "aggro_range": 45},
+            "drops": {"times": [70, 140, 210], "radius": 8.0},
             "sound": {"step_speed": 5.0},
-            "projectile": {},
-            "npc": {},
-            "crates": {},
             "debug": {"hold_s": 0.5},
         },
     }
 
 
-def _base_obs(**kw: Any) -> Dict[str, Any]:
+def _obs(**kw: Any) -> Dict[str, Any]:
     me = {
         "id": 0,
-        "pos": [0.0, 0.0, 15.0],
+        "pos": list(ME),
         "vel": [0.0, 0.0, 0.0],
         "aim": [0.0, -0.05],
-        "hp": 1000.0,
-        "max_hp": 1000.0,
+        "hp": 1400.0,
+        "max_hp": 1400.0,
         "energy": 100.0,
         "max_energy": 100.0,
-        "cubes": 2,
-        "weapons": [
-            {"kind": "gun", "ammo": 30, "cooldown": 0},
-            {"kind": "laser", "charge": 0, "cooldown": 0},
-        ],
+        "cubes": 0,
+        "weapons": [{"kind": "gun", "ammo": 12, "cooldown": 0, "reload": 0}, None],
         "grounded": True,
         "in_zone": True,
-        "stats": {"walk_speed": 11.7, "eye_height": 8.0},
+        "stats": {"walk_speed": 11.7, "eye_height": 8.0, "muzzle_height": 7.0},
     }
     obs: Dict[str, Any] = {
-        "type": "obs",
-        "tick": 10,
-        "t": 30.0,
-        "alive": 14,
-        "self": me,
-        "mechs": [],
-        "projectiles": [],
-        "crates": [],
-        "cubes": [],
-        "pickups": [],
-        "sounds": [],
-        "beams": [],
-        "events": [],
-        "zone": {
-            "center": [0.0, 0.0],
-            "radius": 400.0,
-            "next_center": [0.0, 0.0],
-            "next_radius": 300.0,
-            "shrink_end": 120.0,
-            "phase": 1,
-        },
-        "offer": None,
-        "drops": [],
+        "type": "obs", "tick": 10, "t": 30.0, "alive": 16, "self": me,
+        "mechs": [], "projectiles": [], "crates": [], "cubes": [], "pickups": [],
+        "sounds": [], "beams": [], "events": [], "drops": [], "offer": None,
+        "zone": {"center": [41.3, -72.8], "radius": 560.0, "next_center": [30.0, -60.0],
+                 "next_radius": 380.0, "shrink_start": 60.0, "shrink_end": 110.0, "dps": 20},
     }
     for k, v in kw.items():
         if k == "self":
@@ -109,8 +80,10 @@ def _base_obs(**kw: Any) -> Dict[str, Any]:
     return obs
 
 
-def _bot(map_dir: str) -> Bot:
-    return Bot(_hello(map_dir))  # type: ignore[arg-type]
+def _mech(mid: int, xy, hp: float = 1400.0, aim: float = 0.0) -> Dict[str, Any]:
+    from_ground = NORTH[2] if list(xy[:2]) == NORTH[:2] else 1.5
+    return {"id": mid, "kind": "mech", "pos": [xy[0], xy[1], from_ground], "vel": [0, 0, 0],
+            "aim": [aim, 0.0], "hp": hp, "max_hp": 1400, "cubes": 0, "weapons": ["gun"], "charging": False}
 
 
 def check(name: str, cond: bool) -> None:
@@ -119,384 +92,127 @@ def check(name: str, cond: bool) -> None:
     print(f"  PASS {name}")
 
 
-def test_s1_roof(bot: Bot) -> None:
-    if not levers.on("S1"):
-        print("  SKIP S1 (lever off)")
-        return
-    me = {"pos": [0.0, 0.0, 1.0], "hp": 1000, "max_hp": 1000}
-    bot.mem.world_on_roof = False
-    bot.mem.positioned = False
-    bot.mem.loadout_goal = None
-    check("S1 mortar not positioned on ground", not bot._loadout_positioned(me, "mortar", _base_obs()["zone"]))
-    bot.mem.world_on_roof = True
-    check("S1 mortar positioned on roof", bot._loadout_positioned(me, "mortar", _base_obs()["zone"]))
-    bot.mem.world_on_roof = True
-    check("S1 lightning positioned on roof", bot._loadout_positioned(me, "lightning", _base_obs()["zone"]))
+def fresh(map_dir: str) -> Bot:
+    return Bot(_hello(map_dir))  # type: ignore[arg-type]
 
 
-def test_n1_counter(bot: Bot) -> None:
-    if not levers.on("N1"):
-        print("  SKIP N1 (lever off)")
-        return
-    # Put bot on a roof with a hidden point.
-    bot.mem.world_on_roof = True
-    bot.mem.camp_hidden = [5.0, 5.0]
-    bot.mem.roof_id = None
-    if bot.cover.roofs:
-        bot.mem.roof_id = int(bot.cover.roofs[0]["id"])
-        hid = bot.cover.best_hidden(bot.cover.roofs[0])
-        if hid:
-            bot.mem.camp_hidden = hid
-    enemy = {
-        "id": 3,
-        "kind": "mech",
-        "pos": [40.0, 0.0, 15.0],
-        "vel": [0, 0, 0],
-        "aim": [math.pi, 0.0],  # aimed toward origin
-        "charging": True,
-        "hp": 800,
-        "weapons": [],
-    }
-    obs = _base_obs(mechs=[enemy], self={"pos": [0.0, 0.0, 15.0], "weapons": [
-        {"kind": "gun", "ammo": 30, "cooldown": 0},
-        {"kind": "mortar", "cooldown": 0},
-    ]})
-    mode = bot._select_mode(obs, "mortar")  # type: ignore[arg-type]
-    check("N1 COUNTER_LASER for non-laser loadout", mode == "COUNTER_LASER")
-    act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
-    bot.mem.mode = "COUNTER_LASER"
-    bot._do_counter_laser(obs, act)  # type: ignore[arg-type]
-    # Should move toward hidden / cover, not stay put.
-    check("N1 moves toward cover", math.hypot(act["move"][0], act["move"][1]) > 0.05)
-    # Beam return within one tick after beam event.
-    bot.mem.laser_threat_id = 3
-    bot.mem.laser_threat_seen_t = 30.0
-    bot.mem.laser_beam_return_t = 1e9
-    obs2 = _base_obs(
-        t=30.1,
-        mechs=[],
-        beams=[{"by": 3, "kind": "laser", "path": [[40, 0, 15], [0, 0, 15]], "age": 0.1}],
-        self={"pos": [0.0, 0.0, 15.0], "weapons": [
-            {"kind": "gun", "ammo": 30, "cooldown": 0},
-            {"kind": "mortar", "cooldown": 0},
-        ]},
-    )
-    bot._update_laser_threat_tracking(obs2)  # type: ignore[arg-type]
-    check("N1 beam sets return time", bot.mem.laser_beam_return_t <= 30.1 + 0.01)
+def mode_of(bot: Bot, obs: Dict[str, Any]) -> str:
+    bot.act(obs)  # type: ignore[arg-type]
+    return bot.mode
 
 
-def test_n2_edge(bot: Bot) -> None:
-    if not levers.on("N2"):
-        print("  SKIP N2 (lever off)")
-        return
-    if not bot.cover.roofs:
-        print("  SKIP N2 (no roofs)")
-        return
-    roof = bot.cover.roofs[0]
-    bot.mem.roof_id = int(roof["id"])
-    bot.mem.world_on_roof = True
-    bot.mem.camp_hidden = bot.cover.best_hidden(roof) or list(roof["center"][:2])
-    bot.mem.camp_fire = bot.cover.best_firing(roof, 0.0)
-    bearing = 1.2
-    bot.mem.sound_log = [{"t": 30.0, "kind": "jet", "bearing": bearing, "dist": "near"}]
-    obs = _base_obs(
-        t=30.0,
-        sounds=[{"kind": "jet", "bearing": bearing, "dist": "near"}],
-        self={
-            "pos": [roof["center"][0], roof["center"][1], float(roof["top"])],
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    bot.mem.sound_log = [{"t": 30.0, "kind": "jet", "bearing": bearing, "dist": "near"}]
-    act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
-    bot.mem.mode = "CAMP"
-    bot.mem.positioned = True
-    bot._do_camp(obs, act, "laser")  # type: ignore[arg-type]
-    check("N2 aim near jet bearing", abs(_ang(act["aim"][0], bearing)) < math.radians(10))
-    check("N2 edge_guard_pt set", bot.mem.edge_guard_pt is not None)
+def test_upgrades(md: str) -> None:
+    bot = fresh(md)
+    offer = {"id": 1, "expires": 40, "choices": [{"id": "sensors"}, {"id": "nanites"}, {"id": "armor"}]}
+    check("greedy order picks armor first", bot._pick_upgrade(offer) == 2)
 
 
-def _ang(a: float, b: float) -> float:
-    return (a - b + math.pi) % (2 * math.pi) - math.pi
+def test_zone(md: str) -> None:
+    bot = fresh(md)
+    check("out of zone -> ESCAPE", mode_of(bot, _obs(self={"in_zone": False})) == "ESCAPE")
+    bot = fresh(md)
+    z = {"center": [41.3, -72.8], "radius": 560.0, "next_center": [400.0, -60.0], "next_radius": 140.0,
+         "shrink_start": 20.0, "shrink_end": 40.0, "dps": 20}
+    check("next circle closing far away -> ZONE", mode_of(bot, _obs(zone=z)) == "ZONE")
 
 
-def test_n3_post_kill(bot: Bot) -> None:
-    if not levers.on("N3"):
-        print("  SKIP N3 (lever off)")
-        return
-    bot.mem.post_kill_pos = [10.0, 0.0, 0.0]
-    bot.mem.post_kill_phase = "loot"
-    bot.mem.post_kill_t = 30.0
-    obs = _base_obs(
-        t=31.0,
-        mechs=[],
-        self={
-            "pos": [0.0, 0.0, 1.0],
-            "hp": 700.0,
-            "max_hp": 1000.0,
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    # Quiet ticks after kill → loot/heal, not peek/FIGHT.
-    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
-    check("N3 post-kill loot/heal mode", mode in ("ARM", "LOOT_SWAP", "HEAL"))
+def test_farm(md: str) -> None:
+    bot = fresh(md)
+    cube = {"id": 5001, "pos": [30.0, -20.0, 1.3]}
+    check("visible cube -> FARM", mode_of(bot, _obs(cubes=[cube])) == "FARM")
+    check("FARM target is the cube", bot._farm is not None and bot._farm["kind"] == "cube")
+    a = bot.act(_obs(cubes=[cube], tick=12, t=30.1))  # type: ignore[arg-type]
+    check("walks toward the cube", a["move"][1] > 0.3)
+
+    bot = fresh(md)
+    crate = {"id": 1001, "pos": [-50.0, -60.0, 1.5], "hp": 300}
+    m = mode_of(bot, _obs(crates=[crate]))
+    check("visible crate with clear shot -> FARM crate", m == "FARM" and bot._farm and bot._farm["kind"] == "crate")
+
+    bot = fresh(md)
+    drone = {"id": 104, "kind": "npc", "pos": [-50.0, -60.0, 1.5], "vel": [0, 0, 0], "aim": [0, 0], "hp": 350, "max_hp": 350}
+    m = mode_of(bot, _obs(mechs=[drone]))
+    check("drone at 80 m -> FARM drone", m == "FARM" and bot._farm and bot._farm["kind"] == "drone")
+
+    bot = fresh(md)
+    lz = {"id": 8001, "kind": "laser", "pos": [30.0, -40.0, 1.4]}
+    m = mode_of(bot, _obs(pickups=[lz]))
+    check("laser pickup with no second weapon -> FARM loot", m == "FARM" and bot._farm and bot._farm["kind"] == "loot")
+
+    bot = fresh(md)
+    check("nothing early -> FARM search", mode_of(bot, _obs()) == "FARM")
+    bot = fresh(md)
+    check("nothing later -> ROOF", mode_of(bot, _obs(t=150.0, tick=3000)) == "ROOF")
 
 
-def test_s2_no_ambush(bot: Bot) -> None:
-    if not levers.on("S2"):
-        print("  SKIP S2 (lever off)")
-        return
-    enemy = {
-        "id": 4,
-        "kind": "mech",
-        "pos": [90.0, 0.0, 1.0],
-        "vel": [0, 0, 0],
-        "aim": [0.0, 0.0],  # not looking at us
-        "charging": False,
-        "hp": 900,
-        "weapons": [],
-    }
-    obs = _base_obs(
-        mechs=[enemy],
-        self={
-            "pos": [0.0, 0.0, 1.0],
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    bot.mem.positioned = False
-    bot.mem.world_on_roof = False
-    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
-    check("S2 unaware 90m → RELOCATE not FIGHT", mode == "RELOCATE")
+def test_fight(md: str) -> None:
+    bot = fresh(md)
+    e = _mech(5, WEST, aim=0.0)
+    check("mech in clear view at 80 m -> FIGHT", mode_of(bot, _obs(mechs=[e])) == "FIGHT")
+
+    bot = fresh(md)
+    near, far = _mech(5, NORTH), _mech(6, WEST)
+    far["pos"] = [-20.0, -60.0, 1.5]  # 50 m
+    bot.act(_obs(mechs=[near, far]))  # type: ignore[arg-type]
+    check("targets the nearest mech", bot._target_id == 6)
+
+    bot = fresh(md)
+    e = _mech(5, WEST)
+    e["pos"] = [10.0, -60.0, 1.6]  # 20 m: inside the band
+    a = bot.act(_obs(mechs=[e]))  # type: ignore[arg-type]
+    check("backs off when inside the fight band", a["move"][0] > 0.2)
+
+    bot = fresh(md)
+    lowhp = {"hp": 400.0}
+    check("low HP with mech in view -> HEAL", mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST)])) == "HEAL")
+    bot = fresh(md)
+    check("low HP but target nearly dead -> FIGHT",
+          mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST, hp=150.0)])) == "FIGHT")
 
 
-def test_n5_farm(bot: Bot) -> None:
-    if not levers.on("N5"):
-        print("  SKIP N5 (lever off)")
-        return
-    # Isolate from prior test mem (post_kill / ffa / edge).
-    bot.mem.ffa = False
-    bot.mem.post_kill_phase = None
-    bot.mem.post_kill_pos = None
-    bot.mem.unexplained_alive_drops = 0
-    bot.mem.alive_prev = None
-    bot.mem.farm_drone_id = None
-    drone = {
-        "id": 101,
-        "kind": "npc",
-        "pos": [60.0, 0.0, 2.0],
-        "vel": [0, 0, 0],
-        "aim": [0, 0],
-        "hp": 200,
-    }
-    obs = _base_obs(
-        mechs=[drone],
-        self={
-            "pos": [0.0, 0.0, 1.0],
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    bot.mem.positioned = True
-    bot.mem.world_on_roof = True
-    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
-    check(
-        f"N5 farms drone at 60m (mode={mode} id={bot.mem.farm_drone_id})",
-        mode == "FIGHT" and bot.mem.farm_drone_id == 101,
-    )
-
-    obs2 = _base_obs(
-        mechs=[],
-        cubes=[{"id": 5001, "pos": [20.0, 0.0, 0.0]}],
-        self={
-            "pos": [0.0, 0.0, 1.0],
-            "cubes": 2,
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
-    bot.mem.mode = "CAMP"
-    # Force a roof so camp doesn't relocate away.
-    if bot.cover.roofs:
-        r = bot.cover.roofs[0]
-        bot.mem.roof_id = int(r["id"])
-        bot.mem.world_on_roof = True
-        bot.mem.camp_hidden = bot.cover.best_hidden(r) or [r["center"][0], r["center"][1]]
-        obs2["self"]["pos"] = [r["center"][0], r["center"][1], float(r["top"])]
-        obs2["cubes"] = [{"id": 5001, "pos": [r["center"][0] + 15.0, r["center"][1], float(r["top"])]}]
-        bot._do_camp(obs2, act, "laser")  # type: ignore[arg-type]
-        check("N5 moves toward 20m cube", math.hypot(act["move"][0], act["move"][1]) > 0.05)
+def test_heal(md: str) -> None:
+    bot = fresh(md)
+    check("hurt, nobody in view -> HEAL (rest)", mode_of(bot, _obs(self={"hp": 800.0})) == "HEAL")
+    a = bot.act(_obs(self={"hp": 800.0}, tick=12, t=30.1))  # type: ignore[arg-type]
+    check("resting holds fire", not any(a["fire"]))
+    crate = {"id": 1001, "pos": [-50.0, -60.0, 1.5], "hp": 300}
+    m = mode_of(bot, _obs(self={"hp": 800.0}, crates=[crate], tick=14, t=30.2))
+    check("resting does not shoot crates", m == "HEAL")
+    m = mode_of(bot, _obs(self={"hp": 1300.0}, tick=16, t=30.3))
+    check("healed -> leaves HEAL", m != "HEAL")
 
 
-def test_n6_drop1(bot: Bot) -> None:
-    if not levers.on("N6"):
-        print("  SKIP N6 (lever off)")
-        return
-    drop = {"id": 20001, "pos": [80.0, 0.0, 0.0], "lands_in": 0.0}
-    obs = _base_obs(
-        t=75.0,
-        drops=[drop],
-        mechs=[],
-        self={
-            "pos": [0.0, 0.0, 1.0],
-            "hp": 800.0,
-            "max_hp": 1000.0,
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    got = bot._want_supply(obs, "laser")  # type: ignore[arg-type]
-    check("N6 contests drop1 at 80m", got is not None and int(got["id"]) == 20001)
-    check("N6 sets contest_drop_id", bot.mem.contest_drop_id == 20001)
+def test_drone(md: str) -> None:
+    bot = fresh(md)
+    drone = {"id": 104, "kind": "npc", "pos": [30.0, -30.0, 1.5], "vel": [0, 0, 0], "aim": [0, 0], "hp": 350, "max_hp": 350}
+    ev = [{"type": "damaged", "amount": 25, "weapon": "npc", "bearing": math.pi / 2, "by": 104}]
+    check("drone shooting us -> DRONE", mode_of(bot, _obs(mechs=[drone], events=ev)) == "DRONE")
 
 
-def test_f1_detector(bot: Bot) -> None:
-    if not levers.on("F1"):
-        print("  SKIP F1 (lever off)")
-        return
-    bot.mem.ffa = False
-    bot.mem.alive_prev = 14
-    bot.mem.unexplained_alive_drops = 0
-    bot.mem.had_our_kill_recent = False
-    # Practice-like: alive drops only after our kills — should NOT latch.
-    obs_kill = _base_obs(alive=13, events=[{"type": "kill", "target": 5}])
-    bot.mem.update(obs_kill, near_range=45.0, world=bot.world)
-    bot.mem.alive_prev = 14
-    ffa = bot._is_ffa(obs_kill)  # type: ignore[arg-type]
-    # Our kill explains the drop; should not latch on first alone.
-    check("F1 practice kill does not latch alone", ffa is False or bot.mem.unexplained_alive_drops < 2)
-
-    bot.mem.ffa = False
-    bot.mem.alive_prev = 14
-    bot.mem.unexplained_alive_drops = 0
-    bot.mem.had_our_kill_recent = False
-    bot.mem.last_our_kill_t = -1e9
-    obs1 = _base_obs(alive=13, events=[], t=40.0)
-    bot.mem.had_our_kill_recent = False
-    bot._is_ffa(obs1)  # type: ignore[arg-type]
-    obs2 = _base_obs(alive=12, events=[], t=40.2)
-    bot.mem.had_our_kill_recent = False
-    ffa2 = bot._is_ffa(obs2)  # type: ignore[arg-type]
-    check("F1 two unexplained alive drops latch", ffa2 is True and bot.mem.ffa is True)
-
-    # Own gun bullet near two hunters must NOT latch (false practice FFA).
-    bot.mem.ffa = False
-    bot.mem.alive_prev = 14
-    bot.mem.unexplained_alive_drops = 0
-    h1 = {
-        "id": 5,
-        "kind": "mech",
-        "pos": [40.0, 0.0, 1.0],
-        "vel": [0, 0, 0],
-        "aim": [math.pi, 0.0],
-        "charging": False,
-        "hp": 900,
-        "weapons": [],
-    }
-    h2 = {
-        "id": 6,
-        "kind": "mech",
-        "pos": [42.0, 8.0, 1.0],
-        "vel": [0, 0, 0],
-        "aim": [math.pi, 0.0],
-        "charging": False,
-        "hp": 900,
-        "weapons": [],
-    }
-    # Bullet just left our muzzle toward h1 (aim yaw 0).
-    own_shot = {
-        "id": 9001,
-        "kind": "gun",
-        "pos": [3.5, 0.0, 7.0],
-        "vel": [280.0, 0.0, 0.0],
-    }
-    obs_own = _base_obs(
-        mechs=[h1, h2],
-        projectiles=[own_shot],
-        self={"pos": [0.0, 0.0, 1.0], "aim": [0.0, 0.0]},
-        t=50.0,
-        alive=14,
-    )
-    ffa_own = bot._is_ffa(obs_own)  # type: ignore[arg-type]
-    check("F1 own bullet with 2 hunters does not latch", ffa_own is False and bot.mem.ffa is False)
-
-    # Enemy muzzle-exit toward us with 2 hunters visible must NOT latch.
-    bot.mem.ffa = False
-    enemy_shot = {
-        "id": 9002,
-        "kind": "gun",
-        "pos": [37.0, 0.0, 7.0],
-        "vel": [-280.0, 0.0, 0.0],
-    }
-    obs_enemy_muzzle = _base_obs(
-        mechs=[h1, h2],
-        projectiles=[enemy_shot],
-        self={"pos": [0.0, 0.0, 1.0], "aim": [0.0, 0.0]},
-        t=50.1,
-        alive=14,
-    )
-    ffa_muzzle = bot._is_ffa(obs_enemy_muzzle)  # type: ignore[arg-type]
-    check("F1 enemy muzzle-exit at us does not latch", ffa_muzzle is False and bot.mem.ffa is False)
-
-    # True crossfire: projectile near victim, not from that victim's muzzle.
-    bot.mem.ffa = False
-    cross = {
-        "id": 9003,
-        "kind": "gun",
-        "pos": [41.5, 7.5, 7.0],
-        "vel": [0.0, 200.0, 0.0],
-    }
-    obs_cross = _base_obs(
-        mechs=[h1, h2],
-        projectiles=[cross],
-        self={"pos": [0.0, 0.0, 1.0], "aim": [0.0, 0.0]},
-        t=50.2,
-        alive=14,
-    )
-    ffa_cross = bot._is_ffa(obs_cross)  # type: ignore[arg-type]
-    check("F1 true crossfire near-miss latches", ffa_cross is True and bot.mem.ffa is True)
-
-    # Smoke: FFA forced → no FIGHT on unaware 80m enemy; no boost while walking.
-    bot.mem.ffa = True
-    enemy = {
-        "id": 7,
-        "kind": "mech",
-        "pos": [80.0, 0.0, 1.0],
-        "vel": [0, 0, 0],
-        "aim": [0.0, 0.0],
-        "charging": False,
-        "hp": 900,
-        "weapons": [],
-    }
-    obs = _base_obs(
-        mechs=[enemy],
-        self={
-            "pos": [0.0, 0.0, 1.0],
-            "weapons": [
-                {"kind": "gun", "ammo": 30, "cooldown": 0},
-                {"kind": "laser", "charge": 0, "cooldown": 0},
-            ],
-        },
-    )
-    bot.mem.positioned = False
-    bot.mem.world_on_roof = False
-    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
-    check("F1 no FIGHT vs unaware 80m", mode != "FIGHT")
+def test_timing(md: str) -> None:
+    bot = fresh(md)
+    rng = random.Random(3)
+    worst = 0.0
+    total = 0.0
+    n = 400
+    for i in range(n):
+        o = _obs(tick=10 + 2 * i, t=20.0 + 0.1 * i)
+        o["self"]["pos"] = [ME[0] + rng.uniform(-150, 150), ME[1] + rng.uniform(-150, 150), 1.5]
+        o["self"]["pos"][2] = bot.world.ground(o["self"]["pos"][0], o["self"]["pos"][1])
+        o["self"]["hp"] = rng.choice([1400.0, 900.0, 400.0])
+        o["mechs"] = [_mech(5 + k, [o["self"]["pos"][0] + rng.uniform(-120, 120), o["self"]["pos"][1] + rng.uniform(-120, 120)]) for k in range(rng.randint(0, 3))]
+        o["mechs"] += [{"id": 100 + k, "kind": "npc", "pos": [o["self"]["pos"][0] + rng.uniform(-100, 100), o["self"]["pos"][1] + rng.uniform(-100, 100), 1.5], "vel": [0, 0, 0], "aim": [0, 0], "hp": 350, "max_hp": 350} for k in range(rng.randint(0, 2))]
+        o["crates"] = [{"id": 1000 + k, "pos": [o["self"]["pos"][0] + rng.uniform(-150, 150), o["self"]["pos"][1] + rng.uniform(-150, 150), 1.5], "hp": 300} for k in range(rng.randint(0, 4))]
+        if rng.random() < 0.2:
+            o["events"] = [{"type": "damaged", "amount": 45, "weapon": "gun", "bearing": 0.0, "by": 5}]
+        t0 = time.perf_counter()
+        bot.act(copy.deepcopy(o))  # type: ignore[arg-type]
+        ms = (time.perf_counter() - t0) * 1000
+        worst = max(worst, ms)
+        total += ms
+    print(f"  act mean {total / n:.2f} ms, worst {worst:.2f} ms over {n} random decisions")
+    check("act mean under 15 ms", total / n < 15.0)
+    check("act worst under 40 ms", worst < 40.0)
 
 
 def main() -> int:
@@ -504,26 +220,16 @@ def main() -> int:
     if not os.path.isdir(os.path.join(map_dir, "v2")):
         print("FAIL: arena/v2 missing", file=sys.stderr)
         return 1
-    print(f"strategy unit checks variant={levers.LABEL} levers={ {k:v for k,v in levers.LEVERS.items() if v} }")
-    bot = _bot(map_dir)
-    tests = [
-        test_s1_roof,
-        test_n1_counter,
-        test_n2_edge,
-        test_n3_post_kill,
-        test_s2_no_ambush,
-        test_n5_farm,
-        test_n6_drop1,
-        test_f1_detector,
-    ]
+    print(f"strategy unit checks variant={levers.LABEL}")
+    tests = [test_upgrades, test_zone, test_farm, test_fight, test_heal, test_drone, test_timing]
     failed = 0
     for fn in tests:
         try:
             print(f"{fn.__name__}:")
-            fn(bot)
-        except Exception as e:
+            fn(map_dir)
+        except Exception as e:  # noqa: BLE001
             failed += 1
-            print(f"  FAIL {fn.__name__}: {e}")
+            print(f"  FAIL {fn.__name__}: {e!r}")
     if failed:
         print(f"{failed} test group(s) failed")
         return 1
