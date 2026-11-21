@@ -909,6 +909,11 @@ class Bot:
             if sg is not None and not (recent_dmg and visible and math.dist(sg["pos"][:2], me["pos"][:2]) > 60.0):
                 return "SUPPLY"
 
+        # BET lowbreak: below 30% HP with a hunter on us, break line of sight and heal.
+        if visible and hp_frac < 0.30 and (t - getattr(self, "_lb_t", -99.0)) > 20.0:
+            self._lb_t = t
+            self.mem.disengage_until = t + 5.0
+            return "DISENGAGE"
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
