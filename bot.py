@@ -96,7 +96,7 @@ class Bot:
         self.regen_delay = float((self.cfg.get("mech") or {}).get("regen_delay", 5.0))
         self.walk_speed = float((self.cfg.get("mech") or {}).get("walk_speed", 10.0))
         self.npc_avoid = 50.0
-        self.drop_avoid = 40.0
+        self.drop_avoid = 0.0 if levers.on("N7") else 40.0
         self.laser_cfg = (self.cfg.get("weapons") or {}).get("laser") or {}
         self.laser_hold_s = float(self.laser_cfg.get("hold_s", 2.0))
         self.laser_charge_s = float(self.laser_cfg.get("charge", 0.75))
@@ -192,6 +192,8 @@ class Bot:
             self._do_reset(obs, act)
         elif mode == "HEAL":
             self._do_heal(obs, act)
+        elif mode == "SUPPLY":
+            self._do_supply(obs, act)
         elif mode == "CUBE":
             self._do_cube(obs, act)
         elif mode == "DRONE":
@@ -206,7 +208,7 @@ class Bot:
         climbing = bool(act.get("boost") or act.get("jump")) and mode in ("RELOCATE", "ROTATE")
         # Bug #4: avoid walks off roofs / can steer ESCAPE back out of the zone.
         if (
-            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE", "DISENGAGE", "THIRD")
+            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE", "DISENGAGE", "THIRD", "SUPPLY")
             and not climbing
             and not self.mem.world_on_roof
         ):
@@ -848,6 +850,13 @@ class Bot:
                 if drone is not None:
                     self.mem.farm_drone_id = int(drone["id"])
                     return "FIGHT"
+        # N7: supply drops = full HP + full energy + 3 cubes, 3x per match; the practice squad
+        # hunts us instead of contesting them. Take every one we can reach; fight from the ring.
+        if levers.on("N7"):
+            sg = self._supply_goal(obs, visible, enemy_d)
+            if sg is not None and not (recent_dmg and visible and math.dist(sg["pos"][:2], me["pos"][:2]) > 60.0):
+                return "SUPPLY"
+
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
@@ -2086,6 +2095,45 @@ class Bot:
                     break
 
         # Always take fights from the roof when we can see someone.
+        self._try_fight_overlay(obs, act)
+
+    def _supply_goal(self, obs, visible, enemy_d):
+        me = obs["self"]
+        my_id = int(me.get("id", self.slot))
+        speed = float((self.cfg.get("mech") or {}).get("walk_speed", 11.7)) * 0.8
+        best, best_d = None, 1e9
+        for d in obs.get("drops") or []:
+            if d.get("holder") is not None and int(d["holder"]) != my_id:
+                continue
+            dist = math.dist(d["pos"][:2], me["pos"][:2])
+            lands = float(d.get("lands_in") or 0.0)
+            if lands > dist / max(1.0, speed) + 6.0:
+                continue  # leave when the walk there ends about when it lands
+            if dist <= 450.0 and dist < best_d:
+                best, best_d = d, dist
+        self.mem.supply_goal = best
+        self.mem.contest_drop_id = int(best["id"]) if best is not None else None
+        return best
+
+    def _do_supply(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        me = obs["self"]
+        t = float(obs["t"])
+        d = self.mem.supply_goal
+        goal = d["pos"]
+        dist = math.dist(me["pos"][:2], goal[:2])
+        if dist > self.drop_radius * 0.5:
+            move, yaw = self.nav.steer(me, goal, 1.0, t)
+            act["move"] = move
+            act["aim"] = [yaw, 0.0]
+            act["boost"] = dist > 30.0 and me["energy"] / max(1.0, me["max_energy"]) > 0.35
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t and self.mem.stuck_heading is not None:
+                act["move"] = [math.cos(self.mem.stuck_heading), math.sin(self.mem.stuck_heading)]
+                act["jump"] = bool(me.get("grounded"))
+        else:
+            act["move"] = [0.0, 0.0]
+            if self.mem.last_threat_bearing is not None:
+                act["aim"] = [self.mem.last_threat_bearing, 0.0]
         self._try_fight_overlay(obs, act)
 
     def _try_fight_overlay(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
