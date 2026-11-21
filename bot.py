@@ -2208,8 +2208,12 @@ class Bot:
         if reload:
             act["reload"] = True
 
-    def _fight_aim_kind(self, me: Dict[str, Any], kind: str) -> tuple[str, str]:
-        """Pick aim weapon + fire_slots aim_kind (bug #7)."""
+    def _fight_aim_kind(self, me: Dict[str, Any], kind: str) -> tuple[str, Optional[str]]:
+        """Pick aim weapon + fire_slots aim_kind (bug #7).
+
+        Dual fire: while laser charges (or lightning aims), keep gun able to fire
+        when aligned — aim_kind=None lifts the gun/laser mutex in fire_slots.
+        """
         if kind == "mortar":
             return "mortar", "mortar"
         if kind == "laser":
@@ -2218,11 +2222,23 @@ class Bot:
                 w = (me.get("weapons") or [])[slot]
                 charge = float((w or {}).get("charge") or 0)
                 cd = float((w or {}).get("cooldown") or 0)
+                has_gun = _slot_of(me, "gun") is not None
                 # Between laser shots (cooling, not charging): lead with the gun.
-                if charge <= 0.02 and cd > 0 and _slot_of(me, "gun") is not None:
+                if charge <= 0.02 and cd > 0 and has_gun:
                     return "gun", "gun"
+                if has_gun:
+                    # Gun fires while laser charges (was idle ~45% of fight time).
+                    # Lead with gun until nearly charged, then aim direct for the beam;
+                    # aim_kind=None lets fire_slots pull both triggers when aligned.
+                    need = float(((w or {}).get("stats") or {}).get("charge", self.laser_charge_s))
+                    if 0.02 < charge < need - 0.15:
+                        return "gun", None
+                    return "laser", None
             return "laser", "laser"
         if kind == "lightning":
+            # Gun+lightning dual fire when aligned (same aim family).
+            if _slot_of(me, "gun") is not None:
+                return "lightning", None
             return "lightning", "lightning"
         return "gun", "gun"
 
