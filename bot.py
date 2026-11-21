@@ -895,7 +895,10 @@ class Bot:
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
         if t < 75.0 and not recent_dmg:
-            if self._cube_goal(obs, [], 1e9) is not None:
+            early_goal = self._cube_goal(obs, [], 1e9)
+            if early_goal is not None:
+                self._cube_sticky_until = t + 2.0
+                self._cube_sticky_target = dict(early_goal)
                 return "CUBE"
             if not visible:
                 drone = self._farmable_drone(obs)
@@ -917,7 +920,22 @@ class Bot:
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
         mid_climb = self.mem.mode == "RELOCATE" and not me.get("grounded")
-        if not recent_dmg and not mid_climb and self._cube_goal(obs, visible, enemy_d) is not None:
+        cube_goal = None if (recent_dmg or mid_climb) else self._cube_goal(obs, visible, enemy_d)
+        if cube_goal is not None:
+            self._cube_sticky_until = t + 2.0
+            self._cube_sticky_target = dict(cube_goal)
+            return "CUBE"
+        # Sticky: brief goal flicker (LOS / blacklist edge) must not hand the tick to RELOCATE
+        # mid-scoop — that was how cubes sat in view for hundreds of ticks before best-265.
+        sticky = getattr(self, "_cube_sticky_target", None)
+        if (
+            not recent_dmg
+            and not mid_climb
+            and self.mem.mode == "CUBE"
+            and sticky is not None
+            and t < getattr(self, "_cube_sticky_until", -1e9)
+        ):
+            self._cube_target = dict(sticky)
             return "CUBE"
 
         # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us.
