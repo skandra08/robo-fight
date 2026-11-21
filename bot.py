@@ -68,6 +68,9 @@ FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
 DUAL_FIRE = True  # gun fires while the laser charges
 TOPUP_RELOAD = False  # reload a partly empty gun whenever nothing is in our sights
+ALWAYS_FIRE = True  # rw-alwaysfire: gun not firing + clear shot at a mech in range -> shoot it, any mode
+ALWAYS_FIRE_D = 200.0  # max range for the overlay
+ALWAYS_RELOAD = True  # rw-alwaysfire: no clear shot at anyone and mag < 75% -> reload
 LIGHTNING_CLOSE = True  # lightning loadouts fight at 20-40 m
 LOWHP_BONUS = 30.0  # metres of preference for a nearly dead target
 HP_WEIGHT = 0.0  # metres of preference per 100 HP the target is missing
@@ -242,6 +245,8 @@ class Bot:
         if mode in ("FARM", "ROOF", "HEAL") and not self.mem.world_on_roof and not act.get("jump"):
             self._avoid(obs, act)
         self._laser_charge_hold(obs, act)
+        if ALWAYS_FIRE or ALWAYS_RELOAD:
+            self._always_fire(obs, act, t)
         if TOPUP_RELOAD and not any(act.get("fire") or []) and not act.get("reload"):
             g = (me.get("weapons") or [None])[0]
             if g and g.get("kind") == "gun" and not g.get("reload"):
@@ -1104,6 +1109,46 @@ class Bot:
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
             act["boost"] = True
+
+    def _always_fire(self, obs: Dict[str, Any], act: Dict[str, Any], t: float) -> None:
+        """Never sit idle near a mech: shoot any clear target, else top up the gun."""
+        me = obs["self"]
+        fire = list(act.get("fire") or [False, False])
+        if any(fire) or act.get("reload") or act.get("take") is not None:
+            return
+        weapons = me.get("weapons") or [None, None]
+        g = weapons[0]
+        if not g or g.get("kind") != "gun" or g.get("reload"):
+            return
+        for w in weapons[1:]:
+            if w and w.get("kind") == "laser" and float(w.get("charge") or 0) > 0.02:
+                return  # don't swing the aim off a charging laser
+        best = None
+        if ALWAYS_FIRE and (g.get("ammo") is None or g["ammo"] > 0):
+            for m in obs.get("mechs") or []:
+                if m.get("kind") != "mech":
+                    continue
+                d = _d2(m["pos"], me["pos"])
+                if d > ALWAYS_FIRE_D or (best is not None and d >= best[0]):
+                    continue
+                cubes = m.get("cubes") if isinstance(m.get("cubes"), int) else None
+                if self.combat.clear_shot(me, m["pos"], int(m["id"]), cubes):
+                    best = (d, m)
+        if best is not None:
+            m = best[1]
+            aim = self.combat.aim_at(me, m, "gun")
+            f, reload, _ = self.combat.fire_slots(me, aim, m, t, self.mem, aim_kind="gun")
+            act["aim"] = aim
+            act["fire"] = [bool(f[0]), False]
+            if reload:
+                act["reload"] = True
+            return
+        if ALWAYS_RELOAD:
+            mag = int((g.get("stats") or {}).get("mag", 12))
+            if g.get("ammo") is not None and g["ammo"] < mag * 0.75:
+                near = any(m.get("kind") == "mech" and _d2(m["pos"], me["pos"]) < 250.0 for m in obs.get("mechs") or [])
+                if near:
+                    act["reload"] = True
 
     def _fight_aim_kind(self, me: Dict[str, Any], kind: str) -> tuple[str, str]:
         """Pick aim weapon + fire_slots aim_kind (gun leads between laser shots)."""
