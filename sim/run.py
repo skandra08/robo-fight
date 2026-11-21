@@ -22,8 +22,8 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 FILES = ["mechfight.py", "bot.py", "world.py", "cover.py", "nav.py", "combat.py", "memory.py", "levers.py",
-         "data/cover.bin", "data/roofs.json"]
-MODS = ["mechfight", "bot", "world", "cover", "nav", "combat", "memory", "levers"]
+         "data/cover.bin", "data/roofs.json", "pathing.py", "data/navmoves.bin"]
+MODS = ["mechfight", "bot", "world", "cover", "nav", "combat", "memory", "levers", "pathing"]
 CACHE = os.path.join(tempfile.gettempdir(), "simbots")
 
 
