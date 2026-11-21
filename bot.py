@@ -101,6 +101,9 @@ WAKE_GUARD = False  # always-fire overlay: don't open fire on far mechs that are
 WAKE_GUARD_FIGHT = False  # ...and don't pick them as FIGHT targets either
 WAKE_D = 110.0
 WAKE_MEM = 15.0  # a mech that hit us within this many seconds counts as hunting
+WAKE_WHEN = "always"  # "busy": only while another mech is hunting us or we're hurt; "early": only before WAKE_T
+WAKE_HURT = 0.7
+WAKE_T = 150.0
 # Regen only runs after 5 s without dealing OR taking damage (protocol section 7), so every
 # crate, drone or poke at a far mech while hurt keeps us from healing between hunters.
 HEAL_SILENT = False  # HEAL: the always-fire overlay only shoots back while we're being hit
@@ -190,6 +193,7 @@ class Bot:
         self._mech_hit_last_t = -1e9
         self._hit_by: Dict[int, float] = {}  # attacker id -> last time it hit us
         self._gang_t = -1e9  # last time 2+ attackers were on us
+        self._me: Optional[Dict[str, Any]] = None
         # remembered crates: id -> {pos, last_seen_t}
         self.crates: Dict[int, Dict[str, Any]] = {}
         # farm target hysteresis / give-up blacklist
@@ -233,6 +237,7 @@ class Bot:
         self.mem.world_on_roof = self.world.on_roof(me["pos"])
         self.mem.update(obs, near_range=self.near_range, world=self.world)
         self._track(obs, t)
+        self._me = me
 
         act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
         pick = self._pick_upgrade(obs.get("offer"))
@@ -410,6 +415,14 @@ class Bot:
         if d <= WAKE_D or self._nearly_dead(m):
             return False
         mid = int(m["id"])
+        if WAKE_WHEN == "early" and t > WAKE_T:
+            return False
+        if WAKE_WHEN == "busy":
+            me = self._me
+            hurt = me is not None and me["hp"] < WAKE_HURT * me["max_hp"]
+            hunted = any(k != mid and t - v < WAKE_MEM for k, v in self._hit_by.items())
+            if not (hurt or hunted):
+                return False
         if mid == self._target_id:
             return False
         return t - self._hit_by.get(mid, -1e9) > WAKE_MEM
