@@ -64,6 +64,6 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 3 | no-third | lh-no-third | `try/no-third` | `34ed5ea27a9ea23385fac137afd421111273629d` | THIRD hard off (explicit) | confirm thirds were the problem |
 | 4 | arm-first | lh-arm-first | `try/arm-first` | `7fad754b7a40ad915abefb5a505cac001065ed03` | ARM+position before FIGHT | dying while still looting |
 | 5 | fight-ready | lh-fight-ready | `try/fight-ready` | `ea1afe63ae326191d9d3e31c6a9a056d84d756ce` | once armed+positioned, take 1v1s aggressively | camping too long / low kills |
-| 6 | camp-hold | lh-camp-hold | `try/camp-hold` | `da7039002602c6a06128fef790139dd4eb2ade19` | higher shots_here before RELOCATE (28/6) | relocating too often / abandon camp |
+| 6 | camp-hold | lh-camp-hold | `try/camp-hold` | `423fff6224b4732054a8d404087c9419ffc391cd` | higher shots_here before RELOCATE (28/6) | relocating too often / abandon camp |
 
 `try/v115-safe` / `try/v119-safe` alias `try/v-safe`.
