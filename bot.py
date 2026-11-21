@@ -57,7 +57,7 @@ WEAPON_RANK = {"laser": 3, "mortar": 2, "lightning": 1}
 # Tunables (one place, so variants are one-line changes).
 FARM_EARLY_S = 1e9  # search for farm targets instead of roof camping (noroof 2.90 > g-zone 2.81)
 CUBE_GOAL = 45  # last upgrade threshold; keep collecting until here
-RETREAT_HP = 0.40  # back off to heal below this (in a fight)
+RETREAT_HP = 0.28  # back off to heal below this (381: fight longer)
 REST_HP = 0.70  # rest (stop shooting) below this when nobody is in view
 HEAL_DONE_HP = 0.90
 BAND_LO = 55.0  # fight band: back off inside this
