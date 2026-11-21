@@ -78,6 +78,13 @@ LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
+ZONE_IN = 0.85  # rwm: count as safely inside the next circle within this fraction of its radius
+ZONE_IN_HOLD = 0.75  # ...and while already heading in
+ZONE_SLACK_S = 20.0  # rwm: start heading in with this many seconds of slack
+SUPPLY_MAX_D = 200.0  # rwm: farthest supply drop we walk to (450 m runs cost more than the heal gives)
+SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than this (0 = never)
+SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
+SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
@@ -313,7 +320,7 @@ class Bot:
         if urgency < 5.0:
             return "ZONE"
         busy = hit_by_mech or (target is not None and _d2(target["pos"], me["pos"]) < 90.0)
-        if urgency < 20.0 and (not busy or not ZONE_FIGHT):
+        if urgency < ZONE_SLACK_S and (not busy or not ZONE_FIGHT):
             return "ZONE"
 
         # Supply drops: full HP + energy + 3 cubes, 3 per match, and the practice squad hunts us
@@ -407,7 +414,7 @@ class Bot:
         """Seconds of slack before the next circle closes on us (1e9 when safely inside)."""
         nc, nr = zone["next_center"], float(zone["next_radius"])
         dist = math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1])
-        inside = 0.75 * nr if self.mode == "ZONE" else 0.85 * nr
+        inside = ZONE_IN_HOLD * nr if self.mode == "ZONE" else ZONE_IN * nr
         if dist <= inside:
             return 1e9
         walk = max(1.0, float((me.get("stats") or {}).get("walk_speed", self.walk_speed)))
@@ -421,6 +428,12 @@ class Bot:
         speed = self.walk_speed * 0.8
         zone = obs["zone"]
         best, best_d = None, 1e9
+        if me["hp"] / max(1.0, me["max_hp"]) >= SUPPLY_MIN_HP and self.mode != "SUPPLY":
+            return None
+        if SUPPLY_SKIP_VIS > 0 and any(m.get("kind") == "mech" and _d2(m["pos"], me["pos"]) < SUPPLY_SKIP_VIS
+                                       for m in (obs.get("mechs") or [])):
+            self._supply = None
+            return None
         for d in obs.get("drops") or []:
             if d.get("holder") is not None and int(d["holder"]) != my_id:
                 continue
@@ -428,8 +441,23 @@ class Bot:
             lands = float(d.get("lands_in") or 0.0)
             if lands > dist / max(1.0, speed) + 6.0:
                 continue  # leave when the walk there ends about when it lands
-            if dist <= 450.0 and dist < best_d:
+            if self.__dict__.setdefault("_sup_ban", {}).get(int(d["id"]), -1e9) > float(obs["t"]):
+                continue
+            if dist <= SUPPLY_MAX_D and dist < best_d:
                 best, best_d = d, dist
+        if best is not None and SUPPLY_GIVEUP_S > 0:
+            # rwm-supply: a drop on a ledge we can't step onto held us 10-25 m away for 45 s
+            # (sim seed 44). Give up on a drop we haven't closed on for SUPPLY_GIVEUP_S.
+            t_now = float(obs["t"])
+            pr = self.__dict__.setdefault("_sup_prog", {})
+            key = int(best["id"])
+            rec = pr.get(key)
+            if rec is None or best_d < rec[0] - 3.0 or self.mode != "SUPPLY":
+                pr[key] = (best_d, t_now)
+            elif t_now - rec[1] > SUPPLY_GIVEUP_S and best_d > 0.5 * float((self.cfg.get("drops") or {}).get("radius", 8.0)):
+                self._sup_ban[key] = t_now + 45.0
+                pr.pop(key, None)
+                best = None
         if best is not None and self._zone_urgency(me, zone, float(obs["t"])) < 5.0:
             nc, nr = zone["next_center"], float(zone["next_radius"])
             if _d2(best["pos"], nc) > nr:
