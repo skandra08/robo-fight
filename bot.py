@@ -1401,6 +1401,19 @@ class Bot:
         # Bug #7: gun lead between laser shots; never fire gun on mortar lob aim.
         kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, chase, kind)
+        # chain-lightning-angle: when lightning, bias yaw toward the multi-enemy cluster
+        # so one cone tick can clip a second mech.
+        if kind == "lightning" and len(enemies) >= 2:
+            lr = float((self.combat.weapons.get("lightning") or {}).get("range", 45))
+            near = [e for e in enemies if math.dist(e["pos"][:2], me["pos"][:2]) <= lr + 5.0]
+            if len(near) >= 2:
+                sx = sum(e["pos"][0] for e in near) / len(near)
+                sy = sum(e["pos"][1] for e in near) / len(near)
+                cluster_yaw = math.atan2(sy - me["pos"][1], sx - me["pos"][0])
+                # Blend 60% cluster / 40% primary so primary still takes most damage.
+                cy = math.cos(aim[0]) * 0.4 + math.cos(cluster_yaw) * 0.6
+                sy2 = math.sin(aim[0]) * 0.4 + math.sin(cluster_yaw) * 0.6
+                aim = [math.atan2(sy2, cy), aim[1]]
         act["aim"] = aim
         fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem, aim_kind=aim_kind)
         act["fire"] = fire
