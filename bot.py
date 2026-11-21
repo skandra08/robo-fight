@@ -1324,7 +1324,18 @@ class Bot:
         me = obs["self"]
         t = float(obs["t"])
         enemies = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
-        target, chase = self.combat.pick_fight_targets(me, enemies, self.mem.last_threat_id)
+        # damage-source-focus: while recently hurt, stick on the shooter id.
+        force = (t - self.mem.last_took_weapon_damage_t) < 2.5 and self.mem.last_threat_id is not None
+        target, chase = self.combat.pick_fight_targets(
+            me, enemies, self.mem.last_threat_id, force_prefer=force
+        )
+        if force and chase is not None and self.mem.last_threat_id is not None:
+            for m in enemies:
+                if int(m["id"]) == int(self.mem.last_threat_id):
+                    chase = m
+                    if self.combat.clear_shot(me, m["pos"], int(m["id"]), m.get("cubes") if isinstance(m.get("cubes"), int) else None):
+                        target = m
+                    break
         chase = target or chase
         if chase is None and self.mem.last_threat_id in self.mem.enemies:
             chase = self.mem.enemies[self.mem.last_threat_id]

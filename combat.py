@@ -98,8 +98,13 @@ class Combat:
         me: Dict[str, Any],
         visible: List[Dict[str, Any]],
         prefer_id: Optional[int],
+        force_prefer: bool = False,
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """One pass: (best_clear_los, best_any). Avoids double LOS scans."""
+        """One pass: (best_clear_los, best_any). Avoids double LOS scans.
+
+        force_prefer (damage-source-focus): if set, prefer_id wins even when another
+        visible mech has lower HP — answer the shooter first.
+        """
         clear_cands: List[Dict[str, Any]] = []
         any_cands: List[Dict[str, Any]] = []
         for m in visible:
@@ -117,6 +122,9 @@ class Combat:
                 for m in cands:
                     if int(m["id"]) == prefer_id:
                         return m
+                if force_prefer:
+                    # Shooter may be briefly occluded — still chase them via any_cands path.
+                    pass
             return min(
                 cands,
                 key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
