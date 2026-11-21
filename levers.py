@@ -21,6 +21,7 @@ LEVERS: Dict[str, bool] = {
     "S4": False,  # ROTATE gatekeep off in practice
     "F1": False,  # FFA detector + survival mode
     "DUAL_FIRE": True,  # gun keeps firing on lead while laser/lightning charge/fire
+    "HOLD_FIGHT": True,  # no chase in fight; hold roof / half-strafe; idle aim no fire
 }
 
 
