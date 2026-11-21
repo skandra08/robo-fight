@@ -2159,8 +2159,31 @@ class Bot:
             lands = float(d.get("lands_in") or 0.0)
             if lands > dist / max(1.0, speed) + 6.0:
                 continue  # leave when the walk there ends about when it lands
+            # FIX supply: skip drops outside the circle (or outside the next one once it is shrinking
+            # before we get there): walking out and escaping back loops for a minute.
+            z = obs["zone"]
+            eta = dist / max(1.0, speed)
+            t_now = float(obs["t"])
+            cx, cy = (z["next_center"] if float(z.get("shrink_start", 1e9)) < t_now + eta else z["center"])
+            rr = float(z["next_radius"] if float(z.get("shrink_start", 1e9)) < t_now + eta else z["radius"])
+            if math.hypot(d["pos"][0] - cx, d["pos"][1] - cy) > rr - 6.0:
+                continue
+            # FIX supply: give up on a drop we stop closing on (unreachable ledge / hill) for 40 s.
+            bl = self.__dict__.setdefault("_sup_bl", {})
+            if bl.get(int(d["id"]), -1e9) > t_now:
+                continue
             if dist <= 450.0 and dist < best_d:
                 best, best_d = d, dist
+        if best is not None:
+            pr = self.__dict__.setdefault("_sup_prog", {})
+            key = int(best["id"])
+            rec = pr.get(key)
+            if rec is None or best_d < rec[0] - 3.0 or self.mem.mode != "SUPPLY":
+                pr[key] = (best_d, float(obs["t"]))
+            elif float(obs["t"]) - rec[1] > 10.0 and best_d > self.drop_radius:
+                self._sup_bl[key] = float(obs["t"]) + 40.0
+                pr.pop(key, None)
+                best = None
         self.mem.supply_goal = best
         self.mem.contest_drop_id = int(best["id"]) if best is not None else None
         return best
