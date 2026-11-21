@@ -72,6 +72,8 @@ ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it i
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
 SEARCH_NEXT = True
+KITE = True  # 2+ mechs in view: back off from the group while shooting the nearest (sim +0.37 on na-arm)
+KITE_N = 2
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -673,6 +675,24 @@ class Bot:
         bearing = _bearing_to(me["pos"], chase["pos"])
         efrac = me["energy"] / max(1.0, me["max_energy"])
         finishing = self._nearly_dead(chase)
+
+        # Kite: with 2+ mechs in view, back away from the group while shooting, so they reach us
+        # one at a time instead of together. Turn along the edge rather than walk out of the circle.
+        seen = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        if KITE and len(seen) >= KITE_N and not self.mem.world_on_roof and not finishing:
+            cx = sum(m["pos"][0] for m in seen) / len(seen)
+            cy = sum(m["pos"][1] for m in seen) / len(seen)
+            away = math.atan2(me["pos"][1] - cy, me["pos"][0] - cx)
+            z = obs["zone"]
+            gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            if math.hypot(gx - z["center"][0], gy - z["center"][1]) > float(z["radius"]) - 15.0:
+                away += (math.pi / 2) * self.mem.strafe_sign
+                gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            move, _ = self.nav.steer(me, [gx, gy], 1.0, t)
+            act["move"] = move
+            act["boost"] = efrac > 0.35
+            self._unstick(me, act, t)
+            return
 
         # On a roof: hold it. Move to the firing edge toward them; never jump down to chase
         # unless they're nearly dead.
