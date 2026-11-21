@@ -238,6 +238,68 @@ class Combat:
             aim[1] - desired[1]
         ) <= math.radians(tol_deg + 1)
 
+    def gun_hit_prob(
+        self,
+        me: Dict[str, Any],
+        target: Dict[str, Any],
+        desired_aim: Sequence[float],
+        weapon: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        """Approx P(hit) for one gun shot (protocol: Gaussian spread_deg, mag 12 / reload 2.4s).
+
+        Combines angular target size vs spread, current aim error, and residual lead
+        uncertainty from target lateral speed. Used to choose hold vs tap vs hold-fire.
+        """
+        gun_cfg = self.weapons.get("gun") or {}
+        stats = (weapon or {}).get("stats") if weapon else None
+        if not isinstance(stats, dict):
+            stats = {}
+        spread = float(stats.get("spread_deg", gun_cfg.get("spread_deg", 0.6)))
+        speed = float(stats.get("speed", gun_cfg.get("speed", 252)))
+        mech = self.cfg.get("mech") or {}
+        cubes_cfg = self.cfg.get("cubes") or {}
+        spc = float(cubes_cfg.get("size_per_cube", 0.05))
+        n = max(0, int(target.get("cubes") or 0))
+        scale = 1.0 + spc * n
+        radius = float(mech.get("radius", 2.5)) * scale
+        height = float(mech.get("height", 9.0)) * scale
+
+        mx, my, mz = self.muzzle(me)
+        tx, ty, tz_feet = target["pos"]
+        tz = self.com_z(tz_feet, n)
+        dist = math.dist([mx, my, mz], [tx, ty, tz])
+        dist = max(1.0, dist)
+
+        # Angular half-extents of the cylinder (deg).
+        yaw_half = math.degrees(math.atan2(radius, dist))
+        pitch_half = math.degrees(math.atan2(0.5 * height, dist))
+
+        aim = me.get("aim") or [0.0, 0.0]
+        yaw_err = abs(_angdiff(float(aim[0]), float(desired_aim[0]))) * (180.0 / math.pi)
+        pitch_err = abs(float(aim[1]) - float(desired_aim[1])) * (180.0 / math.pi)
+
+        # Residual lead error: we lead, but crossing targets still inflate miss.
+        tv = target.get("vel") or [0.0, 0.0, 0.0]
+        dx, dy = tx - mx, ty - my
+        horiz = math.hypot(dx, dy) or 1e-6
+        ux, uy = dx / horiz, dy / horiz
+        lat = abs(float(tv[0]) * uy - float(tv[1]) * ux)
+        flight = dist / max(1.0, speed)
+        lat_err = math.degrees(math.atan2(lat * flight, dist)) * 0.35
+        yaw_err = yaw_err + lat_err
+
+        def axis_p(half: float, err: float, sig: float) -> float:
+            if sig < 1e-6:
+                return 1.0 if err <= half else 0.0
+            s = sig * math.sqrt(2.0)
+            # P(|N(err, sig^2)| <= half)
+            return 0.5 * (math.erf((half - err) / s) - math.erf((-half - err) / s))
+
+        py = axis_p(yaw_half, yaw_err, spread)
+        pp = axis_p(pitch_half, pitch_err, spread)
+        # Independent axes underestimate a bit; take geometric mean as a stable scalar.
+        return max(0.0, min(1.0, math.sqrt(max(0.0, py * pp))))
+
     def fire_slots(
         self,
         me: Dict[str, Any],
@@ -299,9 +361,28 @@ class Combat:
                     fire[i] = False
                 continue
             if kind == "gun":
-                # Hold the trigger whenever aimed: server fires at exact cooldown rate.
+                # Mag discipline (protocol: mag 12 then reload 2.4s, Gaussian spread).
+                # Hold only when hit chance is decent; otherwise tap / withhold to avoid
+                # dumping the mag into low-probability shots and sitting through reload.
                 ammo = w.get("ammo", 1)
+                hit_p = self.gun_hit_prob(me, target, desired_aim, w) if aimed else 0.0
+                HOLD_P = 0.40
+                TAP_P = 0.16
+                TAP_GAP = 0.48  # ~2 gun cooldowns between taps
+                want = False
                 if aimed and (ammo is None or ammo > 0):
+                    if hit_p >= HOLD_P:
+                        want = True
+                    elif hit_p >= TAP_P:
+                        last_tap = float(getattr(mem, "_gun_tap_t", -1e9))
+                        held = bool(getattr(mem, "_gun_held_last", False))
+                        # Pull once when ready, then release until TAP_GAP (controlled fire).
+                        if cd <= 0 and (t - last_tap) >= TAP_GAP and not held:
+                            want = True
+                            mem._gun_tap_t = t
+                        else:
+                            want = False
+                if want:
                     fire[i] = True
                     # Count real shots via ammo drop / cooldown edge — not every hold tick.
                     prev_ammo = getattr(mem, "_gun_ammo_seen", None)
