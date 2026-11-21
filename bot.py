@@ -1418,6 +1418,15 @@ class Bot:
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
 
+        # No clear shot: half-speed strafe perpendicular to threat, keep aim, don't dump ammo.
+        # Mortar is the intentional no-LOS weapon — leave its fire/move path alone.
+        if not clear and kind != "mortar":
+            side = bearing + (math.pi / 2) * self.mem.strafe_sign
+            act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
+            act["boost"] = False
+            act["fire"] = [False, False]
+            return
+
         # Laser on roof: hold firing edge for vision.
         if second == "laser" and self.mem.world_on_roof:
             roof = self.cover.roof(self.mem.roof_id) if self.mem.roof_id is not None else None
