@@ -35,6 +35,10 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loado
 | v1.13 | Loot memory LOS gate (R4) | Near-range ghost delete only with eye LOS (buildings block proximity vision). Predicted: stop forgetting wall-hidden loot mid-approach |
 | v1.14 | Scope laser charge-hold (R5) | Skip hold in COUNTER_LASER / ESCAPE / climbing RELOCATE; release when no enemy within ~8° of aim. Predicted: stop half-speed charge while fleeing |
 | v1.15 | Refresh threat bearing from sounds (#9) | Update `last_threat_bearing` from combat sounds each tick (damage bearing still wins for 0.3s). Predicted: better camp peek / chase toward active fights |
+| v1.16 | Mortar refire from config | Replace hard-coded 4.0 s gap with `cfg.weapons.mortar.cooldown` (2.6). Live slot `cooldown` still gates. Predicted: ~35% more mortar shells when lobbing |
+| v1.17 | Mortar low-arc + damped lead (#8) | Prefer low arc when lob clears; else high. Cap lead at 15 m. Drop pitch>0.25 fire gate (blocked low arc). Predicted: shells land on walking targets instead of 70 m ahead |
+| v1.18 | Body centre from config | Aim/LOS CoM = `mech.height/2` × cube scale (was hard-coded +4.5). Predicted: neutral at default height; correct vs tall cube mechs |
+| v1.19 | Firing-point yaw coverage (#10) | Precompute bins firing pts by 16 yaw sectors (≤3 each); hidden by hf. Regenerated `data/roofs.json`. Predicted: CAMP peeks toward any compass threat |
 
 ## Local check
 

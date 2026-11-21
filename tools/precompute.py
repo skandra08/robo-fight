@@ -122,6 +122,7 @@ def build_roofs(world: World) -> list:
         good_hidden = [h for h in hidden_points if h[2] >= 0.7]
         if len(good_hidden) < 1 or area < 150:
             continue
+        # Bug #10: first-40 x-major scan left many roofs with ≤2 yaw quadrants.
         roofs.append(
             {
                 "id": prism["id"],
@@ -130,13 +131,33 @@ def build_roofs(world: World) -> list:
                     round((prism["minx"] + prism["maxx"]) * 0.5, 2),
                     round((prism["miny"] + prism["maxy"]) * 0.5, 2),
                 ],
-                "hidden_points": good_hidden[:40],
-                "firing_points": firing_points[:40],
+                "hidden_points": sorted(good_hidden, key=lambda h: -h[2])[:40],
+                "firing_points": _subsample_firing_by_yaw(firing_points, limit=40),
                 "climb_points": climb_points[:16],
                 "area": round(area, 1),
             }
         )
     return roofs
+
+
+def _subsample_firing_by_yaw(
+    pts: list, n_sectors: int = 16, per_sector: int = 3, limit: int = 40
+) -> list:
+    """Keep up to `per_sector` firing points per yaw sector for compass coverage."""
+    if not pts:
+        return []
+    buckets: list = [[] for _ in range(n_sectors)]
+    two_pi = 2 * math.pi
+    for p in pts:
+        yaw = float(p[2]) % two_pi
+        if yaw < 0:
+            yaw += two_pi
+        i = int(yaw / two_pi * n_sectors) % n_sectors
+        buckets[i].append(p)
+    out: list = []
+    for b in buckets:
+        out.extend(b[:per_sector])
+    return out[:limit]
 
 
 def build_cover(world: World, out_path: str) -> None:

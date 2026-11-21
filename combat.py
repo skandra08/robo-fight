@@ -36,11 +36,29 @@ class Combat:
         x, y, z = me["pos"]
         return [x, y, z + eh]
 
-    def clear_shot(self, me: Dict[str, Any], target_pos: Sequence[float], eid: Optional[int] = None) -> bool:
+    def com_z(self, feet_z: float, cubes: Optional[int] = None) -> float:
+        """Center-of-mass height from feet (cfg mech.height/2, cube-scaled)."""
+        mech = self.cfg.get("mech") or {}
+        h = float(mech.get("height", 9.0))
+        spc = float((self.cfg.get("cubes") or {}).get("size_per_cube", 0.05))
+        n = max(0, int(cubes or 0))
+        return feet_z + (h * 0.5) * (1.0 + spc * n)
+
+    def mortar_gap(self) -> float:
+        """Min seconds between mortar shots; live weapon cooldown still gates fire."""
+        return float((self.weapons.get("mortar") or {}).get("cooldown", 2.6))
+
+    def clear_shot(
+        self,
+        me: Dict[str, Any],
+        target_pos: Sequence[float],
+        eid: Optional[int] = None,
+        cubes: Optional[int] = None,
+    ) -> bool:
         if eid is not None and eid in self._los_cache:
             return self._los_cache[eid]
         muzz = self.muzzle(me)
-        center = [target_pos[0], target_pos[1], target_pos[2] + 4.5]
+        center = [target_pos[0], target_pos[1], self.com_z(target_pos[2], cubes)]
         ok = not self.world.blocked_segment(muzz, center, step=3.5)
         if eid is not None:
             self._los_cache[eid] = ok
@@ -57,7 +75,8 @@ class Combat:
         for m in visible:
             if m.get("kind") != "mech":
                 continue
-            if require_clear and not self.clear_shot(me, m["pos"], int(m["id"])):
+            cubes = m.get("cubes") if isinstance(m.get("cubes"), int) else None
+            if require_clear and not self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 continue
             cands.append(m)
         if not cands:
@@ -87,7 +106,8 @@ class Combat:
             if m.get("kind") != "mech":
                 continue
             any_cands.append(m)
-            if self.clear_shot(me, m["pos"], int(m["id"])):
+            cubes = m.get("cubes") if isinstance(m.get("cubes"), int) else None
+            if self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 clear_cands.append(m)
 
         def choose(cands: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -106,10 +126,10 @@ class Combat:
 
     def aim_at(self, me: Dict[str, Any], target: Dict[str, Any], kind: str = "gun") -> List[float]:
         mx, my, mz = self.muzzle(me)
-        tx, ty, tz = target["pos"]
+        tx, ty, tz_feet = target["pos"]
         tv = target.get("vel") or [0, 0, 0]
-        # aim at center of mass
-        tz = tz + 4.5
+        cubes = target.get("cubes")
+        tz = self.com_z(tz_feet, cubes if isinstance(cubes, int) else None)
         if kind == "gun":
             speed = float((self.weapons.get("gun") or {}).get("speed", 252))
             px, py, pz = tx, ty, tz
@@ -125,7 +145,7 @@ class Combat:
             pitch = math.atan2(dz, horiz)
             return [yaw, pitch]
         if kind == "mortar":
-            ma = self.mortar_aim(me, [tx, ty, tz - 4.5], tv)
+            ma = self.mortar_aim(me, [tx, ty, tz_feet], tv)
             if ma is not None:
                 return ma
             # Bug #8: never fall back to pitch 0.6 (shell lands ~220 m away).
@@ -137,21 +157,43 @@ class Combat:
         horiz = math.hypot(dx, dy) or 1e-6
         return [math.atan2(dy, dx), math.atan2(dz, horiz)]
 
+    def _mortar_arc_clear(
+        self, mx: float, my: float, mz: float, px: float, py: float, pz: float, theta: float, v: float
+    ) -> bool:
+        """True if lob midpoints clear buildings (approx)."""
+        R = math.hypot(px - mx, py - my) or 1e-6
+        cth = math.cos(theta)
+        if abs(cth) < 1e-6:
+            return False
+        t_flight = R / (v * cth)
+        yaw = math.atan2(py - my, px - mx)
+        g = float((self.weapons.get("mortar") or {}).get("gravity", 22))
+        for frac in (0.35, 0.65):
+            t = t_flight * frac
+            x = mx + math.cos(yaw) * v * cth * t
+            y = my + math.sin(yaw) * v * cth * t
+            z = mz + v * math.sin(theta) * t - 0.5 * g * t * t
+            if z > pz + 2.0 and self.world.solid_at(x, y, z):
+                return False
+        return True
+
     def mortar_aim(
         self, me: Dict[str, Any], target_feet: Sequence[float], vel: Sequence[float]
     ) -> Optional[List[float]]:
         w = self.weapons.get("mortar") or {}
         v = float(w.get("speed", 72))
         g = float(w.get("gravity", 22))
-        mx, my, mz = self.muzzle(me)
         # mortar tube is higher — use stats if present; protocol says height+0.5
         stats = me.get("stats") or {}
+        mx, my = me["pos"][0], me["pos"][1]
         mz = me["pos"][2] + float(stats.get("height", 9)) + 0.5
         tx, ty = float(target_feet[0]), float(target_feet[1])
         tz = float(target_feet[2]) + 1.0
-        # iterate lead
+        vx, vy = float(vel[0]), float(vel[1])
+        # iterate lead; damp long-flight lead so walking targets aren't aimed 70 m ahead
+        lead_cap = 15.0
         px, py = tx, ty
-        theta = None
+        best: Optional[List[float]] = None
         for _ in range(3):
             R = math.hypot(px - mx, py - my)
             if R < 12.0 or R > (v * v / g) + 5:
@@ -160,16 +202,35 @@ class Combat:
             disc = v**4 - g * (g * R * R + 2 * dz * v * v)
             if disc < 0:
                 return None
-            # high arc
-            tan_th = (v * v + math.sqrt(disc)) / (g * R)
-            theta = math.atan(tan_th)
+            root = math.sqrt(disc)
+            # Prefer low arc when the lob clears; else high arc (#8).
+            candidates = [
+                math.atan((v * v - root) / (g * R)),  # low
+                math.atan((v * v + root) / (g * R)),  # high
+            ]
+            theta = None
+            for cand in candidates:
+                if cand <= 0.02:
+                    continue
+                if cand == candidates[0] and not self._mortar_arc_clear(
+                    mx, my, mz, px, py, tz, cand, v
+                ):
+                    continue
+                theta = cand
+                break
+            if theta is None:
+                return None
             t_flight = R / (v * math.cos(theta))
-            px = tx + vel[0] * t_flight
-            py = ty + vel[1] * t_flight
-        if theta is None:
-            return None
-        yaw = math.atan2(py - my, px - mx)
-        return [yaw, theta]
+            lead_x, lead_y = vx * t_flight, vy * t_flight
+            lead_d = math.hypot(lead_x, lead_y)
+            if lead_d > lead_cap:
+                s = lead_cap / lead_d
+                lead_x *= s
+                lead_y *= s
+            px = tx + lead_x
+            py = ty + lead_y
+            best = [math.atan2(py - my, px - mx), theta]
+        return best
 
     def aligned(self, me: Dict[str, Any], desired: Sequence[float], tol_deg: float = 2.0) -> bool:
         aim = me["aim"]
@@ -265,8 +326,10 @@ class Combat:
                 bearing = math.atan2(target["pos"][1] - me["pos"][1], target["pos"][0] - me["pos"][0])
                 if d <= rng and abs(_angdiff(me["aim"][0], bearing)) <= cone:
                     fire[i] = True
-            if kind == "mortar" and aimed and cd <= 0 and t - mem.last_mortar_t >= 4.0:
-                if desired_aim[1] > 0.25:
+            if kind == "mortar" and aimed and cd <= 0 and t - mem.last_mortar_t >= self.mortar_gap():
+                # Fire whenever we have a mortar aim solution (low or high arc).
+                # Old pitch>0.25 gate blocked legitimate low-arc shots under ~170 m.
+                if desired_aim[1] > 0.02:
                     fire[i] = True
                     mem.last_mortar_t = t
                     mem.mortars_here += 1
