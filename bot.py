@@ -1465,12 +1465,18 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # peek-strafe: flip lateral direction every ~1s while ADSing in close range
+        # so peeks aren't a static strafe lane.
         close_at = 55.0 if push_hard else 75.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
             act["boost"] = energy_ok and (dist > 50 or push_hard)
         else:
+            last_flip = getattr(self.mem, "_peek_strafe_t", -1e9)
+            if t - last_flip >= 1.0:
+                self.mem.strafe_sign = -float(self.mem.strafe_sign or 1.0)
+                self.mem._peek_strafe_t = t
             side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
         self.nav.update_stuck(me, t, True)
