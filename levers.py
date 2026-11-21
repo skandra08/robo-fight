@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "diag-pacifist"
+LABEL = "diag-freeze120"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -30,8 +30,8 @@ def on(key: str) -> bool:
 # --- Diagnostic builds (try/diag-*) -------------------------------------------------
 # DIAG = None: normal bot. "pacifist": never pull a trigger (no kills, no drone aggro).
 # "freeze": play normally until DIAG_T seconds, then stand still and never fire again.
-DIAG = "pacifist"
-DIAG_T = 150.0
+DIAG = "freeze"
+DIAG_T = 120.0
 
 
 def diag_filter(obs, act):
