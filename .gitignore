@@ -5,3 +5,5 @@ kit/
 .remember/
 *.egg-info/
 .venv/
+.cache/
+results/
