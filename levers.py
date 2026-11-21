@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "roof-dual"
+LABEL = "ground-anchor"
 
 LEVERS: Dict[str, bool] = {
     "S1": True,  # every loadout camps on a roof
@@ -22,7 +22,7 @@ LEVERS: Dict[str, bool] = {
     "F1": False,  # FFA detector + survival mode
     "DUAL_FIRE": True,  # gun keeps firing on lead while laser/lightning charge/fire
     "HOLD_FIGHT": True,  # no chase in fight; hold roof / half-strafe; idle aim no fire
-    "GROUND_ANCHOR": False,  # choke/pocket hold phases 0-2; roof fallback late
+    "GROUND_ANCHOR": True,  # choke/pocket hold phases 0-2; roof fallback late
     "LIGHTNING_FIRST": False,  # loot lightning > laser > mortar; prefer pocket anchors
 }
 
