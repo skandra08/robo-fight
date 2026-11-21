@@ -8,6 +8,11 @@ Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged
 - **Mortar**: relocate to far ground inside the zone; hold range and lob on mid/far sounds.
 - **Laser**: climb a roof for vision; peek-shoot from the edge.
 - **Lightning**: hold tight corners, stay out of sight, burst when close.
+- **DISENGAGE / RESET**: leave bad fights (2nd hunter, ~400 HP lost, ~12s no kill), break LOS, then sit for regen.
+- **THIRD**: armed only; wait ~2–4s of combat sounds, then crash; abort if a 2nd hunter shows.
+- **ROTATE**: enter next circle (not loadout RELOCATE); edge-gatekeep late rotators when loadout/position allows.
+- **LOOT_SWAP**: nearby upgrades only; never mortar→lightning; laser threat → safe ground else drop mortar.
+- **FFA**: stubbed (decision 6) — practice mid-pack path only for now.
 
 ## Version log
 
@@ -24,6 +29,7 @@ Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged
 | v1.6 | Roof avoid + camp rebind | Skip `_avoid` on roof / ESCAPE; ignore objects >4 m below (npc 50 / drop 40); clear camp_fire/hidden on roof change; arrive only on picked roof id; peek toward threat via `best_firing(toward_yaw)` until near fire_pt |
 | v1.7 | ARM ghost / roof loot | Drop remembered loot inside `vision.near_range` when missing from pickups; skip elevated roof loot unless on that roof; take within `loot_r - 0.3` |
 | v1.8 | Laser hold + gun aim | Keep laser trigger if charge mid-flight when target drops; don't fire gun on mortar aim; lead gun between laser shots via `aim_kind` |
+| v1.9 | Practice modes | DISENGAGE / RESET / THIRD / ROTATE / LOOT_SWAP wired into `_select_mode`; FFA detector stubbed; supply contest only when `alive`≤5 |
 
 ## Local check
 

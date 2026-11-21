@@ -48,6 +48,18 @@ class Memory:
         self.strafe_sign = 1.0
         self.positioned = False
         self.loadout_goal: Optional[List[float]] = None
+        # Practice modes: fight → disengage / third / rotate tracking.
+        self.fight_start_t = -1e9
+        self.fight_start_hp = 0.0
+        self.fight_target_id: Optional[int] = None
+        self.disengage_goal: Optional[List[float]] = None
+        self.disengage_until = 0.0
+        self.combat_noise_since = -1e9
+        self.third_bearing: Optional[float] = None
+        self.third_commit = False
+        self.rotate_goal: Optional[List[float]] = None
+        self.gatekeep = False
+        self.contest_drop_id: Optional[int] = None
 
     def seed(self, seed: int) -> None:
         self.rng_state = int(seed) & 0x7FFFFFFF or 1
@@ -131,14 +143,27 @@ class Memory:
             elif et == "took":
                 self.second_weapon = e.get("kind")
 
+        combat_kinds = ("gun", "laser", "laser_charge", "lightning", "mortar", "explosion")
+        heard_combat = False
         for s in obs.get("sounds") or []:
             self.sound_log.append({"t": t, **s})
             # sound bearings are useful hunt cues when we have no visual
-            if s.get("kind") in ("gun", "laser", "laser_charge", "lightning", "mortar", "explosion"):
+            if s.get("kind") in combat_kinds:
+                heard_combat = True
                 if s.get("bearing") is not None and self.last_threat_bearing is None:
                     self.last_threat_bearing = float(s["bearing"])
+        if heard_combat:
+            if self.combat_noise_since < 0:
+                self.combat_noise_since = t
+        else:
+            # Quiet tick — keep window if recent combat still in the log.
+            if self.combat_noise_since >= 0 and not any(
+                s.get("kind") in combat_kinds for s in self.sound_log if t - s["t"] < 1.2
+            ):
+                self.combat_noise_since = -1e9
+                self.third_commit = False
 
-        cutoff = t - 3.0
+        cutoff = t - 4.0
         self.damage_log = [d for d in self.damage_log if d["t"] >= cutoff]
         self.sound_log = [s for s in self.sound_log if s["t"] >= cutoff]
 

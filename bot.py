@@ -85,6 +85,8 @@ class Bot:
         self.cube_r = float(self.cfg["cubes"]["pickup_radius"])
         self.near_range = float((self.cfg.get("vision") or {}).get("near_range", 45.0))
         self.step_up = float((self.cfg.get("mech") or {}).get("step_up", 1.2))
+        self.regen_delay = float((self.cfg.get("mech") or {}).get("regen_delay", 5.0))
+        self.walk_speed = float((self.cfg.get("mech") or {}).get("walk_speed", 10.0))
         self.npc_avoid = 50.0
         self.drop_avoid = 40.0
         self.mem.strafe_sign = 1.0 if self.mem.rand() > 0.5 else -1.0
@@ -133,7 +135,13 @@ class Bot:
 
         second = _has_second(me)
         mode = self._select_mode(obs, second)
+        prev = self.mem.mode
         self.mem.set_mode(mode, t)
+        if mode == "FIGHT" and prev != "FIGHT":
+            self.mem.fight_start_t = t
+            self.mem.fight_start_hp = float(me["hp"])
+        if mode != "DISENGAGE" and prev == "DISENGAGE":
+            self.mem.disengage_goal = None
         tag = second or "gun"
         mf.draw.label(f"{mode}/{tag} hp={me['hp']:.0f}")
 
@@ -141,8 +149,18 @@ class Bot:
             self._do_escape(obs, act)
         elif mode == "COUNTER_LASER":
             self._do_counter_laser(obs, act)
+        elif mode == "DISENGAGE":
+            self._do_disengage(obs, act, second)
         elif mode == "FIGHT":
             self._do_fight(obs, act, second, aggressive=True)
+        elif mode == "THIRD":
+            self._do_third(obs, act, second)
+        elif mode == "ROTATE":
+            self._do_rotate(obs, act, second)
+        elif mode == "LOOT_SWAP":
+            self._do_loot_swap(obs, act, second)
+        elif mode == "RESET":
+            self._do_reset(obs, act)
         elif mode == "HEAL":
             self._do_heal(obs, act)
         elif mode == "ARM":
@@ -152,10 +170,10 @@ class Bot:
         else:  # CAMP
             self._do_camp(obs, act, second)
 
-        climbing = bool(act.get("boost") or act.get("jump")) and mode == "RELOCATE"
+        climbing = bool(act.get("boost") or act.get("jump")) and mode in ("RELOCATE", "ROTATE")
         # Bug #4: avoid walks off roofs / can steer ESCAPE back out of the zone.
         if (
-            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE")
+            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE", "DISENGAGE", "THIRD")
             and not climbing
             and not self.mem.world_on_roof
         ):
@@ -210,17 +228,223 @@ class Bot:
         nc, nr = zone["next_center"], float(zone["next_radius"])
         if (goal[0] - nc[0]) ** 2 + (goal[1] - nc[1]) ** 2 <= (0.8 * nr) ** 2:
             return False
-        travel = math.hypot(goal[0] - me["pos"][0], goal[1] - me["pos"][1]) / 10.0
+        walk = max(1.0, float((me.get("stats") or {}).get("walk_speed", self.walk_speed)))
+        travel = math.hypot(goal[0] - me["pos"][0], goal[1] - me["pos"][1]) / walk
         return float(zone["shrink_end"]) - t < travel + 15
 
+    def _is_ffa(self, obs: mf.Observation) -> bool:
+        """Decision 6 stub: FFA detector not implemented. Practice mid-pack path only."""
+        # TODO(FFA): detect free-for-all chaos and switch to survival play.
+        _ = obs
+        return False
+
+    def _safe_cover_goal(self, me: Dict[str, Any], zone: Dict[str, Any], away_bearing: Optional[float]) -> List[float]:
+        """Break LOS toward cover / zone-safe ground."""
+        if self.mem.camp_hidden is not None:
+            return list(self.mem.camp_hidden[:2])
+        if self.mem.world_on_roof and self.mem.roof_id is not None:
+            roof = self.cover.roof(self.mem.roof_id)
+            hid = self.cover.best_hidden(roof) if roof else None
+            if hid:
+                return list(hid[:2])
+        spot = self.cover.ground_spot(me["pos"], zone["center"], float(zone["radius"]))
+        if spot is not None:
+            return list(spot[:2])
+        if away_bearing is not None:
+            return [
+                me["pos"][0] + math.cos(away_bearing + math.pi) * 35.0,
+                me["pos"][1] + math.sin(away_bearing + math.pi) * 35.0,
+            ]
+        return list(self.nav.zone_goal(zone, me["pos"], 0.55)[:2])
+
+    def _opponent_dies_soon(self, me: Dict[str, Any], enemies: List[Dict[str, Any]], t: float) -> bool:
+        """True if the current 1v1 target looks like it will drop within a few seconds."""
+        if len(enemies) != 1:
+            return False
+        e = enemies[0]
+        hp = e.get("hp")
+        if hp is None:
+            # No HP shown — trust recent damage as a proxy.
+            return t - self.mem.last_dealt_damage_t < 1.5
+        if hp <= 280:
+            return True
+        if hp <= 450 and t - self.mem.last_dealt_damage_t < 2.0:
+            return True
+        return False
+
+    def _should_disengage(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
+        if self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until:
+            return True
+        in_fight = self.mem.mode in ("FIGHT", "THIRD", "DISENGAGE") or (
+            t - self.mem.last_took_weapon_damage_t < 2.5
+        )
+        if not in_fight and self.mem.mode not in ("FIGHT", "THIRD"):
+            return False
+        # Another hunter appears and current opponent won't die soon.
+        if len(visible) >= 2 and not self._opponent_dies_soon(me, visible[:1], t):
+            return True
+        # Lost substantial HP (~400) since fight start.
+        if self.mem.fight_start_t > 0 and (self.mem.fight_start_hp - me["hp"]) >= 400:
+            return True
+        # Fight dragged ~12s with no kill (no recent damage dealt).
+        if (
+            self.mem.fight_start_t > 0
+            and t - self.mem.fight_start_t >= 12.0
+            and t - self.mem.last_dealt_damage_t > 3.0
+        ):
+            return True
+        return False
+
+    def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
+        """Armed only; wait for sustained combat sounds ~2–4s before crashing."""
+        if second is None:
+            return False
+        if visible:
+            return False  # already in contact — FIGHT/DISENGAGE handle it
+        if self.mem.combat_noise_since < 0:
+            self.mem.third_commit = False
+            return False
+        age = t - self.mem.combat_noise_since
+        if age < 2.0:
+            return False  # wait — don't crash at first gunshot
+        if age > 4.5 and not self.mem.third_commit:
+            # Noise went stale without commit.
+            return False
+        # Prefer a mid/far combat bearing to approach.
+        bearing = None
+        for s in reversed(self.mem.sound_log):
+            if s.get("kind") in ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning"):
+                if s.get("bearing") is not None and s.get("dist") in ("mid", "far", "near", None):
+                    bearing = float(s["bearing"])
+                    break
+        if bearing is None:
+            bearing = self.mem.last_threat_bearing
+        if bearing is None:
+            return False
+        self.mem.third_bearing = bearing
+        self.mem.third_commit = True
+        return True
+
+    def _need_rotate(self, me: Dict[str, Any], zone: Dict[str, Any], t: float, second: Optional[str]) -> bool:
+        """Get inside next circle (distinct from loadout RELOCATE-to-camp)."""
+        nc, nr = zone["next_center"], float(zone["next_radius"])
+        dist = math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1])
+        inside_next = dist <= 0.85 * nr
+        walk = max(1.0, float((me.get("stats") or {}).get("walk_speed", self.walk_speed)))
+        travel = max(0.0, dist - 0.7 * nr) / walk
+        time_left = float(zone["shrink_end"]) - t
+        # Must move before shrink closes us out.
+        if not inside_next and time_left < travel + 18.0:
+            self.mem.gatekeep = False
+            return True
+        # Already mid-ROTATE until inside.
+        if self.mem.mode == "ROTATE" and not inside_next:
+            return True
+        # Edge gatekeep late rotators — contingent on weapon + position.
+        if second is not None and inside_next and self._can_gatekeep(me, zone, second):
+            # Only when shrink is imminent / ongoing and we're near the ring.
+            edge_band = abs(dist - 0.9 * nr) < 40.0 or (0.75 * nr <= dist <= 0.98 * nr)
+            if edge_band and time_left < 35.0:
+                self.mem.gatekeep = True
+                return True
+        self.mem.gatekeep = False
+        return False
+
+    def _can_gatekeep(self, me: Dict[str, Any], zone: Dict[str, Any], second: str) -> bool:
+        """Decision 6: mortar far-edge OK; laser roof sightlines OK; lightning only with cover."""
+        nc, nr = zone["next_center"], float(zone["next_radius"])
+        dist = math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1])
+        if second == "mortar":
+            # Far edge of next circle, ground.
+            return not self.mem.world_on_roof and dist >= 0.55 * nr
+        if second == "laser":
+            return bool(self.mem.world_on_roof)
+        if second == "lightning":
+            # Need corner/cover on the edge path.
+            if self.mem.world_on_roof:
+                return False
+            spot = self.cover.corner_spot(me["pos"], nc, nr)
+            if spot is None:
+                return False
+            return math.dist(me["pos"][:2], spot[:2]) < 40.0
+        return False
+
+    def _loot_swap_target(
+        self, me: Dict[str, Any], second: Optional[str], t: float
+    ) -> Optional[Dict[str, Any]]:
+        """Limited swaps: never mortar→lightning; no long camp abandon for speculative loot."""
+        if second is None:
+            return None
+        if self.mem.mode == "DISENGAGE":
+            return None
+        loot = self.mem.best_loot(
+            me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
+        )
+        if loot is None:
+            return None
+        d = math.dist(loot["pos"][:2], me["pos"][:2])
+        # Don't abandon a good camp just to hunt a counter across the map.
+        if self.mem.positioned and d > 55.0:
+            return None
+        if d > 90.0:
+            return None
+        kind = loot["kind"]
+        # Prefer laser > mortar > lightning. Never drop mortar to grab lightning.
+        if second == "mortar" and kind == "lightning":
+            return None
+        if second == "laser":
+            return None  # already top tier
+        if second == "mortar" and kind == "laser":
+            return loot
+        if second == "lightning" and kind in ("laser", "mortar"):
+            return loot
+        return None
+
+    def _want_supply(self, obs: mf.Observation, second: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Contest drops only if few hunters left and we look capable."""
+        me = obs["self"]
+        alive = int(obs.get("alive") or 16)
+        if alive > 5:
+            self.mem.contest_drop_id = None
+            return None
+        if second is None:
+            return None
+        if self.mem.mode == "DISENGAGE":
+            return None
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        if hp_frac < 0.55:
+            return None
+        best = None
+        best_d = 1e9
+        for d in obs.get("drops") or []:
+            lands = float(d.get("lands_in") or 0)
+            if lands > 25.0:
+                continue
+            dist = math.dist(d["pos"][:2], me["pos"][:2])
+            if dist < best_d:
+                best_d = dist
+                best = d
+        if best is None or best_d > 160.0:
+            self.mem.contest_drop_id = None
+            return None
+        self.mem.contest_drop_id = int(best["id"])
+        return best
+
     def _select_mode(self, obs: mf.Observation, second: Optional[str]) -> str:
+        """Practice mid-pack path. Priority vs ARM/FIGHT/CAMP/RELOCATE/HEAL/ESCAPE/COUNTER_LASER.
+
+        Decision 6 FFA is stubbed — do not invent FFA survival logic here.
+        """
         me = obs["self"]
         t = float(obs["t"])
         hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        _ = self._is_ffa(obs)  # stub touch so the practice/FFA fork stays visible
 
         if not me.get("in_zone", True):
             return "ESCAPE_ZONE"
 
+        # Laser charged at us: COUNTER_LASER (prefer safe ground; drop only if needed).
+        laser_threat = False
         if _slot_of(me, "mortar") is not None:
             for m in obs.get("mechs") or []:
                 if m.get("kind") != "mech" or not m.get("charging"):
@@ -228,7 +452,10 @@ class Bot:
                 aim = m.get("aim") or [0, 0]
                 bearing_to_us = math.atan2(me["pos"][1] - m["pos"][1], me["pos"][0] - m["pos"][0])
                 if abs(_angdiff(aim[0], bearing_to_us)) < math.radians(10):
-                    return "COUNTER_LASER"
+                    laser_threat = True
+                    break
+        if laser_threat:
+            return "COUNTER_LASER"
 
         recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
         visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
@@ -238,8 +465,20 @@ class Bot:
         loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
         enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
 
-        # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us,
-        # and so laser can still approach a climb when the nearest hunter is farther.
+        # Stay in DISENGAGE until cover / timer.
+        if self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until:
+            if not visible or enemy_d > 55:
+                # Reached relative safety → RESET.
+                if t - self.mem.last_took_weapon_damage_t >= self.regen_delay * 0.4:
+                    return "RESET"
+            return "DISENGAGE"
+
+        if self._should_disengage(me, visible, t):
+            self.mem.disengage_until = t + 4.0
+            self.mem.positioned = False
+            return "DISENGAGE"
+
+        # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us.
         if second is not None and not self.mem.world_on_roof:
             ct = self.mem.climb_target
             climb_d = math.dist(me["pos"][:2], ct[:2]) if ct is not None else 1e9
@@ -254,7 +493,7 @@ class Bot:
             ):
                 return "RELOCATE"
 
-        # Aggressive 1v1: armed (or gun with contact) + hunter hasn't spotted us / flank.
+        # Aggressive 1v1 ambush — keep.
         ambush = self._ambush_target(me, visible)
         if ambush is not None and (second is not None or enemy_d < 90):
             if not (second is None and loot is not None and loot_d + 20 < enemy_d and loot_d < 70):
@@ -266,36 +505,216 @@ class Bot:
             return "FIGHT"
 
         if visible and (second is not None or enemy_d < 120):
-            # Detected fight or any contact while armed — take it.
             aware = any(_enemy_aware(e, me["pos"]) for e in visible)
             if aware or second is not None or recent_dmg:
                 if second is None and loot is not None and loot_d + 15 < enemy_d and loot_d < 90:
                     return "ARM"
                 return "FIGHT"
 
+        # THIRD: sound-driven crash after wait (armed only).
+        if self._want_third(me, second, visible, t):
+            return "THIRD"
+
+        # ROTATE into next circle / edge gatekeep (before loadout RELOCATE).
+        if second is not None and self._need_rotate(me, obs["zone"], t, second):
+            return "ROTATE"
+
+        # LOOT_SWAP: limited upgrades near us.
+        if self._loot_swap_target(me, second, t) is not None:
+            return "LOOT_SWAP"
+
         safe_for_regen = (
-            t - self.mem.last_took_weapon_damage_t >= 5.0
-            and t - self.mem.last_dealt_damage_t >= 5.0
+            t - self.mem.last_took_weapon_damage_t >= self.regen_delay
+            and t - self.mem.last_dealt_damage_t >= self.regen_delay
             and not visible
         )
+        # RESET after disengage: sit for regen when safe (even if HP not critically low).
+        if safe_for_regen and (
+            self.mem.mode in ("DISENGAGE", "RESET")
+            or (hp_frac < 0.85 and t - self.mem.fight_start_t < 30 and self.mem.fight_start_t > 0)
+        ):
+            if hp_frac < 0.98:
+                return "RESET"
+
         if safe_for_regen and hp_frac < 0.65:
             return "HEAL"
 
         if second is None:
             return "ARM"
 
-        # Armed: set up loadout camp, then hold. Relocate when burnt / zone leaves.
+        # Armed: set up loadout camp, then hold. Relocate when burnt / zone leaves camp.
         burnt = self.mem.shots_here > 12 or self.mem.mortars_here >= 3
-        if burnt or self._zone_forces_reloc(me, obs["zone"], t):
+        if burnt:
             self.mem.positioned = False
             self.mem.loadout_goal = None
             self.mem.reset_camp_counters()
             return "RELOCATE"
+        if self._zone_forces_reloc(me, obs["zone"], t):
+            # Zone left the camp — rotate into next circle first.
+            return "ROTATE"
 
         if not self._loadout_positioned(me, second, obs["zone"]):
             return "RELOCATE"
         self.mem.positioned = True
         return "CAMP"
+
+    def _do_disengage(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
+        """Break LOS, stop shooting when appropriate, path to cover / zone-safe."""
+        me = obs["self"]
+        t = float(obs["t"])
+        visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        away = self.mem.last_threat_bearing
+        if away is None and visible:
+            away = math.atan2(visible[0]["pos"][1] - me["pos"][1], visible[0]["pos"][0] - me["pos"][0])
+        if self.mem.disengage_goal is None:
+            self.mem.disengage_goal = self._safe_cover_goal(me, obs["zone"], away)
+        goal = self.mem.disengage_goal
+        move, yaw = self.nav.steer(me, goal, 1.0, t)
+        act["move"] = move
+        act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.3
+        act["aim"] = [away if away is not None else yaw, -0.05]
+        # Stop shooting once LOS is broken / we put cover between us; peek-fire only if still pressed.
+        still_pressed = False
+        for e in visible:
+            if self.combat.clear_shot(me, e["pos"], int(e["id"])):
+                still_pressed = True
+                break
+        recent_hit = t - self.mem.last_took_weapon_damage_t < 1.0
+        if still_pressed and recent_hit:
+            self._try_fight_overlay(obs, act)
+        else:
+            act["fire"] = [False, False]
+        self.nav.update_stuck(me, t, True)
+        if self.mem.stuck_until > t:
+            act["jump"] = bool(me.get("grounded"))
+            act["boost"] = True
+        _ = second
+
+    def _do_reset(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        """Sit for regen (respect regen_delay), scan; only when safe."""
+        me = obs["self"]
+        t = float(obs["t"])
+        act["fire"] = [False, False]
+        act["boost"] = False
+        act["jump"] = False
+        # Hold cover if we have it; else freeze and scan.
+        if self.mem.disengage_goal and math.dist(me["pos"][:2], self.mem.disengage_goal[:2]) > 6.0:
+            move, yaw = self.nav.steer(me, self.mem.disengage_goal, 0.45, t)
+            act["move"] = move
+            act["aim"] = [yaw, -0.05]
+        elif self.mem.camp_hidden and math.dist(me["pos"][:2], self.mem.camp_hidden[:2]) > 4.0:
+            move, yaw = self.nav.steer(me, self.mem.camp_hidden, 0.4, t)
+            act["move"] = move
+            act["aim"] = [yaw, -0.05]
+        else:
+            act["move"] = [0.0, 0.0]
+            act["aim"] = [self.mem.scan_yaw, -0.05]
+        if self.mem.last_threat_bearing is not None:
+            # Face last threat while regen clock ticks.
+            quiet = (
+                t - self.mem.last_took_weapon_damage_t >= self.regen_delay
+                and t - self.mem.last_dealt_damage_t >= self.regen_delay
+            )
+            if not quiet:
+                act["aim"] = [self.mem.last_threat_bearing, -0.05]
+
+    def _do_third(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
+        """Sound-driven third-party: wait already done in selector; crash; abort if 2nd hunter."""
+        me = obs["self"]
+        t = float(obs["t"])
+        visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        # Abort if a second hunter appears / approach looks bad.
+        if len(visible) >= 2:
+            self.mem.third_commit = False
+            return self._do_disengage(obs, act, second)
+        if me["hp"] / max(1.0, me["max_hp"]) < 0.35:
+            self.mem.third_commit = False
+            return self._do_disengage(obs, act, second)
+        if visible:
+            # One hunter in view — take the fight (crash arrived).
+            return self._do_fight(obs, act, second, aggressive=True)
+        bearing = self.mem.third_bearing
+        if bearing is None:
+            bearing = self.mem.last_threat_bearing or me["aim"][0]
+        goal = [
+            me["pos"][0] + math.cos(bearing) * 55.0,
+            me["pos"][1] + math.sin(bearing) * 55.0,
+        ]
+        # Keep goal inside zone.
+        zc, zr = obs["zone"]["center"], float(obs["zone"]["radius"])
+        if (goal[0] - zc[0]) ** 2 + (goal[1] - zc[1]) ** 2 > (0.9 * zr) ** 2:
+            goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.7)
+        move, yaw = self.nav.steer(me, goal, 1.0, t)
+        act["move"] = move
+        act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.4
+        act["aim"] = [bearing, -0.05]
+        self.nav.update_stuck(me, t, True)
+        if self.mem.stuck_until > t:
+            act["jump"] = bool(me.get("grounded"))
+            act["boost"] = True
+
+    def _do_rotate(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
+        """Move into next circle; optional edge gatekeep for late rotators."""
+        me = obs["self"]
+        t = float(obs["t"])
+        z = obs["zone"]
+        nc, nr = z["next_center"], float(z["next_radius"])
+        if self.mem.gatekeep and second is not None:
+            # Hold near the ring facing outward for late rotators.
+            dist = math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1])
+            if dist < 0.82 * nr:
+                # Step out toward edge.
+                ang = math.atan2(me["pos"][1] - nc[1], me["pos"][0] - nc[0])
+                goal = [nc[0] + math.cos(ang) * 0.9 * nr, nc[1] + math.sin(ang) * 0.9 * nr]
+            else:
+                goal = list(me["pos"][:2])
+            self.mem.rotate_goal = goal
+            if math.dist(me["pos"][:2], goal[:2]) > 8.0:
+                move, yaw = self.nav.steer(me, goal, 0.7, t)
+                act["move"] = move
+            else:
+                act["move"] = [0.0, 0.0]
+                yaw = math.atan2(me["pos"][1] - nc[1], me["pos"][0] - nc[0])
+            act["aim"] = [yaw, -0.05]
+            # Overlay if someone is closing from outside.
+            self._try_fight_overlay(obs, act)
+            return
+        # Destination: deep-ish inside next circle (not loadout camp).
+        if self.mem.rotate_goal is None:
+            self.mem.rotate_goal = [nc[0], nc[1]]
+            # Bias slightly toward current pos so we don't cross the whole map center needlessly.
+            ang = math.atan2(me["pos"][1] - nc[1], me["pos"][0] - nc[0])
+            self.mem.rotate_goal = [
+                nc[0] + math.cos(ang) * 0.45 * nr,
+                nc[1] + math.sin(ang) * 0.45 * nr,
+            ]
+        goal = self.mem.rotate_goal
+        move, yaw = self.nav.steer(me, goal, 1.0, t)
+        act["move"] = move
+        act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.35
+        act["aim"] = [yaw, -0.05]
+        if math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1]) <= 0.8 * nr:
+            self.mem.rotate_goal = None
+        self._try_fight_overlay(obs, act)
+
+    def _do_loot_swap(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
+        """Grab a nearby upgrade weapon under LOOT_SWAP rules."""
+        me = obs["self"]
+        t = float(obs["t"])
+        target = self._loot_swap_target(me, second, t)
+        if target is None:
+            return self._do_arm(obs, act)
+        visible = {int(p["id"]): p for p in (obs.get("pickups") or []) if p.get("kind") != "gun"}
+        goal = target["pos"]
+        if int(target["id"]) in visible:
+            goal = visible[int(target["id"])]["pos"]
+            if math.dist(goal[:2], me["pos"][:2]) <= self.loot_r - 0.3:
+                act["take"] = target["id"]
+        move, yaw = self.nav.steer(me, goal, 1.0, t)
+        act["move"] = move
+        act["aim"] = [math.atan2(goal[1] - me["pos"][1], goal[0] - me["pos"][0]), -0.05]
+        act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.4
+        self._try_fight_overlay(obs, act)
 
     def _do_escape(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
@@ -308,18 +727,22 @@ class Bot:
         self._try_fight_overlay(obs, act)
 
     def _do_counter_laser(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        """Prefer break-LOS / safe ground vs laser; drop mortar only if we can't get safe."""
         me = obs["self"]
         t = float(obs["t"])
+        away = self.mem.last_threat_bearing
+        safe = self._safe_cover_goal(me, obs["zone"], away)
+        d_safe = math.dist(me["pos"][:2], safe[:2])
+        # Can we break toward cover quickly?
+        can_safe = d_safe < 45.0 or self.mem.world_on_roof or self.mem.camp_hidden is not None
         slot = _slot_of(me, "mortar")
-        if slot is not None:
-            act["drop"] = slot
-        # also break LOS
-        if self.mem.camp_hidden:
-            move, yaw = self.nav.steer(me, self.mem.camp_hidden, 1.0, t)
-            act["move"] = move
-            act["aim"] = [yaw, 0.0]
-        else:
-            act["move"] = [0.0, 0.0]
+        if slot is not None and not can_safe:
+            act["drop"] = slot  # existing cook-off counter when escape isn't available
+        move, yaw = self.nav.steer(me, safe, 1.0, t)
+        act["move"] = move
+        act["boost"] = True
+        act["aim"] = [away if away is not None else yaw, 0.0]
+        act["fire"] = [False, False]
 
     def _do_fight(
         self,
@@ -674,6 +1097,17 @@ class Bot:
     def _do_camp(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
         me = obs["self"]
         t = float(obs["t"])
+        # Supply drops: only contest when few hunters left and we look capable.
+        drop = self._want_supply(obs, second)
+        if drop is not None:
+            goal = drop["pos"]
+            if math.dist(me["pos"][:2], goal[:2]) > 6.0:
+                move, yaw = self.nav.steer(me, goal, 0.85, t)
+                act["move"] = move
+                act["aim"] = [yaw, -0.05]
+                act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.4
+                self._try_fight_overlay(obs, act)
+                return
 
         if second == "mortar":
             goal = self.mem.loadout_goal
@@ -951,6 +1385,8 @@ class Bot:
                 push[0] += ux
                 push[1] += uy
         for d in obs.get("drops") or []:
+            if self.mem.contest_drop_id is not None and int(d.get("id", -1)) == self.mem.contest_drop_id:
+                continue  # actively contesting this drop
             if mz - d["pos"][2] > below_slack:
                 continue
             dist = math.dist(d["pos"][:2], (mx, my))
