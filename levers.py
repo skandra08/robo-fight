@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "edge-hunter"
+LABEL = "loot-brawl"
 # classic-roof | edge-hunter | loot-brawl
-PLAYBOOK = "edge-hunter"
+PLAYBOOK = "loot-brawl"
 
 # Legacy S/N/F levers — off for pivot playbooks (kept for test_strategy skips).
 LEVERS: Dict[str, bool] = {
