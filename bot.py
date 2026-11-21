@@ -1465,6 +1465,7 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # jump-peek-fight: hop every ~1.4s while ADSing to break enemy aim lock.
         close_at = 55.0 if push_hard else 75.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
@@ -1473,6 +1474,10 @@ class Bot:
         else:
             side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
+            last_j = getattr(self.mem, "_jump_peek_t", -1e9)
+            if t - last_j >= 1.4 and me.get("grounded") and energy_ok:
+                act["jump"] = True
+                self.mem._jump_peek_t = t
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
