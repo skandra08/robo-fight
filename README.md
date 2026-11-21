@@ -34,6 +34,7 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loado
 | v1.12 | Disable DISENGAGE/RESET/THIRD (R2) | Practice: stay in FIGHT (decision 5). Bodies kept for FFA. Predicted: finish 1v1s instead of looping DISENGAGE after ~400 HP lost |
 | v1.13 | Loot memory LOS gate (R4) | Near-range ghost delete only with eye LOS (buildings block proximity vision). Predicted: stop forgetting wall-hidden loot mid-approach |
 | v1.14 | Scope laser charge-hold (R5) | Skip hold in COUNTER_LASER / ESCAPE / climbing RELOCATE; release when no enemy within ~8° of aim. Predicted: stop half-speed charge while fleeing |
+| v1.15 | Refresh threat bearing from sounds (#9) | Update `last_threat_bearing` from combat sounds each tick (damage bearing still wins for 0.3s). Predicted: better camp peek / chase toward active fights |
 
 ## Local check
 

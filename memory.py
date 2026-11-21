@@ -162,7 +162,9 @@ class Memory:
             # sound bearings are useful hunt cues when we have no visual
             if s.get("kind") in combat_kinds:
                 heard_combat = True
-                if s.get("bearing") is not None and self.last_threat_bearing is None:
+                # Bug #9: refresh from combat sounds (was once-only when None).
+                # Damage events above win for ~0.3s after being hit.
+                if s.get("bearing") is not None and t - self.last_took_weapon_damage_t > 0.3:
                     self.last_threat_bearing = float(s["bearing"])
         if heard_combat:
             if self.combat_noise_since < 0:
