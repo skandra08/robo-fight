@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from world import World
@@ -16,9 +17,65 @@ def _angdiff(a: float, b: float) -> float:
 
 
 class Navigator:
-    def __init__(self, world: World, mem: Any):
+    def __init__(self, world: World, mem: Any, grid: Any = None):
         self.world = world
         self.mem = mem
+        self.grid = grid  # pathing.PathGrid or None
+        self._path: Optional[List[List[float]]] = None
+        self._path_goal: Optional[List[float]] = None
+        self._path_t = -99.0
+        self._plan_fail_until = -99.0
+        self._plan_fail_goal: Optional[List[float]] = None
+        self._search: Any = None
+        self._on_path = False
+        self._search_goal: Optional[List[float]] = None
+
+    def _route(self, me: Dict[str, Any], goal: Sequence[float], now: float) -> Sequence[float]:
+        """Replace a far goal behind buildings with the next waypoint of a grid path."""
+        g = self.grid
+        if g is None:
+            return goal
+        x, y, z = me["pos"]
+        if z > self.world.ground(x, y) + 3.0:
+            return goal  # on a roof / in the air: local logic
+        if math.hypot(goal[0] - x, goal[1] - y) < 16.0 or g.clear_line(me["pos"], goal):
+            return goal
+        same = self._path_goal is not None and math.hypot(goal[0] - self._path_goal[0], goal[1] - self._path_goal[1]) < 8.0
+        if not (same and self._path and now - self._path_t < 5.0):
+            if (now < self._plan_fail_until and self._plan_fail_goal is not None
+                    and math.hypot(goal[0] - self._plan_fail_goal[0], goal[1] - self._plan_fail_goal[1]) < 8.0):
+                return goal
+            # Resumable search, at most ~6 ms per decision so act() stays far inside 50 ms.
+            sg = [goal[0], goal[1]]
+            if self._search is None or self._search_goal is None or math.hypot(
+                    sg[0] - self._search_goal[0], sg[1] - self._search_goal[1]) >= 8.0:
+                self._search = g.search(me["pos"], goal)
+                self._search_goal = sg
+                next(self._search)
+            try:
+                self._search.send(time.perf_counter() + 0.006)
+                return goal  # still searching: keep local steering meanwhile
+            except StopIteration as e:
+                path = e.value
+                self._search = None
+                self._search_goal = None
+            if not path:
+                self._plan_fail_until = now + 1.5
+                self._plan_fail_goal = sg
+                self._path = None
+                return goal
+            self._path, self._path_goal, self._path_t = path, sg, now
+        path = self._path
+        # Drop waypoints we've reached, then take the farthest one still in clear line (<= 40 m).
+        while len(path) > 1 and math.hypot(path[0][0] - x, path[0][1] - y) < 5.0:
+            path.pop(0)
+        best = path[0]
+        for wp in path[1:5]:
+            if math.hypot(wp[0] - x, wp[1] - y) > 12.0 or not g.clear_line(me["pos"], wp):
+                break
+            best = wp
+        self._on_path = True
+        return [best[0], best[1], goal[2] if len(goal) > 2 else z]
 
     def steer(
         self,
@@ -28,8 +85,17 @@ class Navigator:
         t: Optional[float] = None,
     ) -> Tuple[List[float], float]:
         """Return (move_xy clamped, desired_yaw). Pass obs time as `t` for stuck recovery."""
+        now0 = float(t) if t is not None else float(getattr(self.mem, "total_time", 0.0) or 0.0)
+        self._on_path = False
+        goal = self._route(me, goal, now0)
         x, y, z = me["pos"]
         gx, gy = float(goal[0]), float(goal[1])
+        if self._on_path and not (self.mem.stuck_until > now0 and self.mem.stuck_heading is not None):
+            # The grid path already avoids walls and ledges; walkable_step's local check calls
+            # any >1.2 m rise over 4-9 m a wall (gentle ramps), which made us jitter in pits.
+            yaw = math.atan2(gy - y, gx - x)
+            frac = max(0.0, min(1.0, speed_frac))
+            return [math.cos(yaw) * frac, math.sin(yaw) * frac], yaw
         # If the direct line is walled, aim at a side waypoint first.
         want = math.atan2(gy - y, gx - x)
         mid = (x + math.cos(want) * 10.0, y + math.sin(want) * 10.0)

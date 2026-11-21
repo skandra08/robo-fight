@@ -80,7 +80,14 @@ class Bot:
         self.cover = CoverBook(data_dir)
         self.mem = Memory()
         self.mem.seed(int(hello.get("seed") or 1))
-        self.nav = Navigator(self.world, self.mem)
+        grid = None
+        if levers.on("P1"):
+            try:
+                import pathing
+                grid = pathing.PathGrid(self.world, data_dir)
+            except Exception:
+                mf.log(f"pathgrid failed:\n{__import__('traceback').format_exc()}")
+        self.nav = Navigator(self.world, self.mem, grid)
         self.combat = Combat(self.world, self.cfg)
         self.loot_r = float(self.cfg["loot"]["pickup_radius"])
         self.cube_r = float(self.cfg["cubes"]["pickup_radius"])
