@@ -4,7 +4,7 @@
 **Baseline:** `try/na-arm` / `try/best-356` = `8d5109ff0d252add3f45f0436d028a1df32d5d53` (`lh-na-arm`, official practice **3.56**)  
 **Aggregator branch:** `try/cursor-notes`  
 **Deadline:** 11:00 AM America/New_York, 2026-11-21  
-**Last scan:** 2026-11-21 03:19 EST
+**Last scan:** 2026-11-21 03:22 EST
 
 ## Simulator
 
@@ -61,6 +61,16 @@ _Only one full paired panel finished so far; ~20+ sibling 96-seed sims still run
 | `88b17e2fa7f155e9f02620d25e0497a6fa72d432` | `try/cursor-strafe-aim` | half-strafe + hold fire when no clear shot |
 | `672b143c5054f47d709d347549fdd64df24662a2` | `try/cursor-threat-tgt` | pick fight targets by threat not distance |
 | `5f6ae9481acff1498ad462daf02126399ecae221` | `try/cursor-upg-armor` | nanites/plating/armor before gun/laser |
+| `0b425caaca268658ec057b0ca30455b623b66675` | `try/cursor-gun-aim-widen` | widen gun fire align tolerance 4°→6° |
+| `e33ce6b7b57f5400b1560303d1d0d60a7700811f` | `try/cursor-mortar-close-deny` | refuse mortar under 40 m; use gun |
+| `b70531c0b773f27d247c7965aa38721e394bcbd6` | `try/cursor-flank-commit` | on flank/undetected crash to 35 m with boost |
+| `8b51cae2bdda8a7753733c926c43c1bfbd7f6f7a` | `try/cursor-chase-range-cap` | no sprint chase beyond 90 m unless hurt by them |
+| `2ea0985aa0da9a429a98a060f9918976287d462a` | `try/cursor-reload-before-push` | reload when ammo≤4 before long close commit |
+| `64b3692d700710bdfc2801512b9b47d64b9b9c15` | `try/cursor-sound-retarget` | retarget fight to mech matching fresh combat sound |
+| `3155fdf7442a14d35fa4b000803c27b67722aa87` | `try/cursor-jump-peek-fight` | hop every 1.4s while ADSing in gun range |
+| `0d5f92088b7e150aa848071104b8a68c93bbd84b` | `try/cursor-energy-save-fight` | boost in fight only for long closes or low HP |
+| `608dcaea28faa07e1897f5bf2c869d5b0bea0384` | `try/cursor-laser-keep-hold` | wider laser charge cone; tighter release aim |
+| `7b338cfd61c884ebea86bf4eca889738ddb59dd9` | `try/cursor-dual-slot-prio` | between laser shots prefer lightning over gun |
 
 ## Local-only commits (not yet on origin)
 
@@ -94,6 +104,7 @@ _Only one full paired panel finished so far; ~20+ sibling 96-seed sims still run
 | 03:11 | Bootstrap `try/cursor-notes`; fetched `try/sim` |
 | 03:12 | First in-flight local branches |
 | 03:18 | 22 unique origin candidates; lead-gun full n=96 ranked; machine ~100+ `sim/run.py` workers — aggregator waiting, not spawning more sims |
+| 03:22 | Wave-controller batch-2 pushed: gun-aim-widen, mortar-close-deny, flank-commit, chase-range-cap, reload-before-push, sound-retarget, jump-peek-fight, energy-save-fight, laser-keep-hold, dual-slot-prio (serial sim queue waiting on load) |
 
 ## Protocol
 
