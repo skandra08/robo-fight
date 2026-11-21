@@ -1,34 +1,35 @@
-# Simple placement variants (4.5 hunt)
+# Mechanics-first + simple placement variants
 
-Practice hunters share vision. Score = mean(`16 − place`). Leaders ~5.5, early 4.5 spike ⇒ **simple sharp placement**, not lever stacks. Our roof-all peak was ~2.29.
+Sameer philosophy: **don't encode fat high-level strategy**. If the bot is precise
+on low-level decisions, it should be good. Exploit beneficial game features.
 
-## Ideas evaluated
-
-| # | idea | verdict |
-| --- | --- | --- |
-| 1 | Cube snowball | **ship** — tankiness from cubes; free fights only |
-| 2 | Pure zone sheep | **ship** — placement over kills; quiet deep next-zone |
-| 3 | Gun spray + cover | deferred — still a camp; sheep is cleaner |
-| 4 | Supply drop addict | deferred — contested, loud, late |
-| 5 | Dual alone on simple camp | deferred — still fights; complexity we already A/B'd |
-| 6 | Fix loud boost / climb suicide / chase | **folded into both** — quiet arm, never climb, sheep holds |
+Practice hunters share vision. Score = mean(`16 − place`). Leaders ~5.5; roof-all peak ~2.29.
 
 ## Shipped try tags (full 40-char hashes)
 
 | # | tag | Bot.name | hash | idea |
 | --- | --- | --- | --- | --- |
-| 1 | `try/zone-sheep` | `lh-zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | **submit first** — silent deep next-zone, heal hard, fight only when shot, no chase |
+| 0 | `try/precise` | `lh-precise` | _(fill after push)_ | **mechanics-first** — thin ARM→zone→fight; rear/regen/gun/laser/lightning/quiet/LOS/cubes/zone |
+| 1 | `try/zone-sheep` | `lh-zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | silent deep next-zone, heal hard, fight only when shot, no chase |
 | 2 | `try/cube-snowball` | `lh-cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm NPCs/crates/cubes to `stat_cap`, free fights only, never climb |
+
+`weapon-hunt` (fat loadout trees on snowball) **deprioritized** — scrap / don't submit over precise.
 
 ```sh
 git fetch --tags --force
-git checkout try/zone-sheep
+git checkout try/precise
 ```
 
-## Why sheep could be the 4.5 trick
+## Precise mechanics exploited
 
-1. Score is placement mean — not kills; dying 2–3 places later beats fancy DPS.
-2. Shared-vision hunters punish loud boost + roof silhouettes; sheep deletes both.
-3. Holding fire until shot keeps regen clock alive (45 HP/s after 5 s quiet).
-4. Deep next-zone paths avoid edge scrapes that eat early places.
-5. No chase ⇒ no tunnel vision into 2nd/3rd hunter while low.
+1. **Rear 1.5×** — orbit behind enemy aim; face threat so we don't give rear
+2. **Regen** — stop firing with no LOS / HEAL dumps laser into dirt; don't reset 5s for nothing
+3. **Gun** — hold trigger when aimed; lead; dual-aim with laser (no mortar skyfire)
+4. **Laser** — charge only on target; release on target; no telegraph miss
+5. **Lightning** — close to cone range; chain when NPCs nearby
+6. **Quiet** — no boost in zone unless escaping; walk under step_speed
+7. **LOS** — don't chase; strafe/hold for clear shot; spray sound through canopy (trees ≠ walls)
+8. **Cubes** — scoop when walking by (≤8 m); no farm campaign
+9. **Zone** — next-center bias; don't die to storm
+
+Fight rule: 1 visible + (flank/rear OR HP edge) → take; 2+ → cover; if shot → return fire.

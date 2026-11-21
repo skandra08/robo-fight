@@ -71,11 +71,12 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 ## Trying variants
 
-**Simple placement** (submit these — see `STRATEGY_SIMPLE.md`):
+**Mechanics-first / simple** (see `STRATEGY_SIMPLE.md`):
 
 | # | label | Bot.name | tag | full hash | try this if… |
 | --- | --- | --- | --- | --- | --- |
-| 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | **submit first** — quiet deep next-zone, heal, never start fights |
+| 0 | precise | lh-precise | `try/precise` | _(fill after push)_ | **mechanics-first** — thin ARM→zone→fight, low-level exploits |
+| 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | quiet deep next-zone, heal, never start fights |
 | 2 | cube-snowball | lh-cube-snowball | `try/cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm cubes → tanky free fights |
 
 ```sh

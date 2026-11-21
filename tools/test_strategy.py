@@ -626,6 +626,95 @@ def test_playbook_loot(bot: Bot) -> None:
     check(f"loot mid-range 1v1 → FIGHT (got {mode1})", mode1 == "FIGHT")
 
 
+
+def test_playbook_precise(bot: Bot) -> None:
+    if levers.playbook() != "precise":
+        print("  SKIP precise playbook")
+        return
+    check("precise Bot.name", Bot.name == "lh-precise")
+    check("precise no roof", not bot._wants_roof("laser"))
+    check("precise quiet arm", __import__("bot")._quiet_arm())
+    check("precise no chase", __import__("bot")._no_chase())
+    check("precise dual fire", __import__("bot")._dual_fire())
+    check("precise no cube farm campaign", not __import__("bot")._cube_farm())
+    rear = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [40.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],  # facing away → we are rear
+        "charging": False,
+        "hp": 900,
+        "max_hp": 1400,
+        "weapons": [],
+    }
+    obs = _base_obs(
+        mechs=[rear],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "hp": 1000.0,
+            "max_hp": 1000.0,
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "laser", "charge": 0, "cooldown": 0},
+            ],
+        },
+    )
+    obs["zone"]["next_center"] = [0.0, 0.0]
+    obs["zone"]["next_radius"] = 400.0
+    bot.mem.last_took_weapon_damage_t = -1e9
+    bot.mem.positioned = True
+    bot.mem.world_on_roof = False
+    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
+    check(f"precise takes rear 1v1 (got {mode})", mode == "FIGHT")
+
+    frontal = dict(rear)
+    frontal["aim"] = [math.pi, 0.0]  # facing us
+    frontal["hp"] = 1400
+    frontal["max_hp"] = 1400
+    # Match our frac so HP-edge does not fire — only rear/shot should.
+    self_even = dict(obs["self"])
+    self_even["hp"] = 1400.0
+    self_even["max_hp"] = 1400.0
+    obs_f = _base_obs(mechs=[frontal], self=self_even)
+    obs_f["zone"]["next_center"] = [0.0, 0.0]
+    obs_f["zone"]["next_radius"] = 400.0
+    bot.mem.last_took_weapon_damage_t = -1e9
+    mode_f = bot._select_mode(obs_f, "laser")  # type: ignore[arg-type]
+    check(f"precise skips aware frontal even HP (got {mode_f})", mode_f != "FIGHT")
+
+    low = dict(frontal)
+    low["hp"] = 300
+    obs_l = _base_obs(mechs=[low], self=obs["self"])
+    obs_l["zone"]["next_center"] = [0.0, 0.0]
+    obs_l["zone"]["next_radius"] = 400.0
+    mode_l = bot._select_mode(obs_l, "laser")  # type: ignore[arg-type]
+    check(f"precise takes HP-edge 1v1 (got {mode_l})", mode_l == "FIGHT")
+
+    e2 = {
+        "id": 5,
+        "kind": "mech",
+        "pos": [30.0, 20.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],
+        "charging": False,
+        "hp": 800,
+        "max_hp": 1400,
+        "weapons": [],
+    }
+    obs2 = _base_obs(mechs=[rear, e2], self=obs["self"])
+    obs2["zone"]["next_center"] = [0.0, 0.0]
+    obs2["zone"]["next_radius"] = 400.0
+    bot.mem.disengage_until = 0.0
+    bot.mem.mode = "CAMP"
+    mode2 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check(f"precise 2+ → DISENGAGE (got {mode2})", mode2 == "DISENGAGE")
+
+    bot.mem.last_took_weapon_damage_t = float(obs_f["t"])
+    mode_s = bot._select_mode(obs_f, "laser")  # type: ignore[arg-type]
+    check(f"precise return-fire when shot (got {mode_s})", mode_s == "FIGHT")
+
+
 def test_playbook_sheep(bot: Bot) -> None:
     if levers.playbook() != "zone-sheep":
         print("  SKIP zone-sheep playbook")
@@ -737,6 +826,7 @@ def main() -> int:
         test_playbook_classic,
         test_playbook_edge,
         test_playbook_loot,
+        test_playbook_precise,
         test_playbook_sheep,
         test_playbook_snowball,
         test_s1_roof,
