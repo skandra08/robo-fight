@@ -831,6 +831,13 @@ class Bot:
         if recent_dmg and visible:
             return "FIGHT"
 
+        # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
+        # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
+        # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
+        mid_climb = self.mem.mode == "RELOCATE" and not me.get("grounded")
+        if not recent_dmg and not mid_climb and self._cube_goal(obs, visible, enemy_d) is not None:
+            return "CUBE"
+
         # N3: after a kill, loot then heal to ≥90% when quiet.
         if levers.on("N3") and self.mem.post_kill_phase and not visible:
             if self.mem.post_kill_phase == "loot":
@@ -897,11 +904,6 @@ class Bot:
             else:
                 if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
                     return "FIGHT"
-
-        # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
-        # live matches). Scoop / break them whenever no hunter is close.
-        if not recent_dmg and self._cube_goal(obs, visible, enemy_d) is not None:
-            return "CUBE"
 
         if self._want_third(me, second, visible, t):
             return "THIRD"
