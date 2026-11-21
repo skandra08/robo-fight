@@ -499,6 +499,44 @@ def test_f1_detector(bot: Bot) -> None:
     check("F1 no FIGHT vs unaware 80m", mode != "FIGHT")
 
 
+def test_laser_lead_release(bot: Bot) -> None:
+    """protocol.md: laser is hitscan on release; torso slews — lead movers, don't release early."""
+    from combat import Combat  # noqa: WPS433
+
+    c: Combat = bot.combat  # type: ignore[attr-defined]
+    class _Mem:
+        last_mortar_t = -1e9
+        shots_here = 0
+        shots = 0
+        mortars_here = 0
+        mortars = 0
+
+    me = {
+        "pos": [0.0, 0.0, 1.0],
+        "aim": [0.0, 0.0],
+        "stats": {"turn_rate": 4.0, "pitch_rate": 4.0, "muzzle_height": 7.0},
+        "weapons": [None, {"kind": "laser", "charge": 0.3, "cooldown": 0}],
+    }
+    mover = {"pos": [80.0, 0.0, 1.0], "vel": [0.0, 11.7, 0.0], "cubes": 0}
+    static = {"pos": [80.0, 0.0, 1.0], "vel": [0.0, 0.0, 0.0], "cubes": 0}
+    lead = c.aim_at(me, mover, "laser")
+    direct = c.aim_at(me, static, "laser")
+    check("laser lead yaw ahead of strafer", lead[0] > math.radians(1.5))
+    check("laser static aim is direct", abs(direct[0]) < 1e-4)
+
+    me_full = dict(me)
+    me_full["weapons"] = [None, {"kind": "laser", "charge": 0.75, "cooldown": 0}]
+    desired = c.aim_at(me_full, mover, "laser")
+    me_off = dict(me_full)
+    me_off["aim"] = [desired[0] + math.radians(3.0), desired[1]]
+    fire_off, _, _ = c.fire_slots(me_off, desired, mover, 1.0, _Mem(), aim_kind="laser")
+    check("laser holds vs mover when 3° off (no early release)", fire_off[1] is True)
+    me_ok = dict(me_full)
+    me_ok["aim"] = list(desired)
+    fire_ok, _, _ = c.fire_slots(me_ok, desired, mover, 1.0, _Mem(), aim_kind="laser")
+    check("laser releases when locked on mover lead", fire_ok[1] is False)
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
@@ -515,6 +553,7 @@ def main() -> int:
         test_n5_farm,
         test_n6_drop1,
         test_f1_detector,
+        test_laser_lead_release,
     ]
     failed = 0
     for fn in tests:

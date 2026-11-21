@@ -152,10 +152,47 @@ class Combat:
             dx, dy, dz = tx - mx, ty - my, tz - mz
             horiz = math.hypot(dx, dy) or 1e-6
             return [math.atan2(dy, dx), math.atan2(dz, horiz)]
-        # laser / lightning / default: direct
+        if kind == "laser":
+            # Hitscan on release, but torso slews at turn_rate. Lead by remaining charge
+            # + slew time so when we unlock and let go, the beam meets a moving target.
+            return self._laser_lead_aim(me, [tx, ty, tz], tv)
+        # lightning / default: direct
         dx, dy, dz = tx - mx, ty - my, tz - mz
         horiz = math.hypot(dx, dy) or 1e-6
         return [math.atan2(dy, dx), math.atan2(dz, horiz)]
+
+    def _laser_lead_aim(
+        self, me: Dict[str, Any], target_com: Sequence[float], vel: Sequence[float]
+    ) -> List[float]:
+        """Aim where a moving target will be when torso can finish slewing onto them."""
+        mx, my, mz = self.muzzle(me)
+        tx, ty, tz = float(target_com[0]), float(target_com[1]), float(target_com[2])
+        vx, vy, vz = float(vel[0]), float(vel[1]), float(vel[2])
+        stats = me.get("stats") or {}
+        turn = max(0.05, float(stats.get("turn_rate", 4.0)))
+        pitch_rate = max(0.05, float(stats.get("pitch_rate", turn)))
+        need = float((self.weapons.get("laser") or {}).get("charge", 0.75))
+        charge = 0.0
+        for w in me.get("weapons") or []:
+            if w and w.get("kind") == "laser":
+                charge = float(w.get("charge") or 0.0)
+                break
+        remain = max(0.0, need - charge)
+        t_lead = remain
+        yaw = pitch = 0.0
+        for _ in range(3):
+            px = tx + vx * t_lead
+            py = ty + vy * t_lead
+            pz = tz + vz * t_lead
+            dx, dy, dz = px - mx, py - my, pz - mz
+            horiz = math.hypot(dx, dy) or 1e-6
+            yaw = math.atan2(dy, dx)
+            pitch = math.atan2(dz, horiz)
+            yaw_err = abs(_angdiff(me["aim"][0], yaw))
+            pitch_err = abs(float(me["aim"][1]) - pitch)
+            t_slew = max(yaw_err / turn, pitch_err / pitch_rate)
+            t_lead = remain + min(t_slew, 0.45)
+        return [yaw, pitch]
 
     def _mortar_arc_clear(
         self, mx: float, my: float, mz: float, px: float, py: float, pz: float, theta: float, v: float
@@ -288,10 +325,24 @@ class Combat:
                 # Charging while way off-target telegraphs + risks hold_s auto-fire the wrong way.
                 # Only pull the trigger when roughly aligned; if already charging, keep holding
                 # until we can release on-target (releasing early also fires along current aim).
+                # Vs movers: require full charge + tighter lock — don't release early at need-0.02 / 4°.
                 charge = float(w.get("charge") or 0)
                 need = float((self.weapons.get("laser") or {}).get("charge", 0.75))
                 charging = charge > 0.02
-                if charge >= need - 0.02 and laser_aimed:
+                lat = 0.0
+                if target:
+                    tv = target.get("vel") or [0.0, 0.0, 0.0]
+                    dx = float(target["pos"][0]) - float(me["pos"][0])
+                    dy = float(target["pos"][1]) - float(me["pos"][1])
+                    d = math.hypot(dx, dy) or 1e-6
+                    lat = abs(dx * float(tv[1]) - dy * float(tv[0])) / d
+                if lat > 2.0:
+                    ready = charge >= need
+                    on_tgt = self.aligned(me, desired_aim, 2.0)
+                else:
+                    ready = charge >= need - 0.02
+                    on_tgt = laser_aimed
+                if ready and on_tgt:
                     fire[i] = False  # release on target
                 elif charging or laser_close:
                     fire[i] = True
