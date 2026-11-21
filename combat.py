@@ -264,8 +264,8 @@ class Combat:
                     reload = True
             return fire, reload, None
 
-        # Slightly wider than 2° so torso slew still sustains gun DPS.
-        aimed = self.aligned(me, desired_aim, 4.0)
+        # gun-aim-widen: hold trigger at 6° so torso slew keeps DPS up in close brawls.
+        aimed = self.aligned(me, desired_aim, 6.0)
         laser_close = self.aligned(me, desired_aim, 15.0)  # start/keep charge only when roughly on target
         laser_aimed = self.aligned(me, desired_aim, 4.0)
 
