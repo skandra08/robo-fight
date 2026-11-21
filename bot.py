@@ -691,7 +691,7 @@ class Bot:
         if second == "lightning" and _slot_of(me, "lightning") is not None:
             lo, hi = 20.0, 40.0
         if finishing:
-            lo = 25.0
+            lo = 12.0  # 381: crash closer on nearly-dead
         if not clear:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
