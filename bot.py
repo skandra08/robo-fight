@@ -1210,6 +1210,36 @@ class Bot:
         side = bearing + (math.pi / 2) * self.mem.strafe_sign
         act["move"] = [math.cos(side) * 0.6, math.sin(side) * 0.6]
 
+    def _no_chase_move(
+        self,
+        me: Dict[str, Any],
+        t: float,
+        bearing: float,
+        clear: bool,
+    ) -> List[float]:
+        """When 2+ hunters: never close distance — hold roof or half-speed strafe."""
+        side = bearing + (math.pi / 2) * self.mem.strafe_sign
+        half = [math.cos(side) * 0.5, math.sin(side) * 0.5]
+        if not self.mem.world_on_roof:
+            return half
+        roof = self.cover.roof(self.mem.roof_id) if self.mem.roof_id is not None else None
+        if roof is None:
+            rid = self.world.roof_at(me["pos"][0], me["pos"][1])
+            self.mem.roof_id = rid
+            roof = self.cover.roof(rid) if rid is not None else None
+        if roof is None:
+            return half
+        if clear:
+            fp = self.cover.best_firing(roof, bearing)
+            if fp and math.dist(me["pos"][:2], fp[:2]) > 1.5:
+                move, _ = self.nav.steer(me, fp, 0.5, t)
+                return move
+            return [0.0, 0.0]
+        speed = math.hypot(me["vel"][0], me["vel"][1])
+        if speed > 2.0:
+            return half
+        return [0.0, 0.0]
+
     def _do_fight(
         self,
         obs: mf.Observation,
@@ -1313,6 +1343,17 @@ class Bot:
 
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
+
+        # sim20-hybrid: never chase when 2+ hunters visible (hold / half-strafe; still shoot).
+        if len(enemies) >= 2:
+            act["move"] = self._no_chase_move(me, t, bearing, clear)
+            act["boost"] = False
+            moving = math.hypot(act["move"][0], act["move"][1]) > 0.05
+            self.nav.update_stuck(me, t, moving)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
+                act["boost"] = True
+            return
 
         # Laser on roof: hold firing edge for vision.
         if second == "laser" and self.mem.world_on_roof:
