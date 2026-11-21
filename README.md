@@ -89,7 +89,10 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 11 | ffa | lh-ffa | `try/ffa` | `450ebfc7de4762023ff99d4f6cb1c1a2d9bafb8f` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
 | 12 | r3-core | lh-r3-core | `try/r3-core` | `3737f2636dde5ec00e880ca0201142b1ed2c1f77` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
 | 13 | r3-full | lh-r3-full | `try/r3-full` | `b4d6e37c727f7125bbf8c8087475b7a99fcaf910` | all S/N/F levers (= main) | full plan in one submit |
+| 14 | pivot-sticky-reach | lh-pivot-sticky-reach | `try/pivot-sticky-reach` | *(tag tip)* | **S1+N1** + sticky CUBE 2s + killreach (locked-proc off best-265) | first fleet pivot; early-ditch @≪2.3; see `docs/LOCKED_PROC.md` |
 
 Prior A/B (still on origin): `try/camp-hold`, `try/arm-first`, `try/fight-ready`, `try/third-armed`, `try/no-third`.
+
+Offline proxy / careful play WS: `python3 tools/offline_proxy.py`; `python3 tools/play_ws_harness.py` (max 1–3; do not spam the shared lobby).
 
 Verify: `python3 tools/test_strategy.py` then `python3 check/check.py -- python3 -u bot.py`.
