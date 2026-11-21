@@ -109,7 +109,13 @@ WAKE_T = 150.0
 HEAL_SILENT = False  # HEAL: the always-fire overlay only shoots back while we're being hit
 REGEN_FIRST = False  # below REGEN_HP and not under fire: heal (silent, out of sight) before anything else
 REGEN_HP = 0.85
-REGEN_QUIET_S = 3.0  # "not under fire" = no weapon hit on us for this long
+REGEN_QUIET_S = 3.0
+# Snowball (Sameer): each cube is +4% HP and +4% damage up to 10, plus upgrades at 1/3/6/10.
+# At 10 cubes a duel is ~2.5x in our favour. Below SNOW_CUBES: farm, only fight what hits us,
+# never wake far mechs. At or above: go hunting, retreat only at SNOW_RETREAT.
+SNOW_CUBES = 0  # 0 = off
+SNOW_RETREAT = 0.25
+SNOW_HUNT = True  # above the threshold, also chase remembered mechs (not just visible ones)  # "not under fire" = no weapon hit on us for this long
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -344,7 +350,9 @@ class Bot:
         mechs = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
         hit_by_mech = t - self._mech_hit_last_t < 1.5
         target = self._fight_target(me, mechs, t)
-        if target is not None and t < FARM_FIGHT_S:
+        snow_pre = SNOW_CUBES > 0 and int(me.get("cubes") or 0) < SNOW_CUBES
+        snow_on = SNOW_CUBES > 0 and not snow_pre
+        if target is not None and (t < FARM_FIGHT_S or snow_pre):
             # Farm first: the showdown winner farmed ~60 s before fighting a mech.
             if t - self._mech_hit_last_t > 3.0 and _d2(target["pos"], me["pos"]) > ENGAGE_NEAR:
                 target = None
@@ -375,7 +383,7 @@ class Bot:
         # Back off to heal when low, unless the target is about to die.
         if mechs or hit_by_mech or target is not None:
             finishing = target is not None and self._nearly_dead(target)
-            if LAST_STAND and target is not None and not finishing and t - self._gang_t > GANG_WIN:
+            if (LAST_STAND or snow_on) and target is not None and not finishing and t - self._gang_t > GANG_WIN:
                 # A lone duel we are ahead in: running hands them free (rear x1.5) shots.
                 thp = target.get("hp")
                 if (thp is not None and _d2(target["pos"], me["pos"]) < LAST_STAND_D
@@ -387,7 +395,7 @@ class Bot:
                 return "HEAL"
             if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP * 0.85 and not finishing:
                 return "HEAL"
-            if hp_frac < RETREAT_HP and not finishing:
+            if hp_frac < (SNOW_RETREAT if snow_on else RETREAT_HP) and not finishing:
                 return "HEAL"
             if target is not None:
                 return "FIGHT"
@@ -402,6 +410,17 @@ class Bot:
                     return "FARM"
                 return "HEAL"
 
+        if snow_on and SNOW_HUNT and hp_frac > 0.6:
+            best, bd = None, 260.0
+            for e in self.mem.enemies.values():
+                if t - float(e.get("last_seen_t", -1e9)) < 3 * self.memory_s:
+                    d = _d2(e["pos"], me["pos"])
+                    if d < bd:
+                        best, bd = e, d
+            if best is not None:
+                self._target_id = int(best["id"])
+                return "FIGHT"
+
         if airborne_climb:
             return "ROOF"
         if self._farm_goal(obs, mechs, t) is not None:
@@ -415,6 +434,10 @@ class Bot:
         if d <= WAKE_D or self._nearly_dead(m):
             return False
         mid = int(m["id"])
+        if SNOW_CUBES > 0 and self._me is not None:
+            if int(self._me.get("cubes") or 0) >= SNOW_CUBES:
+                return False
+            return t - self._hit_by.get(mid, -1e9) > WAKE_MEM
         if WAKE_WHEN == "early" and t > WAKE_T:
             return False
         if WAKE_WHEN == "busy":
