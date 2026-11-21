@@ -127,14 +127,13 @@ class Bot:
         else:  # CAMP
             self._do_camp(obs, act)
 
-        # NPC / drop avoidance nudge
-        self._avoid(obs, act)
+        # Avoid must not override fight or climb movement.
+        climbing = bool(act.get("boost") or act.get("jump")) and mode == "RELOCATE"
+        if mode not in ("FIGHT", "COUNTER_LASER") and not climbing:
+            self._avoid(obs, act)
 
         ms = (time.perf_counter() - t_act0) * 1000
         self.mem.max_act_ms = max(self.mem.max_act_ms, ms)
-        if ms > 25:
-            # return what we have
-            pass
         return act  # type: ignore[return-value]
 
     def _select_mode(self, obs: mf.Observation) -> str:
@@ -159,16 +158,18 @@ class Bot:
         recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
         visible_enemies = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
         clear = any(self.combat.clear_shot(me, m["pos"]) for m in visible_enemies)
-        if (visible_enemies and clear) or recent_dmg:
-            if self.mem.world_on_roof and (hp_frac < 0.5 or len(visible_enemies) >= 2):
-                return "HEAL"
-            if (not self.mem.world_on_roof) and hp_frac < 0.35:
-                # if enemy healthier, heal — approximate
-                return "HEAL"
+        under_fire = recent_dmg or (bool(visible_enemies) and clear)
+        # Never HEAL while being shot or while we have a shootable target — regen
+        # can't start under damage, and practice score needs kills.
+        if under_fire:
             return "FIGHT"
 
-        if hp_frac < 0.7 and t - self.mem.last_dealt_damage_t > 0.5:
-            # healing only if not actively trading
+        # Heal only when safe (no recent weapon hits / no clear fight).
+        safe_for_regen = (
+            t - self.mem.last_took_weapon_damage_t >= 5.0
+            and t - self.mem.last_dealt_damage_t >= 5.0
+        )
+        if safe_for_regen and hp_frac < 0.7:
             if self.mem.world_on_roof or hp_frac < 0.55:
                 return "HEAL"
 
@@ -277,7 +278,7 @@ class Bot:
 
     def _do_heal(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
-        # don't fire
+        # don't fire (dealing damage resets regen)
         act["fire"] = [False, False]
         if self.mem.last_threat_bearing is not None:
             act["aim"] = [self.mem.last_threat_bearing, -0.05]
@@ -295,12 +296,22 @@ class Bot:
             else:
                 act["move"] = [0.0, 0.0]
         else:
+            # cover.bin may be empty — never freeze in place.
             spot = self.cover.ground_spot(me["pos"], obs["zone"]["center"], float(obs["zone"]["radius"]))
-            if spot:
-                move, _ = self.nav.steer(me, spot, 0.8)
-                act["move"] = move
-            else:
-                act["move"] = [0.0, 0.0]
+            if spot is None:
+                if self.mem.last_threat_bearing is not None:
+                    # drift away from last threat toward zone interior
+                    away = self.mem.last_threat_bearing + math.pi
+                    spot = [
+                        me["pos"][0] + math.cos(away) * 25.0,
+                        me["pos"][1] + math.sin(away) * 25.0,
+                    ]
+                else:
+                    spot = self.nav.zone_goal(obs["zone"], me["pos"], 0.5)
+            move, yaw = self.nav.steer(me, spot, 0.6)
+            act["move"] = move
+            if "aim" not in act:
+                act["aim"] = [yaw, -0.05]
 
     def _do_arm(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
@@ -392,14 +403,8 @@ class Bot:
                 act["aim"] = [yaw, -0.05]
             return
 
-        if enemies:
-            # wait / approach from cover without jetting
-            goal = climb or roof["center"]
-            move, yaw = self.nav.steer(me, goal, 0.5)
-            act["move"] = move
-            act["aim"] = [yaw, -0.05]
-            return
-
+        # Climb even with enemies visible — waiting at the base is free kills for hunters.
+        # Overlay return fire when we have a clear shot.
         if climb:
             self.mem.climb_target = climb
             climb_act = self.nav.climb_action(me, roof, climb, t)
@@ -410,6 +415,8 @@ class Bot:
             act["aim"] = [yaw, 0.15]
             act["jump"] = bool(me.get("grounded"))
             act["boost"] = True
+        if enemies:
+            self._try_fight_overlay(obs, act)
 
     def _do_camp(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]

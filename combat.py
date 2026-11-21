@@ -142,7 +142,6 @@ class Combat:
         reload = False
         weapons = me.get("weapons") or [None, None]
         if not target:
-            # early reload gun
             gun = weapons[0]
             if gun and gun.get("kind") == "gun":
                 ammo = gun.get("ammo", 12)
@@ -150,44 +149,42 @@ class Combat:
                     reload = True
             return fire, reload, None
 
-        if not self.aligned(me, desired_aim, 2.0):
-            return fire, reload, None
+        aimed = self.aligned(me, desired_aim, 2.0)
+        laser_aimed = self.aligned(me, desired_aim, 3.0)
 
-        # prefer laser in either slot
         for i, w in enumerate(weapons):
             if not w:
                 continue
             kind = w["kind"]
             cd = float(w.get("cooldown") or 0)
             if kind == "laser":
+                # Hold through the whole charge even if aim drifts — releasing early
+                # fires along the current torso aim at the wrong target.
                 charge = float(w.get("charge") or 0)
                 need = float((self.weapons.get("laser") or {}).get("charge", 0.75))
-                # hold trigger to charge; release when full by not firing next — but we only get
-                # binary fire per decision. Hold fire True while charging; when full and aligned,
-                # set False for one tick... Protocol: hold to charge, let go to fire.
-                # So: fire True until charge >= need, then fire False once.
-                if charge >= need - 0.02 and self.aligned(me, desired_aim, 3.0):
-                    fire[i] = False  # release
+                if charge >= need - 0.02 and laser_aimed:
+                    fire[i] = False  # release only when full and on target
                 else:
-                    fire[i] = True  # charge / keep
+                    fire[i] = True  # keep charging / wait for alignment
                 continue
-            if kind == "gun" and cd <= 0:
+            if kind == "gun":
+                # Hold the trigger whenever aimed: server fires at exact cooldown rate.
+                # Gating on cooldown==0 only shoots every ~0.3s instead of 0.24s.
                 ammo = w.get("ammo", 1)
-                if ammo is None or ammo > 0:
+                if aimed and (ammo is None or ammo > 0):
                     fire[i] = True
                     mem.shots_here += 1
                     mem.shots += 1
-                elif w.get("reload", 0) == 0:
+                elif aimed and ammo is not None and ammo <= 0 and w.get("reload", 0) == 0:
                     reload = True
-            if kind == "lightning" and cd <= 0:
+            if kind == "lightning" and aimed and cd <= 0:
                 rng = float((self.weapons.get("lightning") or {}).get("range", 45))
                 cone = math.radians(float((self.weapons.get("lightning") or {}).get("cone_deg", 30)) / 2)
                 d = math.dist(me["pos"][:2], target["pos"][:2])
                 bearing = math.atan2(target["pos"][1] - me["pos"][1], target["pos"][0] - me["pos"][0])
                 if d <= rng and abs(_angdiff(me["aim"][0], bearing)) <= cone:
                     fire[i] = True
-            if kind == "mortar" and cd <= 0 and t - mem.last_mortar_t >= 4.0:
-                # only if aim looks like mortar pitch
+            if kind == "mortar" and aimed and cd <= 0 and t - mem.last_mortar_t >= 4.0:
                 if desired_aim[1] > 0.25:
                     fire[i] = True
                     mem.last_mortar_t = t

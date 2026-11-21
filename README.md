@@ -7,6 +7,7 @@ Mech Royale bot: arm (laser > mortar > lightning), climb a roof inside the zone,
 | Ver | Change | Notes |
 | --- | --- | --- |
 | v1.0 | First implementation of Rooftop Camper design | world + precomputed roofs/cover, state machine, gun/laser/mortar, ARM→RELOCATE→CAMP |
+| v1.1 | Fix heal-under-fire, gun hold, laser release, climb, avoid | Never HEAL while shot; hold gun trigger when aimed; keep laser charged if aim drifts; climb with enemies visible; avoid skips FIGHT/climb; ground HEAL keeps moving |
 
 ## Local check
 
