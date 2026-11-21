@@ -1161,10 +1161,23 @@ class Bot:
             self._esc_ref_d = d_c
         elif t - self._esc_ref_t > 1.5:
             if self._esc_ref_d - d_c < 3.0:
-                self._esc_jet_until = t + 3.0
+                # Stalled. Jet over the obstacle only with a near-full tank (a 12% tank
+                # gets ~9 m and we bounced off the same wall for 40 s in the sim). Otherwise
+                # walk along the wall, switching sides each time a detour also stalls.
+                if efrac >= 0.85:
+                    self._esc_jet_until = t + 3.0
+                else:
+                    self._esc_side = -getattr(self, "_esc_side", 1.0)
+                    self._esc_detour_until = t + 2.5
             self._esc_ref_t = t
             self._esc_ref_d = d_c
-        if t < self._esc_jet_until and (efrac > 0.12 or not me.get("grounded")):
+        if t < getattr(self, "_esc_detour_until", -1.0) and t >= self._esc_jet_until:
+            direct = math.atan2(goal[1] - me["pos"][1], goal[0] - me["pos"][0])
+            side = direct + self._esc_side * math.radians(80)
+            act["move"] = [math.cos(side), math.sin(side)]
+            act["boost"] = False
+            act["aim"] = [side, -0.05]
+        elif t < self._esc_jet_until and (efrac > 0.12 or not me.get("grounded")):
             direct = math.atan2(goal[1] - me["pos"][1], goal[0] - me["pos"][0])
             act["move"] = [math.cos(direct), math.sin(direct)]
             act["jump"] = bool(me.get("grounded"))
