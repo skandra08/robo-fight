@@ -15,14 +15,14 @@ from nav import Navigator
 from world import World
 
 UPGRADE_PRIORITY = [
-    "armor",
-    "plating",
     "nanites",
+    "plating",
+    "armor",
+    "gun_rate",
+    "gun_damage",
     "laser_damage",
     "laser_charge",
     "mortar_reload",
-    "gun_damage",
-    "gun_rate",
     "jets",
     "capacitor",
     "sensors",
