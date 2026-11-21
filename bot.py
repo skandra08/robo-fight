@@ -916,8 +916,34 @@ class Bot:
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
+        # stickycubes-fight-only: latch sticky CUBE for 2s only after a fight (recent weapon
+        # damage or post-kill), never during the early farm window — farm flicker is fine.
         mid_climb = self.mem.mode == "RELOCATE" and not me.get("grounded")
-        if not recent_dmg and not mid_climb and self._cube_goal(obs, visible, enemy_d) is not None:
+        fight_sticky_ok = (
+            t >= 75.0
+            and (
+                t - self.mem.last_took_weapon_damage_t < 8.0
+                or t - self.mem.last_dealt_damage_t < 8.0
+                or bool(self.mem.post_kill_phase)
+                or (self.mem.post_kill_pos is not None and t - self.mem.post_kill_t < 30.0)
+            )
+        )
+        cube_goal = None if (recent_dmg or mid_climb) else self._cube_goal(obs, visible, enemy_d)
+        if cube_goal is not None:
+            if fight_sticky_ok:
+                self._cube_sticky_until = t + 2.0
+                self._cube_sticky_target = dict(cube_goal)
+            return "CUBE"
+        sticky = getattr(self, "_cube_sticky_target", None)
+        if (
+            fight_sticky_ok
+            and not recent_dmg
+            and not mid_climb
+            and self.mem.mode == "CUBE"
+            and sticky is not None
+            and t < getattr(self, "_cube_sticky_until", -1e9)
+        ):
+            self._cube_target = dict(sticky)
             return "CUBE"
 
         # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us.
