@@ -148,10 +148,13 @@ def test_farm(md: str) -> None:
 def test_supply(md: str) -> None:
     bot = fresh(md)
     drop = {"id": 20000, "pos": [30.0, -20.0, 1.3], "radius": 8, "lands_in": 2.0, "capture_s": 4, "progress": 0, "holder": None}
-    check("reachable supply drop -> SUPPLY", mode_of(bot, _obs(drops=[drop])) == "SUPPLY")
+    hurt = {"hp": 600.0}  # rwm-sup50: drops are taken when hurt (a drop is a full heal)
+    check("reachable supply drop when hurt -> SUPPLY", mode_of(bot, _obs(self=hurt, drops=[drop])) == "SUPPLY")
+    bot = fresh(md)
+    check("reachable supply drop at full HP -> not SUPPLY", mode_of(bot, _obs(drops=[drop])) != "SUPPLY")
     far = dict(drop, lands_in=25.0)
     bot = fresh(md)
-    check("drop landing much later than we'd arrive -> not yet", mode_of(bot, _obs(drops=[far])) != "SUPPLY")
+    check("drop landing much later than we'd arrive -> not yet", mode_of(bot, _obs(self=hurt, drops=[far])) != "SUPPLY")
 
 
 def test_fight(md: str) -> None:
