@@ -1385,7 +1385,16 @@ class Bot:
         best = None
         best_d = 1e9
         # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 100.0 if not visible else min(60.0, enemy_d * 0.4)
+        # Safe killreach (sim3): extend post-kill reach ONLY when healthy + quiet.
+        # Raw killreach over-walked after fights → early gun/lightning deaths (Agent 3 ditch).
+        fresh_kill = t - self.mem.post_kill_t < 25.0
+        hp_frac = float(me["hp"]) / max(1.0, float(me["max_hp"]))
+        recent_dmg = t - self.mem.last_took_weapon_damage_t < 4.0
+        safe_reach = fresh_kill and (not visible) and hp_frac >= 0.70 and not recent_dmg
+        if not visible:
+            reach = 130.0 if safe_reach else 100.0
+        else:
+            reach = min(60.0, enemy_d * 0.4)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
@@ -1396,11 +1405,14 @@ class Bot:
             pk = self.mem.post_kill_pos
             d = math.dist(pk[:2], (mx, my))
             fresh = t - self.mem.post_kill_t < 30.0
-            if fresh and d > self.cube_r and d < 170.0 and pk[2] - mz < 3.0 and (not visible or enemy_d > d + 80.0):
+            site_lim = 200.0 if (safe_reach and hp_frac >= 0.75) else 170.0
+            site_ok = (not visible and hp_frac >= 0.70 and not recent_dmg) or enemy_d > 90.0
+            if fresh and d > self.cube_r and d < site_lim and pk[2] - mz < 3.0 and site_ok:
                 best = {"kind": "site", "pos": list(pk)}
             elif not fresh or d <= self.cube_r:
                 self.mem.post_kill_pos = None
-        if best is None and enemy_d > 130.0:
+        crate_ok_d = 100.0 if safe_reach else 130.0
+        if best is None and enemy_d > crate_ok_d:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
                 if d > 150.0 or d < 1.0:
