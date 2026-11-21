@@ -76,7 +76,7 @@ ZONE_IN_HOLD = 0.75  # ...and while already heading in
 ZONE_SLACK_S = 20.0  # rwm: start heading in with this many seconds of slack
 SUPPLY_MAX_D = 450.0  # rwm: farthest supply drop we walk to
 SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than this (0 = never)
-SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
+SUPPLY_MIN_HP = 0.5  # rwm: only go for supply below this HP fraction (a drop is a full heal; healthy runs cost time)
 SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
 
