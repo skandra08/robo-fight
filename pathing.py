@@ -163,6 +163,8 @@ class PathGrid:
         """Resumable A*: send() a perf_counter deadline; yields "more" when it ran out of time,
         returns the waypoint list (or None) via StopIteration."""
         deadline = yield "more"
+        # An int is a node budget (deterministic: sim reruns match); a float a perf_counter deadline.
+        stop_n = deadline if isinstance(deadline, int) else None
         grid = self.blocked
         nx = self.nx
         s = self._free_near(*self.cell(a[0], a[1]), grid)
@@ -191,8 +193,13 @@ class PathGrid:
             n += 1
             if n > max_nodes:
                 break
-            if n & 127 == 0 and time.perf_counter() > deadline:
+            if stop_n is not None:
+                if n >= stop_n:
+                    deadline = yield "more"
+                    stop_n = n + deadline if isinstance(deadline, int) else None
+            elif n & 127 == 0 and time.perf_counter() > deadline:
                 deadline = yield "more"
+                stop_n = n + deadline if isinstance(deadline, int) else None
             ki, kj = k % nx, k // nx
             ck = cost[k]
             hk = hts[k]

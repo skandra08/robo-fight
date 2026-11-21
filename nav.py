@@ -53,7 +53,7 @@ class Navigator:
                 self._search_goal = sg
                 next(self._search)
             try:
-                self._search.send(time.perf_counter() + 0.006)
+                self._search.send(1024)  # node budget per decision: deterministic, ~3-5 ms
                 return goal  # still searching: keep local steering meanwhile
             except StopIteration as e:
                 path = e.value
