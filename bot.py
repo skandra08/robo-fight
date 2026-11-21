@@ -1384,8 +1384,9 @@ class Bot:
         mx, my, mz = me["pos"]
         best = None
         best_d = 1e9
-        # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 100.0 if not visible else min(60.0, enemy_d * 0.4)
+        # Opening (no hunter seen yet): farm harder — early cubes compound (farm-open pivot).
+        opening = t < 60.0 and not self.mem.enemies and not visible
+        reach = (150.0 if opening else 100.0) if not visible else min(60.0, enemy_d * 0.4)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
@@ -1403,7 +1404,7 @@ class Bot:
         if best is None and enemy_d > 130.0:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
-                if d > 150.0 or d < 1.0:
+                if d > (215.0 if opening else 150.0) or d < 1.0:
                     continue
                 center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
                 if self.world.blocked_segment(self.combat.muzzle(me), center, step=2.0):
