@@ -499,6 +499,65 @@ def test_f1_detector(bot: Bot) -> None:
     check("F1 no FIGHT vs unaware 80m", mode != "FIGHT")
 
 
+def test_isolate_1v1(bot: Bot) -> None:
+    """Only take 1v1s when isolated (no second hunter LOS); otherwise DISENGAGE."""
+    bot.mem.ffa = False
+    bot.mem.post_kill_phase = None
+    bot.mem.post_kill_pos = None
+    bot.mem.unexplained_alive_drops = 0
+    bot.mem.alive_prev = None
+    bot.mem.disengage_until = 0.0
+    bot.mem.disengage_rearm_t = -1e9
+    bot.mem.fight_start_t = -1e9
+    bot.mem.mode = "CAMP"
+    bot.mem.positioned = True
+    bot.mem.world_on_roof = True
+
+    h1 = {
+        "id": 11,
+        "kind": "mech",
+        "pos": [40.0, 0.0, 15.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],  # looking at us → aware
+        "charging": False,
+        "hp": 800,
+        "weapons": [],
+    }
+    h2 = {
+        "id": 12,
+        "kind": "mech",
+        "pos": [35.0, 25.0, 15.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 800,
+        "weapons": [],
+    }
+    armed = {
+        "pos": [0.0, 0.0, 15.0],
+        "hp": 900.0,
+        "max_hp": 1000.0,
+        "weapons": [
+            {"kind": "gun", "ammo": 30, "cooldown": 0},
+            {"kind": "laser", "charge": 0, "cooldown": 0},
+        ],
+    }
+    # Past early farm window; under fire so FIGHT would otherwise win.
+    bot.mem.last_took_weapon_damage_t = 90.0
+    obs1 = _base_obs(t=91.0, mechs=[h1], self=armed)
+    mode1 = bot._select_mode(obs1, "laser")  # type: ignore[arg-type]
+    check("isolate: single hunter LOS → FIGHT", mode1 == "FIGHT")
+
+    bot.mem.mode = "FIGHT"
+    bot.mem.disengage_until = 0.0
+    bot.mem.last_took_weapon_damage_t = 90.0
+    obs2 = _base_obs(t=91.2, mechs=[h1, h2], self=armed)
+    mode2 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check("isolate: second hunter LOS → DISENGAGE", mode2 == "DISENGAGE")
+    check("isolate: _should_disengage on 2 LOS", bot._should_disengage(obs2["self"], [h1, h2], 91.2))
+    check("isolate: _should_disengage false on 1 LOS", not bot._should_disengage(obs2["self"], [h1], 91.2))
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
@@ -515,6 +574,7 @@ def main() -> int:
         test_n5_farm,
         test_n6_drop1,
         test_f1_detector,
+        test_isolate_1v1,
     ]
     failed = 0
     for fn in tests:

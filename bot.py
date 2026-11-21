@@ -418,7 +418,11 @@ class Bot:
         return False
 
     def _should_disengage(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
-        # R2 (practice): DISENGAGE off. F1 re-enables with R2 safeguards when mem.ffa.
+        # Isolate-1v1: never stay in a fight when a second hunter has LOS. Visible mechs
+        # are vision/LOS contacts — two or more means we are not isolated → break contact.
+        if len(visible) >= 2:
+            return True
+        # R2 (practice): other DISENGAGE reasons off. F1 re-enables with safeguards when mem.ffa.
         if not (levers.on("F1") and self.mem.ffa):
             return False
         if t < self.mem.disengage_rearm_t:
@@ -430,9 +434,6 @@ class Bot:
         )
         if not in_fight and self.mem.mode not in ("FIGHT", "THIRD"):
             return False
-        # Another hunter appears and current opponent won't die soon.
-        if len(visible) >= 2 and not self._opponent_dies_soon(me, visible[:1], t):
-            return True
         # Lost substantial HP (~400) since fight start.
         if self.mem.fight_start_t > 0 and (self.mem.fight_start_hp - me["hp"]) >= 400:
             return True
