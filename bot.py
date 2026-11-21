@@ -104,6 +104,10 @@ class Bot:
         if levers.on("N5"):
             self.mem.cubes_want = self.cube_stat_cap
         self.mem.strafe_sign = 1.0 if self.mem.rand() > 0.5 else -1.0
+        self._esc_ref_t = -1.0
+        self._esc_ref_d = 0.0
+        self._esc_jet_until = -1.0
+        self._esc_last_t = -99.0
         self.mem.positioned = False
         elapsed = time.perf_counter() - t0
         mf.log(
@@ -1089,8 +1093,32 @@ class Bot:
         goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.65)
         move, yaw = self.nav.steer(me, goal, 1.0, t)
         act["move"] = move
-        act["boost"] = True
         act["aim"] = [yaw, -0.05]
+        efrac = float(me["energy"]) / max(1.0, float(me["max_energy"]))
+        # Local steering gets trapped (stadium bowl, courtyards, wall pockets) and the bot
+        # sat outside the zone for 40-60 s in live tests. Track progress toward the circle;
+        # if it stalls for 1.5 s, jet straight at the goal over whatever is in the way.
+        # Keep energy for that: ground boost only while energy is above half.
+        zc = obs["zone"]["center"]
+        d_c = math.hypot(me["pos"][0] - zc[0], me["pos"][1] - zc[1])
+        fresh = t - self._esc_last_t > 0.5
+        self._esc_last_t = t
+        if fresh:
+            self._esc_ref_t = t
+            self._esc_ref_d = d_c
+        elif t - self._esc_ref_t > 1.5:
+            if self._esc_ref_d - d_c < 3.0:
+                self._esc_jet_until = t + 3.0
+            self._esc_ref_t = t
+            self._esc_ref_d = d_c
+        if t < self._esc_jet_until and (efrac > 0.12 or not me.get("grounded")):
+            direct = math.atan2(goal[1] - me["pos"][1], goal[0] - me["pos"][0])
+            act["move"] = [math.cos(direct), math.sin(direct)]
+            act["jump"] = bool(me.get("grounded"))
+            act["boost"] = True
+            act["aim"] = [direct, -0.05]
+        else:
+            act["boost"] = efrac > 0.5 and bool(me.get("grounded"))
         self._try_fight_overlay(obs, act)
 
     def _do_counter_laser(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
