@@ -191,7 +191,7 @@ class Combat:
         tz = float(target_feet[2]) + 1.0
         vx, vy = float(vel[0]), float(vel[1])
         # iterate lead; damp long-flight lead so walking targets aren't aimed 70 m ahead
-        lead_cap = 15.0
+        lead_cap = 22.0  # 381: more lead for splash on movers
         px, py = tx, ty
         best: Optional[List[float]] = None
         for _ in range(3):
