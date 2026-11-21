@@ -924,7 +924,7 @@ class Bot:
             if time_left < 25.0 or hp_frac < 0.90:
                 return "HEAL"
 
-        if safe_for_regen and hp_frac < 0.65:
+        if safe_for_regen and hp_frac < 0.45:
             return "HEAL"
 
         if second is None:
