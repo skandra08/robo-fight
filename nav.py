@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import math
+
+import levers
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -53,7 +55,7 @@ class Navigator:
                 self._search_goal = sg
                 next(self._search)
             try:
-                self._search.send(time.perf_counter() + 0.006)
+                self._search.send(1024 if levers.on("P2") else time.perf_counter() + 0.006)
                 return goal  # still searching: keep local steering meanwhile
             except StopIteration as e:
                 path = e.value

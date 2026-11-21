@@ -160,9 +160,10 @@ class PathGrid:
         return None  # out of budget
 
     def search(self, a: Sequence[float], b: Sequence[float], max_nodes: int = 30000):
-        """Resumable A*: send() a perf_counter deadline; yields "more" when it ran out of time,
+        """Resumable A*: send() a perf_counter deadline or an int node budget; yields "more" when out,
         returns the waypoint list (or None) via StopIteration."""
         deadline = yield "more"
+        node_stop = deadline if isinstance(deadline, int) else 0
         grid = self.blocked
         nx = self.nx
         s = self._free_near(*self.cell(a[0], a[1]), grid)
@@ -191,8 +192,12 @@ class PathGrid:
             n += 1
             if n > max_nodes:
                 break
-            if n & 127 == 0 and time.perf_counter() > deadline:
-                deadline = yield "more"
+            if n & 127 == 0:
+                # An int is a node budget (deterministic: same moves every run, which the
+                # practice sim needs to compare builds); a float is a perf_counter deadline.
+                if (n >= node_stop) if isinstance(deadline, int) else (time.perf_counter() > deadline):
+                    deadline = yield "more"
+                    node_stop = n + deadline if isinstance(deadline, int) else 0
             ki, kj = k % nx, k // nx
             ck = cost[k]
             hk = hts[k]
