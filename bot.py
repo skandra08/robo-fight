@@ -205,6 +205,23 @@ class Bot:
         else:  # CAMP
             self._do_camp(obs, act, second)
 
+        # G1: every mode walks past weapons lying at our feet (20 of 48 sim matches never armed).
+        # With slot 1 empty, take any weapon within reach whatever we're doing.
+        if levers.on("G1") and second is None and act.get("take") is None:
+            best_k = None
+            for p in obs.get("pickups") or []:
+                if p.get("kind") == "gun":
+                    continue
+                if math.dist(p["pos"][:2], me["pos"][:2]) > self.loot_r - 0.3:
+                    continue
+                if abs(p["pos"][2] - me["pos"][2]) > 3.8:
+                    continue
+                k = {"laser": 3, "mortar": 2, "lightning": 1}.get(p.get("kind"), 0)
+                if best_k is None or k > best_k[0]:
+                    best_k = (k, p["id"])
+            if best_k is not None:
+                act["take"] = best_k[1]
+
         climbing = bool(act.get("boost") or act.get("jump")) and mode in ("RELOCATE", "ROTATE")
         # Bug #4: avoid walks off roofs / can steer ESCAPE back out of the zone.
         if (
