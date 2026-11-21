@@ -142,7 +142,7 @@ def test_farm(md: str) -> None:
     bot = fresh(md)
     check("nothing early -> FARM search", mode_of(bot, _obs()) == "FARM")
     bot = fresh(md)
-    check("nothing later -> ROOF", mode_of(bot, _obs(t=150.0, tick=3000)) == "ROOF")
+    check("nothing later -> FARM search, no roof camping", mode_of(bot, _obs(t=150.0, tick=3000)) == "FARM")
 
 
 def test_fight(md: str) -> None:

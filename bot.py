@@ -55,7 +55,7 @@ UPGRADE_PRIORITY = [
 WEAPON_RANK = {"laser": 3, "mortar": 2, "lightning": 1}
 
 # Tunables (one place, so variants are one-line changes).
-FARM_EARLY_S = 90.0  # before this, search the map for farm targets instead of camping
+FARM_EARLY_S = 1e9  # search for farm targets instead of roof camping (noroof 2.90 > g-zone 2.81)
 CUBE_GOAL = 45  # last upgrade threshold; keep collecting until here
 RETREAT_HP = 0.40  # back off to heal below this (in a fight)
 REST_HP = 0.70  # rest (stop shooting) below this when nobody is in view
@@ -65,8 +65,8 @@ BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 USE_PLANNER = True
-FARM_FIGHT_S = 60.0  # before this, only fight mechs that hit us or come close
-ENGAGE_NEAR = 70.0
+FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
+ENGAGE_NEAR = 0.0
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
 SEARCH_NEXT = True
@@ -284,7 +284,7 @@ class Bot:
         mechs = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
         hit_by_mech = t - self._mech_hit_last_t < 1.5
         target = self._fight_target(me, mechs, t)
-        if target is not None and t < FARM_FIGHT_S and int(me.get("cubes") or 0) < 6:
+        if target is not None and t < FARM_FIGHT_S:
             # Farm first: the showdown winner farmed ~60 s before fighting a mech.
             if t - self._mech_hit_last_t > 3.0 and _d2(target["pos"], me["pos"]) > ENGAGE_NEAR:
                 target = None
