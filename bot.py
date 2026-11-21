@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import mechfight as mf
 from combat import Combat
@@ -20,13 +20,18 @@ def _lightning_first() -> bool:
 
 
 def _quiet_arm() -> bool:
-    """No boost inside the zone while looting (sheep/snowball/edge / S3)."""
-    return levers.playbook() in ("edge-hunter", "zone-sheep", "cube-snowball") or levers.on("S3")
+    """No boost inside the zone while looting (sheep/snowball/hunt/edge / S3)."""
+    return levers.playbook() in (
+        "edge-hunter",
+        "zone-sheep",
+        "cube-snowball",
+        "weapon-hunt",
+    ) or levers.on("S3")
 
 
 def _cube_farm() -> bool:
-    """Farm NPCs/crates/cubes to stat_cap (cube-snowball playbook / N5)."""
-    return levers.playbook() == "cube-snowball" or levers.on("N5")
+    """Farm NPCs/crates/cubes to stat_cap (snowball / weapon-hunt / N5)."""
+    return levers.playbook() in ("cube-snowball", "weapon-hunt") or levers.on("N5")
 
 
 def _no_chase() -> bool:
@@ -35,8 +40,14 @@ def _no_chase() -> bool:
 
 
 def _ground_only() -> bool:
-    """Never climb roofs (sheep / snowball / edge / loot)."""
-    return levers.playbook() in ("edge-hunter", "loot-brawl", "zone-sheep", "cube-snowball")
+    """Never climb roofs (sheep / snowball / hunt / edge / loot). No S1 soup."""
+    return levers.playbook() in (
+        "edge-hunter",
+        "loot-brawl",
+        "zone-sheep",
+        "cube-snowball",
+        "weapon-hunt",
+    )
 
 UPGRADE_PRIORITY = [
     "armor",
@@ -304,8 +315,9 @@ class Bot:
             if self.mem.loadout_goal and math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 16.0:
                 return not self.mem.world_on_roof
             return False
-        if pb in ("zone-sheep", "cube-snowball"):
-            return self._deep_zone_ok(me, zone, 0.50 if pb == "cube-snowball" else 0.45)
+        if pb in ("zone-sheep", "cube-snowball", "weapon-hunt"):
+            frac = 0.45 if pb == "zone-sheep" else 0.50
+            return self._deep_zone_ok(me, zone, frac)
         if self.mem.positioned and self.mem.loadout_goal:
             if math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 18.0:
                 return True
@@ -740,13 +752,14 @@ class Bot:
     def _farmable_drone(self, obs: mf.Observation) -> Optional[Dict[str, Any]]:
         """NPC drone inside zone for cube farming.
 
-        N5: 45–80 m (outside aggro). cube-snowball: 12–95 m (kill ASAP).
+        N5: 45–80 m. cube-snowball: 12–95 m. weapon-hunt: loadout band.
         """
         me = obs["self"]
         z = obs["zone"]
         zc, zr = z["center"], float(z["radius"])
-        aggressive = levers.playbook() == "cube-snowball"
-        d_lo, d_hi = (12.0, 95.0) if aggressive else (45.0, 80.0)
+        second = _has_second(me)
+        d_lo, d_hi = self._farm_band(second)
+        skip_open = levers.playbook() == "weapon-hunt" and second == "lightning"
         best = None
         best_d = 1e9
         for m in obs.get("mechs") or []:
@@ -757,23 +770,30 @@ class Bot:
                 continue
             if (m["pos"][0] - zc[0]) ** 2 + (m["pos"][1] - zc[1]) ** 2 > (0.9 * zr) ** 2:
                 continue
+            if skip_open and self._in_open_field(m["pos"]):
+                continue
             if d < best_d:
                 best_d = d
                 best = m
         return best
 
     def _farmable_crate(self, obs: mf.Observation) -> Optional[Dict[str, Any]]:
-        """cube-snowball: nearest crate ≤70 m inside zone (1 cube each)."""
-        if levers.playbook() != "cube-snowball":
+        """snowball / weapon-hunt: nearest crate ≤70 m inside zone (1 cube each)."""
+        if levers.playbook() not in ("cube-snowball", "weapon-hunt"):
             return None
         me = obs["self"]
         z = obs["zone"]
         zc, zr = z["center"], float(z["radius"])
+        second = _has_second(me)
+        max_d = 70.0
+        min_d = 0.0
+        if levers.playbook() == "weapon-hunt" and second == "mortar":
+            min_d = 25.0
         best = None
         best_d = 1e9
         for c in obs.get("crates") or []:
             d = math.dist(c["pos"][:2], me["pos"][:2])
-            if d > 70.0:
+            if d > max_d or d < min_d:
                 continue
             if (c["pos"][0] - zc[0]) ** 2 + (c["pos"][1] - zc[1]) ** 2 > (0.9 * zr) ** 2:
                 continue
@@ -781,6 +801,127 @@ class Bot:
                 best_d = d
                 best = c
         return best
+
+    def _farm_band(self, second: Optional[str]) -> Tuple[float, float]:
+        """NPC farm distance band by playbook / loadout."""
+        pb = levers.playbook()
+        if pb == "cube-snowball":
+            return 12.0, 95.0
+        if pb == "weapon-hunt":
+            if second == "lightning":
+                return 8.0, 70.0
+            if second == "laser":
+                return 28.0, 90.0
+            if second == "mortar":
+                return 40.0, 105.0
+            return 18.0, 80.0
+        return 45.0, 80.0  # N5 / default
+
+    def _in_open_field(self, pos: Sequence[float]) -> bool:
+        """True when cover.bin shows few blocked close rays (exposed field)."""
+        if not self.cover.cover_ok:
+            return False
+        ix = int((float(pos[0]) - self.cover.minx) / self.cover.step)
+        iy = int((float(pos[1]) - self.cover.miny) / self.cover.step)
+        cell = self.cover._cell(ix, iy)
+        if cell is None:
+            return False
+        flag, opens = cell
+        if not (flag & 1):
+            return False
+        blocked_close = sum(1 for d in opens if d < 14)
+        return blocked_close < 4
+
+    def _enemy_vulnerable(self, enemy: Dict[str, Any], me: Dict[str, Any]) -> bool:
+        """1v1 gift: laser charging off-aim (half-speed) or gun-only rear."""
+        if enemy.get("charging"):
+            if not _enemy_aware(enemy, me["pos"]):
+                return True
+            aim = enemy.get("aim") or [0.0, 0.0]
+            to_us = _bearing_to(enemy["pos"], me["pos"])
+            if abs(_angdiff(aim[0], to_us)) > math.radians(20):
+                return True
+        weapons = enemy.get("weapons") or []
+        kinds = set()
+        for w in weapons:
+            if isinstance(w, str):
+                kinds.add(w)
+            elif isinstance(w, dict) and w.get("kind"):
+                kinds.add(w["kind"])
+        if kinds and kinds <= {"gun"} and _we_flank(enemy, me["pos"]):
+            return True
+        return False
+
+    def _hunt_easy_fight(
+        self,
+        me: Dict[str, Any],
+        enemy: Dict[str, Any],
+        second: Optional[str],
+        dist: float,
+    ) -> bool:
+        """weapon-hunt: rear/undet OR confident win; gated by loadout range/stance."""
+        rear = _we_flank(enemy, me["pos"])
+        undet = not _enemy_aware(enemy, me["pos"])
+        ehp = enemy.get("hp")
+        emax = float(enemy.get("max_hp") or 1400.0)
+        our_frac = me["hp"] / max(1.0, me["max_hp"])
+        their_frac = float(ehp) / max(1.0, emax) if ehp is not None else 1.0
+        clear = self.combat.clear_shot(me, enemy["pos"], int(enemy["id"]))
+        our_cubes = int(me.get("cubes") or 0)
+        their_cubes = int(enemy.get("cubes") or 0)
+
+        confident = (
+            (ehp is not None and float(ehp) < 500.0)
+            or (our_frac >= their_frac + 0.15 and our_frac >= 0.55)
+            or (our_cubes >= their_cubes + 2 and clear)
+            or self._enemy_vulnerable(enemy, me)
+        )
+        free = rear or undet
+        if not (free or confident):
+            return False
+
+        if second is None:
+            return free and dist < 95.0
+
+        if second == "lightning":
+            if self._in_open_field(me["pos"]) and not free:
+                return False
+            if free:
+                return dist <= 70.0
+            return dist <= 50.0 and confident
+
+        if second == "laser":
+            if dist < 18.0 and not free:
+                return False
+            if not clear and dist > 35.0 and not free:
+                return False
+            return dist <= 150.0 and (free or confident)
+
+        if second == "mortar":
+            if dist < 55.0:
+                return free
+            return dist <= 170.0 and (free or confident)
+
+        return free or confident
+
+    def _arm_loot_nearby(self, obs: mf.Observation, me: Dict[str, Any], t: float) -> bool:
+        """True if a second-weapon pickup is worth chasing (gun-only arm-first)."""
+        for p in obs.get("pickups") or []:
+            if p.get("kind") in ("laser", "mortar", "lightning"):
+                if math.dist(p["pos"][:2], me["pos"][:2]) < 110.0:
+                    return True
+        best = self.mem.best_loot(
+            me["pos"],
+            t,
+            world=self.world,
+            on_roof=self.mem.world_on_roof,
+            step_up=self.step_up,
+            lightning_first=_lightning_first(),
+        )
+        if best is None:
+            return False
+        return math.dist(best["pos"][:2], me["pos"][:2]) < 110.0
+
 
     def _side_step_cover(self, me: Dict[str, Any], away: Optional[float]) -> Optional[List[float]]:
         """N1 ground fallback: side step that puts a wall between us and the threat."""
@@ -874,6 +1015,8 @@ class Bot:
             return self._select_zone_sheep(obs, second)
         if pb == "cube-snowball":
             return self._select_cube_snowball(obs, second)
+        if pb == "weapon-hunt":
+            return self._select_weapon_hunt(obs, second)
         return self._select_classic_roof(obs, second)
 
     def _common_escape_counter(self, obs: mf.Observation, me: Dict[str, Any], t: float) -> Optional[str]:
@@ -1191,6 +1334,77 @@ class Bot:
         self.mem.positioned = True
         return "CAMP"
 
+
+    def _select_weapon_hunt(self, obs: mf.Observation, second: Optional[str]) -> str:
+        """Deep-zone cube farm + weapon-conditioned easy fights (no roof S1)."""
+        me = obs["self"]
+        t = float(obs["t"])
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        cubes = int(me.get("cubes") or 0)
+        early = self._common_escape_counter(obs, me, t)
+        if early:
+            return early
+
+        recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
+        visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
+
+        if recent_dmg and visible:
+            self.mem.farm_drone_id = None
+            return "FIGHT"
+
+        if len(visible) == 1:
+            e = visible[0]
+            if self._hunt_easy_fight(me, e, second, enemy_d):
+                self.mem.farm_drone_id = None
+                return "FIGHT"
+
+        if second is not None and self._need_rotate(me, obs["zone"], t, second):
+            return "ROTATE"
+        if self._zone_forces_reloc(me, obs["zone"], t):
+            return "ROTATE"
+        if not self._deep_zone_ok(me, obs["zone"], 0.65):
+            return "ROTATE"
+
+        safe_for_regen = (
+            t - self.mem.last_took_weapon_damage_t >= self.regen_delay
+            and t - self.mem.last_dealt_damage_t >= self.regen_delay
+            and not visible
+        )
+        if safe_for_regen and hp_frac < 0.85:
+            return "HEAL"
+
+        if second is None:
+            if self._arm_loot_nearby(obs, me, t):
+                return "ARM"
+            if not visible and cubes < self.mem.cubes_want:
+                drone = self._farmable_drone(obs)
+                if drone is not None:
+                    self.mem.farm_drone_id = int(drone["id"])
+                    return "FIGHT"
+                crate = self._farmable_crate(obs)
+                if crate is not None:
+                    self.mem.farm_drone_id = -int(crate["id"])
+                    return "FIGHT"
+                self.mem.farm_drone_id = None
+            return "ARM"
+
+        if not visible and cubes < self.mem.cubes_want:
+            drone = self._farmable_drone(obs)
+            if drone is not None:
+                self.mem.farm_drone_id = int(drone["id"])
+                return "FIGHT"
+            crate = self._farmable_crate(obs)
+            if crate is not None:
+                self.mem.farm_drone_id = -int(crate["id"])
+                return "FIGHT"
+            self.mem.farm_drone_id = None
+
+        if not self._loadout_positioned(me, second, obs["zone"]):
+            return "RELOCATE"
+        self.mem.positioned = True
+        return "CAMP"
+
     def _do_disengage(self, obs: mf.Observation, act: Dict[str, Any], second: Optional[str] = None) -> None:
         """Break LOS, stop shooting when appropriate, path to cover / zone-safe."""
         me = obs["self"]
@@ -1416,8 +1630,29 @@ class Bot:
         t: float,
         bearing: float,
         clear: bool,
+        enemy: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
-        """HOLD_FIGHT movement: never close distance; hold roof or half-speed strafe."""
+        """HOLD_FIGHT / precise: never chase; strafe/hold; prefer rear arc when precise."""
+        # precise: orbit toward enemy rear (1.5×) without closing hard.
+        if levers.playbook() == "precise" and enemy is not None and enemy.get("kind") == "mech":
+            eaim = (enemy.get("aim") or [0.0, 0.0])[0]
+            to_us = _bearing_to(enemy["pos"], me["pos"])
+            # Ideal: sit on the back of their aim yaw.
+            rear_yaw = eaim + math.pi
+            err = _angdiff(rear_yaw, to_us)
+            # Pick strafe sign that shrinks |err| (orbit behind).
+            if abs(err) > math.radians(25):
+                self.mem.strafe_sign = 1.0 if err > 0 else -1.0
+            side = bearing + (math.pi / 2) * self.mem.strafe_sign
+            # No clear shot: strafe for LOS, don't walk into them.
+            if not clear:
+                return [math.cos(side) * 0.55, math.sin(side) * 0.55]
+            # Already rear: soft strafe to stay unpredictable.
+            if _we_flank(enemy, me["pos"]):
+                return [math.cos(side) * 0.4, math.sin(side) * 0.4]
+            # Not rear yet: orbit (lateral) toward their back.
+            return [math.cos(side) * 0.65, math.sin(side) * 0.65]
+
         side = bearing + (math.pi / 2) * self.mem.strafe_sign
         half = [math.cos(side) * 0.5, math.sin(side) * 0.5]
         if not self.mem.world_on_roof:
@@ -1536,7 +1771,19 @@ class Bot:
 
         flank = _we_flank(chase, me["pos"])
         undetected = not _enemy_aware(chase, me["pos"])
-        push_hard = aggressive and (flank or undetected) and len(enemies) <= 1
+        hunt = levers.playbook() == "weapon-hunt"
+        confident_push = False
+        if hunt and len(enemies) <= 1 and chase.get("kind") == "mech":
+            ehp = chase.get("hp")
+            emax = float(chase.get("max_hp") or 1400.0)
+            our_frac = me["hp"] / max(1.0, me["max_hp"])
+            their_frac = float(ehp) / max(1.0, emax) if ehp is not None else 1.0
+            confident_push = (
+                (ehp is not None and float(ehp) < 500.0)
+                or our_frac >= their_frac + 0.15
+                or self._enemy_vulnerable(chase, me)
+            )
+        push_hard = aggressive and (flank or undetected or confident_push) and len(enemies) <= 1
 
         # R1: gun is primary whenever it has a clear shot. Specials only when useful.
         kind = "gun"
@@ -1547,7 +1794,9 @@ class Bot:
             v = float(mw.get("speed", 72))
             g = float(mw.get("gravity", 22))
             mortar_max = (v * v / g) if g > 0 else 235.0
-            if not clear and 12.0 < dist < mortar_max:
+            if hunt and dist < 55.0 and not (flank or undetected):
+                kind = "gun"
+            elif not clear and 12.0 < dist < mortar_max:
                 kind = "mortar"
             else:
                 kind = "gun"
@@ -1613,7 +1862,7 @@ class Bot:
 
         # Mortar: keep range, don't rush into gun range unless flanking hard.
         if second == "mortar":
-            prefer = 110.0
+            prefer = 120.0 if hunt else 110.0
             if dist < prefer - 25 and not push_hard:
                 away = bearing + math.pi
                 act["move"] = [math.cos(away) * 0.85, math.sin(away) * 0.85]
@@ -1628,6 +1877,11 @@ class Bot:
 
         # Lightning: close corners — close gap, hug cover, burst.
         if second == "lightning":
+            if hunt and self._in_open_field(me["pos"]) and not (flank or undetected):
+                away = bearing + math.pi
+                act["move"] = [math.cos(away) * 0.7, math.sin(away) * 0.7]
+                act["boost"] = False
+                return
             if dist > 35 or not clear:
                 move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
                 act["move"] = move
@@ -1639,6 +1893,26 @@ class Bot:
             if self.mem.stuck_until > t:
                 act["jump"] = bool(me.get("grounded"))
                 act["boost"] = True
+            return
+
+        # weapon-hunt laser ground: mid-long; don't chase into corners.
+        if hunt and second == "laser":
+            prefer = 85.0
+            if dist < 40.0 and not push_hard:
+                away = bearing + math.pi
+                act["move"] = [math.cos(away) * 0.7, math.sin(away) * 0.7]
+                act["boost"] = False
+            elif not clear or dist > prefer + 25:
+                if clear:
+                    move, _ = self.nav.steer(me, chase["pos"], 0.75, t)
+                    act["move"] = move
+                else:
+                    side = bearing + (math.pi / 2) * self.mem.strafe_sign
+                    act["move"] = [math.cos(side) * 0.55, math.sin(side) * 0.55]
+                act["boost"] = energy_ok and clear and dist > 70
+            else:
+                side = bearing + (math.pi / 2) * self.mem.strafe_sign
+                act["move"] = [math.cos(side) * 0.6, math.sin(side) * 0.6]
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
@@ -1899,24 +2173,46 @@ class Bot:
                 self._try_fight_overlay(obs, act)
             return
 
-        # zone-sheep / cube-snowball: deep next-zone, never climb, quiet.
-        if pb in ("zone-sheep", "cube-snowball"):
+        # zone-sheep / cube-snowball / weapon-hunt: deep next-zone, never climb, quiet.
+        if pb in ("zone-sheep", "cube-snowball", "weapon-hunt"):
             frac = 0.30 if pb == "zone-sheep" else 0.40
+            deep_ok = 0.55 if pb == "zone-sheep" else 0.65
             goal = self.mem.loadout_goal
             need = goal is None or not self._deep_zone_ok(
-                {"pos": [float(goal[0]), float(goal[1]), 0.0]}, z, 0.55 if pb == "zone-sheep" else 0.65
+                {"pos": [float(goal[0]), float(goal[1]), 0.0]}, z, deep_ok
             )
             if need:
-                self.mem.loadout_goal = self._deep_zone_goal(me, z, frac)
+                spot = None
+                if pb == "weapon-hunt" and second == "lightning":
+                    spot = self.cover.corner_spot(
+                        me["pos"], z["next_center"], float(z["next_radius"])
+                    )
+                elif pb == "weapon-hunt" and second == "mortar":
+                    spot = self.cover.far_ground_spot(
+                        me["pos"], z["next_center"], float(z["next_radius"])
+                    )
+                elif pb == "weapon-hunt" and second == "laser":
+                    spot = self.cover.ground_spot(
+                        me["pos"], z["next_center"], float(z["next_radius"])
+                    )
+                if spot is not None and self._deep_zone_ok(
+                    {"pos": [float(spot[0]), float(spot[1]), 0.0]}, z, deep_ok
+                ):
+                    self.mem.loadout_goal = list(spot[:2])
+                else:
+                    self.mem.loadout_goal = self._deep_zone_goal(me, z, frac)
                 self.mem.roof_id = None
                 self.mem.climb_target = None
                 self.mem.reset_camp_counters()
-            move, yaw = self.nav.steer(me, self.mem.loadout_goal, 0.5 if pb == "zone-sheep" else 0.7, t)
+            speed = 0.5 if pb == "zone-sheep" else 0.7
+            if pb == "weapon-hunt" and second == "lightning":
+                speed = 0.85
+            move, yaw = self.nav.steer(me, self.mem.loadout_goal, speed, t)
             act["move"] = move
             act["boost"] = False
             act["jump"] = False
             act["aim"] = [yaw, -0.05]
-            if enemies and pb == "cube-snowball":
+            if enemies and pb in ("cube-snowball", "weapon-hunt"):
                 self._try_fight_overlay(obs, act)
             return
 
@@ -2115,8 +2411,8 @@ class Bot:
                     return
 
         pb = levers.playbook()
-        # sheep / snowball: hold deep next-zone; quiet scan; never roof camp.
-        if pb in ("zone-sheep", "cube-snowball"):
+        # sheep / snowball / hunt: hold deep next-zone; quiet scan; never roof camp.
+        if pb in ("zone-sheep", "cube-snowball", "weapon-hunt"):
             goal = self.mem.loadout_goal
             deep_frac = 0.45 if pb == "zone-sheep" else 0.50
             if goal is None or not self._deep_zone_ok(me, obs["zone"], deep_frac + 0.1):
@@ -2133,8 +2429,7 @@ class Bot:
             act["aim"] = [self.mem.scan_yaw, -0.05]
             if self.mem.last_threat_bearing is not None:
                 act["aim"] = [self.mem.last_threat_bearing, -0.05]
-            # Sheep never peeks fire; snowball may return-fire overlay only if pressed.
-            if pb == "cube-snowball":
+            if pb in ("cube-snowball", "weapon-hunt"):
                 self._try_fight_overlay(obs, act)
             return
 

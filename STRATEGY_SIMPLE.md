@@ -19,6 +19,7 @@ Practice hunters share vision. Score = mean(`16 − place`). Leaders ~5.5, early
 | --- | --- | --- | --- | --- |
 | 1 | `try/zone-sheep` | `lh-zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | **submit first** — silent deep next-zone, heal hard, fight only when shot, no chase |
 | 2 | `try/cube-snowball` | `lh-cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm NPCs/crates/cubes to `stat_cap`, free fights only, never climb |
+| 3 | `try/weapon-hunt` | `lh-weapon-hunt` | *(see tip tag)* | cube farm + weapon-conditioned easy fights; no S1 |
 
 ```sh
 git fetch --tags --force

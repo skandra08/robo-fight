@@ -723,6 +723,132 @@ def test_playbook_snowball(bot: Bot) -> None:
     check(f"snowball skips aware frontal (got {mode2})", mode2 != "FIGHT")
 
 
+
+def test_playbook_weapon_hunt(bot: Bot) -> None:
+    if levers.playbook() != "weapon-hunt":
+        print("  SKIP weapon-hunt playbook")
+        return
+    check("hunt Bot.name", Bot.name == "lh-weapon-hunt")
+    check("hunt no roof", not bot._wants_roof("mortar"))
+    check("hunt no roof laser", not bot._wants_roof("laser"))
+    check("hunt farms cubes", __import__("bot")._cube_farm())
+    check("hunt quiet arm", __import__("bot")._quiet_arm())
+    check("hunt ground only", __import__("bot")._ground_only())
+    check("hunt cubes_want=cap", bot.mem.cubes_want == bot.cube_stat_cap)
+    check("hunt S1 off", not levers.on("S1"))
+
+    drone = {
+        "id": 101,
+        "kind": "npc",
+        "pos": [50.0, 0.0, 2.0],
+        "vel": [0, 0, 0],
+        "aim": [0, 0],
+        "hp": 200,
+    }
+    obs = _base_obs(
+        mechs=[drone],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "cubes": 0,
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "lightning", "cooldown": 0},
+            ],
+        },
+    )
+    obs["zone"]["next_center"] = [0.0, 0.0]
+    obs["zone"]["next_radius"] = 400.0
+    bot.mem.last_took_weapon_damage_t = -1e9
+    bot.mem.world_on_roof = False
+    mode = bot._select_mode(obs, "lightning")  # type: ignore[arg-type]
+    check(
+        f"hunt farms drone (mode={mode} id={bot.mem.farm_drone_id})",
+        mode == "FIGHT" and bot.mem.farm_drone_id == 101,
+    )
+
+    # Aware frontal mid-range healthy enemy → skip initiate (laser).
+    enemy = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [60.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 900,
+        "max_hp": 1400,
+        "cubes": 0,
+        "weapons": ["gun", "laser"],
+    }
+    obs2 = _base_obs(
+        mechs=[enemy],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "hp": 700,
+            "max_hp": 1400,
+            "cubes": 0,
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "laser", "charge": 0, "cooldown": 0},
+            ],
+        },
+    )
+    obs2["zone"]["next_center"] = [0.0, 0.0]
+    obs2["zone"]["next_radius"] = 400.0
+    bot.mem.farm_drone_id = None
+    bot.mem.last_took_weapon_damage_t = -1e9
+    mode2 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check(f"hunt skips aware frontal (got {mode2})", mode2 != "FIGHT")
+
+    # Low-HP prey → confident fight.
+    enemy_low = dict(enemy)
+    enemy_low["hp"] = 350
+    enemy_low["aim"] = [math.pi, 0.0]
+    obs3 = _base_obs(
+        mechs=[enemy_low],
+        self=obs2["self"],
+    )
+    obs3["zone"]["next_center"] = [0.0, 0.0]
+    obs3["zone"]["next_radius"] = 400.0
+    mode3 = bot._select_mode(obs3, "laser")  # type: ignore[arg-type]
+    check(f"hunt takes low-HP prey (got {mode3})", mode3 == "FIGHT")
+
+    # Rear 1v1 lightning close → fight.
+    rear = {
+        "id": 5,
+        "kind": "mech",
+        "pos": [30.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],  # facing away from us at origin
+        "charging": False,
+        "hp": 900,
+        "max_hp": 1400,
+        "cubes": 0,
+        "weapons": ["gun"],
+    }
+    obs4 = _base_obs(
+        mechs=[rear],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "hp": 1000,
+            "max_hp": 1400,
+            "cubes": 2,
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "lightning", "cooldown": 0},
+            ],
+        },
+    )
+    obs4["zone"]["next_center"] = [0.0, 0.0]
+    obs4["zone"]["next_radius"] = 400.0
+    mode4 = bot._select_mode(obs4, "lightning")  # type: ignore[arg-type]
+    check(f"hunt lightning takes rear (got {mode4})", mode4 == "FIGHT")
+
+    # Return fire when shot.
+    bot.mem.last_took_weapon_damage_t = float(obs2["t"])
+    mode5 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check(f"hunt fights back when shot (got {mode5})", mode5 == "FIGHT")
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
@@ -739,6 +865,7 @@ def main() -> int:
         test_playbook_loot,
         test_playbook_sheep,
         test_playbook_snowball,
+        test_playbook_weapon_hunt,
         test_s1_roof,
         test_n1_counter,
         test_n2_edge,

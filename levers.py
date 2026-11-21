@@ -6,15 +6,16 @@ in bot/combat/nav regardless. Bot.name = lh-<LABEL>.
 Simple placement playbooks (this pass):
   zone-sheep   — never start fights; deep next-zone; quiet heal
   cube-snowball — farm NPCs/crates/cubes ASAP; free fights only
+  weapon-hunt  — cube-snowball + weapon-conditioned aggression (no S1 roof soup)
 """
 from __future__ import annotations
 
 from typing import Dict
 
 
-LABEL = "cube-snowball"
-# classic-roof | edge-hunter | loot-brawl | zone-sheep | cube-snowball
-PLAYBOOK = "cube-snowball"
+LABEL = "weapon-hunt"
+# classic-roof | edge-hunter | loot-brawl | zone-sheep | cube-snowball | weapon-hunt
+PLAYBOOK = "weapon-hunt"
 
 # Legacy S/N/F levers — off for pivot playbooks (kept for test_strategy skips).
 LEVERS: Dict[str, bool] = {
