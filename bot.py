@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-no-third"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
@@ -300,54 +300,10 @@ class Bot:
         return False
 
     def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
-        """THIRD disabled for practice (R2). Body kept for FFA (decision 6).
+        """try/no-third: THIRD completely disabled (explicit label on v1.19)."""
+        self.mem.third_commit = False
+        return False
 
-        Was practice-gated (v1.10): positioned + healthy + near sound only.
-        Shared-vision house hunters punish mid/far crash-ins.
-        """
-        if True:  # practice: never crash into sound fights
-            self.mem.third_commit = False
-            return False
-        if second is None:
-            return False
-        if visible:
-            return False  # already in contact — FIGHT/DISENGAGE handle it
-        # Get second weapon + loadout position before seeking thirds.
-        if not self.mem.positioned:
-            self.mem.third_commit = False
-            return False
-        hp_frac = me["hp"] / max(1.0, me["max_hp"])
-        if hp_frac < 0.7:
-            self.mem.third_commit = False
-            return False
-        if t - self.mem.last_took_weapon_damage_t < 4.0:
-            self.mem.third_commit = False
-            return False
-        if self.mem.combat_noise_since < 0:
-            self.mem.third_commit = False
-            return False
-        age = t - self.mem.combat_noise_since
-        if age < 3.0:
-            return False  # wait longer than v1.9 — don't crash at first exchange
-        if age > 5.5 and not self.mem.third_commit:
-            return False
-        # Near combat only (single-contact estimate). Mid/far → pack ambush.
-        combat_kinds = ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning")
-        bearing = None
-        near_hits = 0
-        for s in reversed(self.mem.sound_log):
-            if s.get("kind") not in combat_kinds:
-                continue
-            if s.get("dist") == "near":
-                near_hits += 1
-                if bearing is None and s.get("bearing") is not None:
-                    bearing = float(s["bearing"])
-        if near_hits < 1 or bearing is None:
-            self.mem.third_commit = False
-            return False
-        self.mem.third_bearing = bearing
-        self.mem.third_commit = True
-        return True
 
     def _need_rotate(self, me: Dict[str, Any], zone: Dict[str, Any], t: float, second: Optional[str]) -> bool:
         """Get inside next circle (distinct from loadout RELOCATE-to-camp)."""
@@ -550,7 +506,7 @@ class Bot:
                     return "FIGHT"
                 # Unpositioned + undetected mid-range → fall through to RELOCATE/CAMP.
 
-        # THIRD: disabled for practice via _want_third (R2); body kept for FFA.
+        # THIRD: explicitly off (try/no-third).
         if self._want_third(me, second, visible, t):
             return "THIRD"
 
