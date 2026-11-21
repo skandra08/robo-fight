@@ -147,8 +147,12 @@ class World:
                 return True
         return False
 
-    def blocked_segment(self, a: Sequence[float], b: Sequence[float], step: float = 2.0) -> bool:
-        """True if the segment hits a prism or terrain (trees ignored — for shots)."""
+    def blocked_segment(self, a: Sequence[float], b: Sequence[float], step: float = 3.0) -> bool:
+        """True if the segment hits a prism or terrain (trees ignored — for shots).
+
+        Uses ~3 m steps (fine enough for mech-scale LOS) and AABB rejects before
+        polygon tests so combat clear_shot stays cheap under many enemies.
+        """
         ax, ay, az = float(a[0]), float(a[1]), float(a[2])
         bx, by, bz = float(b[0]), float(b[1]), float(b[2])
         dx, dy, dz = bx - ax, by - ay, bz - az
@@ -156,15 +160,21 @@ class World:
         if dist < 1e-6:
             return self.solid_at(ax, ay, az)
         n = max(1, int(math.ceil(dist / step)))
+        inv = 1.0 / n
+        # Sample terrain every other step; prisms every step.
         for i in range(1, n + 1):
-            t = i / n
-            x, y, z = ax + dx * t, ay + dy * t, az + dz * t
-            g = self.ground(x, y)
-            if z < g + 0.2:
-                return True
+            t = i * inv
+            x = ax + dx * t
+            y = ay + dy * t
+            z = az + dz * t
+            if i == 1 or i == n or (i & 1):
+                if z < self.ground(x, y) + 0.2:
+                    return True
             for idx in self._candidates(x, y):
                 p = self.prisms[idx]
                 if z < p["base"] or z > p["top"]:
+                    continue
+                if x < p["minx"] or x > p["maxx"] or y < p["miny"] or y > p["maxy"]:
                     continue
                 if _point_in_prism_xy(x, y, p):
                     return True

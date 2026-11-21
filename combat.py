@@ -16,6 +16,13 @@ class Combat:
         self.world = world
         self.cfg = cfg
         self.weapons = cfg.get("weapons") or {}
+        self._los_cache: Dict[int, bool] = {}
+        self._los_tick: Optional[float] = None
+
+    def begin_tick(self, tick: float) -> None:
+        if tick != self._los_tick:
+            self._los_tick = tick
+            self._los_cache.clear()
 
     def muzzle(self, me: Dict[str, Any]) -> List[float]:
         stats = me.get("stats") or {}
@@ -29,10 +36,15 @@ class Combat:
         x, y, z = me["pos"]
         return [x, y, z + eh]
 
-    def clear_shot(self, me: Dict[str, Any], target_pos: Sequence[float]) -> bool:
+    def clear_shot(self, me: Dict[str, Any], target_pos: Sequence[float], eid: Optional[int] = None) -> bool:
+        if eid is not None and eid in self._los_cache:
+            return self._los_cache[eid]
         muzz = self.muzzle(me)
         center = [target_pos[0], target_pos[1], target_pos[2] + 4.5]
-        return not self.world.blocked_segment(muzz, center, step=2.5)
+        ok = not self.world.blocked_segment(muzz, center, step=3.5)
+        if eid is not None:
+            self._los_cache[eid] = ok
+        return ok
 
     def pick_target(
         self,
@@ -45,7 +57,7 @@ class Combat:
         for m in visible:
             if m.get("kind") != "mech":
                 continue
-            if require_clear and not self.clear_shot(me, m["pos"]):
+            if require_clear and not self.clear_shot(me, m["pos"], int(m["id"])):
                 continue
             cands.append(m)
         if not cands:
@@ -61,6 +73,36 @@ class Combat:
             return (hp, d)
 
         return min(cands, key=key)
+
+    def pick_fight_targets(
+        self,
+        me: Dict[str, Any],
+        visible: List[Dict[str, Any]],
+        prefer_id: Optional[int],
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """One pass: (best_clear_los, best_any). Avoids double LOS scans."""
+        clear_cands: List[Dict[str, Any]] = []
+        any_cands: List[Dict[str, Any]] = []
+        for m in visible:
+            if m.get("kind") != "mech":
+                continue
+            any_cands.append(m)
+            if self.clear_shot(me, m["pos"], int(m["id"])):
+                clear_cands.append(m)
+
+        def choose(cands: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+            if not cands:
+                return None
+            if prefer_id is not None:
+                for m in cands:
+                    if int(m["id"]) == prefer_id:
+                        return m
+            return min(
+                cands,
+                key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
+            )
+
+        return choose(clear_cands), choose(any_cands)
 
     def aim_at(self, me: Dict[str, Any], target: Dict[str, Any], kind: str = "gun") -> List[float]:
         mx, my, mz = self.muzzle(me)

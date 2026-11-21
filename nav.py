@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from world import World
 
 
-FEELER_DEG = (0, 25, -25, 50, -50, 75, -75, 100, -100, 130, -130)
+# Fewer feelers = fewer walkable_step tests; still covers front hemisphere well.
+FEELER_DEG = (0, 30, -30, 60, -60, 100, -100, 140, -140)
 
 
 def _angdiff(a: float, b: float) -> float:

@@ -84,6 +84,7 @@ class Bot:
     def _act(self, obs: mf.Observation, t_act0: float) -> mf.Action:
         me = obs["self"]
         t = float(obs["t"])
+        self.combat.begin_tick(float(obs["tick"]))
         self.mem.world_on_roof = self.world.on_roof(me["pos"])
         if self.mem.world_on_roof:
             self.mem.time_on_roof += 0.1
@@ -134,6 +135,9 @@ class Bot:
 
         ms = (time.perf_counter() - t_act0) * 1000
         self.mem.max_act_ms = max(self.mem.max_act_ms, ms)
+        # Design budget: typical <15ms, worst <30ms of the 50ms tick.
+        if ms > 25:
+            mf.log(f"slow act {ms:.1f}ms mode={self.mem.mode}")
         return act  # type: ignore[return-value]
 
     def _select_mode(self, obs: mf.Observation) -> str:
@@ -240,11 +244,9 @@ class Bot:
         me = obs["self"]
         t = float(obs["t"])
         enemies = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
-        # Prefer clear LOS; else chase any visible / remembered hunter.
-        target = self.combat.pick_target(me, enemies, self.mem.last_threat_id, require_clear=True)
-        chase = target or self.combat.pick_target(
-            me, enemies, self.mem.last_threat_id, require_clear=False
-        )
+        # One LOS pass: prefer clear shot, else chase.
+        target, chase = self.combat.pick_fight_targets(me, enemies, self.mem.last_threat_id)
+        chase = target or chase
         if chase is None and self.mem.last_threat_id in self.mem.enemies:
             chase = self.mem.enemies[self.mem.last_threat_id]
         if chase is None and self.mem.enemies:
@@ -271,10 +273,12 @@ class Bot:
             move, _ = self.nav.steer(me, goal, 0.9)
             act["move"] = move
             act["boost"] = me["energy"] / me["max_energy"] > 0.5
-            act["fire"] = [True, False]  # suppress while closing if gun aimed enough
+            act["fire"] = [True, False]
             return
 
-        clear = self.combat.clear_shot(me, chase["pos"])
+        clear = target is not None and int(target["id"]) == int(chase["id"])
+        if not clear:
+            clear = self.combat.clear_shot(me, chase["pos"], int(chase.get("id", -1)))
         kind = "gun"
         if _slot_of(me, "laser") is not None and clear:
             kind = "laser"
@@ -284,15 +288,9 @@ class Bot:
             kind = "laser"
         aim = self.combat.aim_at(me, chase, kind)
         act["aim"] = aim
-        if clear or kind == "mortar":
-            fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem)
-            act["fire"] = fire
-            act["reload"] = reload
-        else:
-            # Closing the gap: keep gun ready if roughly aimed.
-            fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem)
-            act["fire"] = fire
-            act["reload"] = reload
+        fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem)
+        act["fire"] = fire
+        act["reload"] = reload
         mf.draw.line(
             self.combat.muzzle(me),
             [chase["pos"][0], chase["pos"][1], chase["pos"][2] + 4.5],
