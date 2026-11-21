@@ -25,8 +25,9 @@ class Navigator:
         me: Dict[str, Any],
         goal: Sequence[float],
         speed_frac: float = 1.0,
+        t: Optional[float] = None,
     ) -> Tuple[List[float], float]:
-        """Return (move_xy clamped, desired_yaw)."""
+        """Return (move_xy clamped, desired_yaw). Pass obs time as `t` for stuck recovery."""
         x, y, z = me["pos"]
         gx, gy = float(goal[0]), float(goal[1])
         # If the direct line is walled, aim at a side waypoint first.
@@ -49,7 +50,8 @@ class Navigator:
                 gx, gy = candidates[0][2], candidates[0][3]
                 want = math.atan2(gy - y, gx - x)
 
-        if self.mem.stuck_until > float(me.get("_t", 0)):
+        now = float(t) if t is not None else float(getattr(self.mem, "total_time", 0.0) or 0.0)
+        if self.mem.stuck_until > now:
             if self.mem.stuck_heading is not None:
                 want = self.mem.stuck_heading
         best_yaw = want
@@ -122,9 +124,7 @@ class Navigator:
         # or walk to climb point without jetting until we have enough for the ascent.
         if energy / max_e < 0.6 and z < top - 1.0 and me.get("grounded"):
             if dist > 3.5:
-                me2 = dict(me)
-                me2["_t"] = t
-                move, yaw = self.steer(me2, climb_pt, 0.5)
+                move, yaw = self.steer(me, climb_pt, 0.5, t)
                 act["move"] = move
                 act["aim"] = [yaw, -0.05]
             else:
@@ -137,9 +137,7 @@ class Navigator:
             return act
 
         if dist > 3.5 and z < top - 1.0:
-            me2 = dict(me)
-            me2["_t"] = t
-            move, yaw = self.steer(me2, climb_pt, 1.0)
+            move, yaw = self.steer(me, climb_pt, 1.0, t)
             act["move"] = move
             act["aim"] = [yaw, -0.05]
             act["boost"] = energy / max_e > 0.75
