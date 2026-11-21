@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-v-safe"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
