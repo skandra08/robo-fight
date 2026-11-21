@@ -89,6 +89,14 @@ SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than th
 SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
 SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
+# --- early-death structural variants (try/early) ---
+GANG_BREAK = False  # 2+ distinct mechs hit us within GANG_WIN s -> break LOS (HEAL) before RETREAT_HP
+GANG_WIN = 4.0
+GANG_HP = 0.95  # ...only below this HP fraction
+GANG_HOLD = 3.0  # stay out until only one attacker for this long
+LAST_STAND = False  # don't retreat from a lone, clear duel we are winning on HP
+LAST_STAND_D = 90.0
+LAST_STAND_RATIO = 1.0  # fight on while target hp <= our hp * this
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -170,6 +178,8 @@ class Bot:
         self._npc_hit_last_t = -1e9
         self._npc_hit_bearing: Optional[float] = None
         self._mech_hit_last_t = -1e9
+        self._hit_by: Dict[int, float] = {}  # attacker id -> last time it hit us
+        self._gang_t = -1e9  # last time 2+ attackers were on us
         # remembered crates: id -> {pos, last_seen_t}
         self.crates: Dict[int, Dict[str, Any]] = {}
         # farm target hysteresis / give-up blacklist
@@ -275,6 +285,10 @@ class Bot:
                     self._npc_hit_t[int(e["by"])] = t
             elif w not in (None, "zone"):
                 self._mech_hit_last_t = t
+                if e.get("by") is not None:
+                    self._hit_by[int(e["by"])] = t
+        if sum(1 for v in self._hit_by.values() if t - v < GANG_WIN) >= 2:
+            self._gang_t = t
         me_pos = obs["self"]["pos"]
         seen = set()
         for c in obs.get("crates") or []:
@@ -341,6 +355,16 @@ class Bot:
         # Back off to heal when low, unless the target is about to die.
         if mechs or hit_by_mech or target is not None:
             finishing = target is not None and self._nearly_dead(target)
+            if LAST_STAND and target is not None and not finishing and t - self._gang_t > GANG_WIN:
+                # A lone duel we are ahead in: running hands them free (rear x1.5) shots.
+                thp = target.get("hp")
+                if (thp is not None and _d2(target["pos"], me["pos"]) < LAST_STAND_D
+                        and float(thp) <= me["hp"] * LAST_STAND_RATIO
+                        and self.combat.clear_shot(me, target["pos"], int(target["id"]),
+                                                   target.get("cubes") if isinstance(target.get("cubes"), int) else None)):
+                    finishing = True
+            if GANG_BREAK and not finishing and t - self._gang_t < GANG_HOLD and hp_frac < GANG_HP:
+                return "HEAL"
             if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP * 0.85 and not finishing:
                 return "HEAL"
             if hp_frac < RETREAT_HP and not finishing:
