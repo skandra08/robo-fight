@@ -78,6 +78,11 @@ LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
+FARM_CUBE_D = 200.0  # rwm: cube pickup reach with no mech in view
+FARM_CRATE_D = 160.0  # rwm: crates farther than this are ignored
+FARM_DRONE_D = 150.0  # rwm: drones farther than this are ignored
+FARM_SITE_VAL = 3.0  # rwm: value of walking to a fresh kill site
+FARM_DRONE_VAL = 2.0  # rwm: value of a drone (cube = 1)
 ZONE_IN = 0.85  # rwm: count as safely inside the next circle within this fraction of its radius
 ZONE_IN_HOLD = 0.75  # ...and while already heading in
 ZONE_SLACK_S = 20.0  # rwm: start heading in with this many seconds of slack
@@ -502,7 +507,7 @@ class Bot:
             return math.hypot(p[0] - zc[0], p[1] - zc[1]) < zr - margin
 
         if cubes_n < CUBE_GOAL:
-            reach = 200.0 if not mechs else min(100.0, enemy_d * 0.6)
+            reach = FARM_CUBE_D if not mechs else min(100.0, enemy_d * 0.6)
             for c in obs.get("cubes") or []:
                 d = _d2(c["pos"], me["pos"])
                 if c["pos"][2] - mz > 3.0 or d > reach or not inzone(c["pos"], 5.0):
@@ -515,7 +520,7 @@ class Bot:
                 if not fresh or d <= self.cube_r:
                     self.mem.post_kill_pos = None
                 elif d < 250.0 and pk[2] - mz < 3.0 and (not mechs or enemy_d > d + 50.0) and inzone(pk):
-                    cands.append({"kind": "site", "pos": list(pk), "key": ("site", round(pk[0]), round(pk[1])), "val": 3.0, "d": d})
+                    cands.append({"kind": "site", "pos": list(pk), "key": ("site", round(pk[0]), round(pk[1])), "val": FARM_SITE_VAL, "d": d})
 
         # Weapons: get a second weapon, or upgrade to a better one, when it's close.
         if not mechs or enemy_d > 90.0 or (ARM_WITH_MECHS and second is None):
@@ -534,7 +539,7 @@ class Bot:
             muzz = self.combat.muzzle(me)
             for c in obs.get("crates") or []:
                 d = _d2(c["pos"], me["pos"])
-                if d > 160.0 or d < 1.0 or not inzone(c["pos"]):
+                if d > FARM_CRATE_D or d < 1.0 or not inzone(c["pos"]):
                     continue
                 center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
                 clear = not self.world.blocked_segment(muzz, center, step=2.5)
@@ -557,9 +562,9 @@ class Bot:
                     if m.get("kind") != "npc":
                         continue
                     d = _d2(m["pos"], me["pos"])
-                    if d > 150.0 or not inzone(m["pos"], 0.0):
+                    if d > FARM_DRONE_D or not inzone(m["pos"], 0.0):
                         continue
-                    cands.append({"kind": "drone", "pos": list(m["pos"]), "id": int(m["id"]), "key": ("drone", int(m["id"])), "val": 2.0, "d": d * 0.6 + 25.0})
+                    cands.append({"kind": "drone", "pos": list(m["pos"]), "id": int(m["id"]), "key": ("drone", int(m["id"])), "val": FARM_DRONE_VAL, "d": d * 0.6 + 25.0})
 
         best, best_s = None, 0.0
         cur = None
