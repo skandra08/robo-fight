@@ -77,6 +77,7 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 | --- | --- | --- | --- | --- | --- |
 | 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | **submit first** — quiet deep next-zone, heal, never start fights |
 | 2 | cube-snowball | lh-cube-snowball | `try/cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm cubes → tanky free fights |
+| 3 | weapon-hunt | lh-weapon-hunt | `try/weapon-hunt` | `fbf9a502df367e8a7a89708f09344c5d5d6dca63` | cube farm + weapon-conditioned aggression (no S1) |
 
 ```sh
 git fetch --tags --force && git checkout try/zone-sheep
