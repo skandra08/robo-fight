@@ -88,6 +88,7 @@ SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for 
 SEARCH_NEXT = True
 HEAL_FIGHTBACK = False  # while backing off to heal, shoot the nearest mech whenever the shot is clear
 SEARCH_STUCK_S = 1e9  # search walk made no progress this long: pick a new waypoint
+FARM_AVOID_D = 0.0  # skip farm targets this close to a mech in view (do not walk into hunters)
 CRATE_STRAFE = False  # strafe while shooting a crate instead of standing still
 HEAL_GIVEUP_S = 1e9  # backing off this long while still being hit: turn and fight instead
 
@@ -569,8 +570,11 @@ class Bot:
 
         best, best_s = None, 0.0
         cur = None
+        seen = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"] if FARM_AVOID_D > 0 else []
         for c in cands:
             if self._farm_bl.get(c["key"], -1e9) > t:
+                continue
+            if seen and c["kind"] != "drone" and min(_d2(c["pos"], m["pos"]) for m in seen) < FARM_AVOID_D:
                 continue
             s = c["val"] / (c["d"] + 20.0)
             if c["key"] == self._farm_key:
