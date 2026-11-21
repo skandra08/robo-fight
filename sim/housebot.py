@@ -30,7 +30,7 @@ ORDER = {"easy": 0, "medium": 1, "hard": 2, "expert": 3}
 class HouseSquad:
     def __init__(self, sim, params: Optional[Dict] = None):
         self.sim = sim
-        p = dict(base=1, per_death=1, t_steps=(90, 180, 270, 360), t_add=(1, 2, 3, 15), aim_mul=1.0, know_noise=25.0)
+        p = dict(base=1, per_death=1, t_steps=(90, 180, 270, 360), t_add=(1, 2, 3, 15), aim_mul=1.0, know_noise=25.0, track=False, rng_mul=1.0, push_low=False)
         if params:
             p.update(params)
         self.p = p
@@ -98,7 +98,7 @@ class HouseSquad:
                     self.state[m.id]["seen_t"] = t
                     if d < 80:
                         self.state[m.id]["active"] = True
-            if self.seen_now:
+            if self.seen_now or self.p["track"]:
                 self.known = list(bot.pos)
                 self.known_t = t
             else:
@@ -153,7 +153,7 @@ class HouseSquad:
             if st["retreating"] and visible:
                 ang = math.atan2(m.pos[1] - tgt[1], m.pos[0] - tgt[0])
                 goal = [m.pos[0] + math.cos(ang) * 40, m.pos[1] + math.sin(ang) * 40]
-            elif d > sk["rng"] or not visible:
+            elif d > sk["rng"] * self.p["rng_mul"] or not visible or (self.p["push_low"] and bot.hp < 0.5 * bot.max_hp):
                 goal = tgt
             else:
                 # strafe at engage range
