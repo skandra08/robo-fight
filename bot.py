@@ -1242,32 +1242,35 @@ class Bot:
         d_safe = math.dist(me["pos"][:2], safe[:2])
         can_safe = d_safe < 45.0 or self.mem.world_on_roof or self.mem.camp_hidden is not None
 
-        # Our own fully charged + aligned laser: fire first.
+        # cookoff-timer: release our charged laser on a looser timer, and drop mortar
+        # earlier when an enemy laser is near full charge (don't wait for perfect cover).
         slot_l = _slot_of(me, "laser")
+        threat = None
+        threat_charge = 0.0
+        for m in obs.get("mechs") or []:
+            if m.get("kind") == "mech" and m.get("charging"):
+                threat = m
+                threat_charge = float(m.get("charge") or 0.0)
+                break
         if slot_l is not None:
             w = (me.get("weapons") or [])[slot_l]
             charge = float((w or {}).get("charge") or 0)
             need = float(self.laser_charge_s)
-            if charge >= need * 0.95:
-                # Aim at the charging threat if visible.
-                target = None
-                for m in obs.get("mechs") or []:
-                    if m.get("kind") == "mech" and m.get("charging"):
-                        target = m
-                        break
-                if target is not None:
-                    aim = self.combat.aim_at(me, target, "laser")
-                    act["aim"] = aim
-                    if self.combat.aligned(me, aim, 3.0):
-                        fire = [False, False]
-                        fire[slot_l] = True
-                        act["fire"] = fire
-                        act["move"] = [0.0, 0.0]
-                        return
+            if charge >= need * 0.95 and threat is not None:
+                aim = self.combat.aim_at(me, threat, "laser")
+                act["aim"] = aim
+                # Wider release window (5°) once we're at full charge — beat their beam.
+                if self.combat.aligned(me, aim, 5.0):
+                    fire = [False, False]
+                    fire[slot_l] = True
+                    act["fire"] = fire
+                    act["move"] = [0.0, 0.0]
+                    return
 
         slot_m = _slot_of(me, "mortar")
-        if slot_m is not None and not can_safe:
-            act["drop"] = slot_m  # cook-off only when no cover within ~45 m
+        # Drop mortar cook-off if cover is far OR enemy laser is ≥70% charged.
+        if slot_m is not None and (not can_safe or threat_charge >= 0.70 * float(self.laser_charge_s)):
+            act["drop"] = slot_m
         move, yaw = self.nav.steer(me, safe, 1.0, t)
         act["move"] = move
         act["boost"] = True
