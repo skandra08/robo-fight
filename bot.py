@@ -97,6 +97,10 @@ GANG_HOLD = 3.0  # stay out until only one attacker for this long
 LAST_STAND = False  # don't retreat from a lone, clear duel we are winning on HP
 LAST_STAND_D = 90.0
 LAST_STAND_RATIO = 1.0  # fight on while target hp <= our hp * this
+WAKE_GUARD = False  # always-fire overlay: don't open fire on far mechs that aren't hunting us
+WAKE_GUARD_FIGHT = False  # ...and don't pick them as FIGHT targets either
+WAKE_D = 110.0
+WAKE_MEM = 15.0  # a mech that hit us within this many seconds counts as hunting
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -390,6 +394,15 @@ class Bot:
             return "FARM"  # search the map for crates/drones/cubes early
         return "ROOF"
 
+    def _asleep(self, m: Dict[str, Any], d: float, t: float) -> bool:
+        """Far, healthy, and hasn't shot us lately: shooting it only adds a hunter."""
+        if d <= WAKE_D or self._nearly_dead(m):
+            return False
+        mid = int(m["id"])
+        if mid == self._target_id:
+            return False
+        return t - self._hit_by.get(mid, -1e9) > WAKE_MEM
+
     def _nearly_dead(self, m: Dict[str, Any]) -> bool:
         hp = m.get("hp")
         if hp is None:
@@ -407,6 +420,8 @@ class Bot:
         for m in mechs:
             d = _d2(m["pos"], me["pos"])
             if d > ENGAGE_MAX:
+                continue
+            if WAKE_GUARD_FIGHT and self._asleep(m, d, t):
                 continue
             cubes = m.get("cubes") if isinstance(m.get("cubes"), int) else None
             clear = self.combat.clear_shot(me, m["pos"], int(m["id"]), cubes)
@@ -1154,6 +1169,8 @@ class Bot:
                     continue
                 d = _d2(m["pos"], me["pos"])
                 if d > ALWAYS_FIRE_D or (best is not None and d >= best[0]):
+                    continue
+                if WAKE_GUARD and self._asleep(m, d, t):
                     continue
                 cubes = m.get("cubes") if isinstance(m.get("cubes"), int) else None
                 if self.combat.clear_shot(me, m["pos"], int(m["id"]), cubes):
