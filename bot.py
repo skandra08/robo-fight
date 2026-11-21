@@ -446,14 +446,11 @@ class Bot:
         return False
 
     def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
-        """THIRD disabled for practice (R2). Body kept for FFA (decision 6).
+        """Third only after a nearby fight has gone on briefly; isolate + HP gates.
 
-        Was practice-gated (v1.10): positioned + healthy + near sound only.
-        Shared-vision house hunters punish mid/far crash-ins.
+        Armed + positioned + HP≥70% + not recently hit. Wait ~4s of sustained
+        near combat (not first gunshot); skip mid/far-dominated noise (packs).
         """
-        if True:  # practice: never crash into sound fights
-            self.mem.third_commit = False
-            return False
         if second is None:
             return False
         if visible:
@@ -473,22 +470,29 @@ class Bot:
             self.mem.third_commit = False
             return False
         age = t - self.mem.combat_noise_since
-        if age < 3.0:
-            return False  # wait longer than v1.9 — don't crash at first exchange
-        if age > 5.5 and not self.mem.third_commit:
+        # Fight must have gone on briefly — don't crash at the first exchange.
+        if age < 4.0:
             return False
-        # Near combat only (single-contact estimate). Mid/far → pack ambush.
+        if age > 7.0 and not self.mem.third_commit:
+            return False
+        # Isolate: sustained near combat only. Mid/far-heavy → pack ambush.
         combat_kinds = ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning")
         bearing = None
         near_hits = 0
+        mid_far = 0
         for s in reversed(self.mem.sound_log):
+            if t - float(s.get("t", 0)) > 6.0:
+                break
             if s.get("kind") not in combat_kinds:
                 continue
-            if s.get("dist") == "near":
+            dist = s.get("dist")
+            if dist == "near":
                 near_hits += 1
                 if bearing is None and s.get("bearing") is not None:
                     bearing = float(s["bearing"])
-        if near_hits < 1 or bearing is None:
+            elif dist in ("mid", "far"):
+                mid_far += 1
+        if near_hits < 2 or bearing is None or mid_far > near_hits:
             self.mem.third_commit = False
             return False
         self.mem.third_bearing = bearing
