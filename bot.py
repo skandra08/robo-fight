@@ -72,6 +72,8 @@ LIGHTNING_CLOSE = True  # lightning loadouts fight at 20-40 m
 LOWHP_BONUS = 30.0  # metres of preference for a nearly dead target
 HP_WEIGHT = 0.0  # metres of preference per 100 HP the target is missing
 STRAFE_PERIOD = 2.7
+LIGHTNING_DUAL = False  # gun keeps firing while lightning is in range
+MORTAR_IN_RELOAD = False  # lob mortar shells while the gun reloads
 LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
@@ -670,6 +672,11 @@ class Bot:
         elif second == "mortar":
             if not clear and 12.0 < dist < self.mortar_max:
                 kind = "mortar"
+            elif MORTAR_IN_RELOAD and 25.0 < dist < self.mortar_max:
+                # gun reloading: lob a shell instead of idling
+                g = (me.get("weapons") or [None])[0] or {}
+                if float(g.get("reload") or 0) > 0.3:
+                    kind = "mortar"
         elif second == "lightning":
             kind = "lightning" if clear and dist <= self.lightning_range else "gun"
         if kind == "mortar" and self.combat.mortar_aim(me, chase["pos"], chase.get("vel") or [0, 0, 0]) is None:
@@ -1093,6 +1100,8 @@ class Bot:
                     return "laser", None  # type: ignore[return-value]
             return "laser", "laser"
         if kind == "lightning":
+            if LIGHTNING_DUAL and _slot_of(me, "gun") is not None:
+                return "gun", None  # type: ignore[return-value]  # lightning's 30 deg cone covers the gun lead
             return "lightning", "lightning"
         return "gun", "gun"
 
