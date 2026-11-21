@@ -46,6 +46,8 @@ class Memory:
         self._gun_ammo_seen: Optional[float] = None
         self._gun_held_last = False
         self.strafe_sign = 1.0
+        self.jink_until = 0.0
+        self.jink_radial = 0.0
         self.positioned = False
         self.loadout_goal: Optional[List[float]] = None
         # Practice modes: fight → disengage / third / rotate tracking.

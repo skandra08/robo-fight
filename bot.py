@@ -1144,6 +1144,21 @@ class Bot:
         if "fire" not in act:
             act["fire"] = [False, False]
 
+    def _jink(self, t: float, bearing: float, speed: float = 1.0) -> List[float]:
+        """Fight footwork: strafe across the enemy's line of fire and reverse at random
+        0.25-0.7 s intervals, so a shooter that leads our current velocity misses.
+        A fixed strafe direction is the easiest target there is for linear lead."""
+        if t >= self.mem.jink_until:
+            self.mem.strafe_sign = -self.mem.strafe_sign
+            self.mem.jink_until = t + 0.25 + 0.45 * self.mem.rand()
+            self.mem.jink_radial = (self.mem.rand() - 0.5) * 0.8
+        side = bearing + (math.pi / 2) * self.mem.strafe_sign
+        rx, ry = math.cos(bearing), math.sin(bearing)
+        mx = math.cos(side) + rx * self.mem.jink_radial
+        my = math.sin(side) + ry * self.mem.jink_radial
+        n = math.hypot(mx, my) or 1.0
+        return [mx / n * speed, my / n * speed]
+
     def _do_fight(
         self,
         obs: mf.Observation,
@@ -1268,8 +1283,7 @@ class Bot:
                 move, _ = self.nav.steer(me, chase["pos"], 0.7, t)
                 act["move"] = move
             else:
-                side = bearing + (math.pi / 2) * self.mem.strafe_sign
-                act["move"] = [math.cos(side) * 0.55, math.sin(side) * 0.55]
+                act["move"] = self._jink(t, bearing, 0.8)
             return
 
         # Lightning: close corners — close gap, hug cover, burst.
@@ -1279,8 +1293,7 @@ class Bot:
                 act["move"] = move
                 act["boost"] = energy_ok and (dist > 40 or push_hard)
             else:
-                side = bearing + (math.pi / 2) * self.mem.strafe_sign
-                act["move"] = [math.cos(side) * 0.8, math.sin(side) * 0.8]
+                act["move"] = self._jink(t, bearing, 1.0)
             self.nav.update_stuck(me, t, True)
             if self.mem.stuck_until > t:
                 act["jump"] = bool(me.get("grounded"))
@@ -1294,8 +1307,7 @@ class Bot:
             act["move"] = move
             act["boost"] = energy_ok and (dist > 50 or push_hard)
         else:
-            side = bearing + (math.pi / 2) * self.mem.strafe_sign
-            act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
+            act["move"] = self._jink(t, bearing, 1.0)
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
