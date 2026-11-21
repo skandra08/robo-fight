@@ -87,6 +87,8 @@ SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = alway
 SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
 HEAL_FIGHTBACK = False  # while backing off to heal, shoot the nearest mech whenever the shot is clear
+SEARCH_STUCK_S = 1e9  # search walk made no progress this long: pick a new waypoint
+CRATE_STRAFE = False  # strafe while shooting a crate instead of standing still
 HEAL_GIVEUP_S = 1e9  # backing off this long while still being hit: turn and fight instead
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
@@ -610,7 +612,13 @@ class Bot:
                 zc = self.nav.zone_goal(z, me["pos"], 0.55)
                 yaw = self.mem.scan_yaw
                 dest = [zc[0] + math.cos(yaw * 0.25) * 90.0, zc[1] + math.sin(yaw * 0.25) * 90.0]
-            elif dest is None or _d2(dest, me["pos"]) < 15.0 or t > self._search_until:
+            prog = getattr(self, "_search_prog", None)
+            if prog is None or _d2(prog[0], me["pos"]) > 6.0:
+                self._search_prog = (list(me["pos"]), t)
+            elif t - prog[1] > SEARCH_STUCK_S:
+                self._search_until = -1.0
+                self._search_prog = (list(me["pos"]), t)
+            if dest is None or _d2(dest, me["pos"]) < 15.0 or t > self._search_until:
                 nc, nr = z["next_center"], float(z["next_radius"])
                 ang = self.mem.rand() * 2 * math.pi
                 rr = math.sqrt(self.mem.rand()) * 0.6 * nr
@@ -634,6 +642,9 @@ class Bot:
             act["aim"] = [yaw, pitch]
             if self.combat.aligned(me, [yaw, pitch], tol_deg=3.0):
                 act["fire"] = [True, False]
+            if CRATE_STRAFE:
+                side = yaw + (math.pi / 2) * (1 if int(t / 2.0) % 2 == 0 else -1)
+                act["move"] = [math.cos(side) * 0.6, math.sin(side) * 0.6]
             gun = (me.get("weapons") or [None])[0]
             if gun and gun.get("kind") == "gun" and (gun.get("ammo") or 0) == 0 and not gun.get("reload"):
                 act["reload"] = True
