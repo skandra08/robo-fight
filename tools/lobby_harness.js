@@ -187,7 +187,7 @@ def MAKE(bot_dir, hello_json):
     }
     const out = {};
     for (const t in g) { const o = g[t]; const tot = Object.values(o.modes).reduce((a, b) => a + b, 0) || 1;
-      out[t] = { n: o.n, kills: +(o.kills / o.n).toFixed(2), place: +(o.place / o.n).toFixed(1), medAlive: med(o.alive), cubes: +(o.cubes / o.n).toFixed(1), dealtPerTaken: +(o.dealt / Math.max(1, o.taken)).toFixed(2), killedBy: o.killedBy,
+      out[t] = { n: o.n, score: +(16 - o.place / o.n).toFixed(2), kills: +(o.kills / o.n).toFixed(2), place: +(o.place / o.n).toFixed(1), medAlive: med(o.alive), cubes: +(o.cubes / o.n).toFixed(1), dealtPerTaken: +(o.dealt / Math.max(1, o.taken)).toFixed(2), killedBy: o.killedBy,
         modes: Object.fromEntries(Object.entries(o.modes).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([m, v]) => [m, Math.round(100 * v / tot) + "%"])) }; }
     return out;
   };
