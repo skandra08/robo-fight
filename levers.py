@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "g-zone"
+LABEL = "gz-noroof"
 
 LEVERS: Dict[str, bool] = {
-    "S1": True,  # every loadout camps on a roof
+    "S1": False,  # every loadout camps on a roof
     "N1": True,  # laser counter for every loadout
     "N2": False,  # edge-guard hunters climbing our roof
     "N3": False,  # after kill: loot then heal ≥90%
