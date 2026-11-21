@@ -125,10 +125,13 @@ class Combat:
             pitch = math.atan2(dz, horiz)
             return [yaw, pitch]
         if kind == "mortar":
-            return self.mortar_aim(me, [tx, ty, tz - 4.5], tv) or [
-                math.atan2(ty - my, tx - mx),
-                0.6,
-            ]
+            ma = self.mortar_aim(me, [tx, ty, tz - 4.5], tv)
+            if ma is not None:
+                return ma
+            # Bug #8: never fall back to pitch 0.6 (shell lands ~220 m away).
+            dx, dy, dz = tx - mx, ty - my, tz - mz
+            horiz = math.hypot(dx, dy) or 1e-6
+            return [math.atan2(dy, dx), math.atan2(dz, horiz)]
         # laser / lightning / default: direct
         dx, dy, dz = tx - mx, ty - my, tz - mz
         horiz = math.hypot(dx, dy) or 1e-6

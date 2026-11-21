@@ -823,17 +823,28 @@ class Bot:
         undetected = not _enemy_aware(chase, me["pos"])
         push_hard = aggressive and (flank or undetected) and len(enemies) <= 1
 
+        dist = math.dist(chase["pos"][:2], me["pos"][:2])
+        # R1: gun is primary whenever it has a clear shot. Specials only when useful.
         kind = "gun"
-        if second == "laser" and clear:
-            kind = "laser"
-        elif second == "mortar" and (not clear or math.dist(chase["pos"][:2], me["pos"][:2]) > 55):
-            kind = "mortar"
-        elif second == "lightning":
-            kind = "lightning" if clear or math.dist(chase["pos"][:2], me["pos"][:2]) < 45 else "gun"
-        elif second == "laser":
-            kind = "laser"
+        if second == "laser":
+            kind = "laser" if clear else "gun"
         elif second == "mortar":
-            kind = "mortar"
+            mw = self.combat.weapons.get("mortar") or {}
+            v = float(mw.get("speed", 72))
+            g = float(mw.get("gravity", 22))
+            mortar_max = (v * v / g) if g > 0 else 235.0
+            if not clear and 12.0 < dist < mortar_max:
+                kind = "mortar"
+            else:
+                kind = "gun"
+        elif second == "lightning":
+            lr = float((self.combat.weapons.get("lightning") or {}).get("range", 45))
+            kind = "lightning" if clear and dist <= lr else "gun"
+        # Bug #8: invalid mortar lob → gun (never pitch-0.6 skyfire).
+        if kind == "mortar":
+            feet = [chase["pos"][0], chase["pos"][1], chase["pos"][2]]
+            if self.combat.mortar_aim(me, feet, chase.get("vel") or [0, 0, 0]) is None:
+                kind = "gun"
         # Bug #7: gun lead between laser shots; never fire gun on mortar lob aim.
         kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, chase, kind)
@@ -848,7 +859,6 @@ class Bot:
         )
 
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
-        dist = math.dist(chase["pos"][:2], me["pos"][:2])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
 
         # Laser on roof: hold firing edge for vision.
