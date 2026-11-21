@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from typing import Dict
 
-LABEL = "tune"
+LABEL = "tune-g4"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -22,6 +22,7 @@ LEVERS: Dict[str, bool] = {
     "S4": False,  # ROTATE gatekeep off in practice
     "F1": False,  # FFA detector + survival mode
     "P1": True,  # grid A* path planning around buildings (nav.steer)
+    "G4": True,  # G2 is checked before the post-kill loot/heal (walk to the weapon while regenerating)
     "P2": True,  # path search budget in nodes (1024/tick), not wall-clock: same moves every run
     "N7": True,  # take every supply drop (full heal + 3 cubes), fight from the ring
     "G1": True,  # take any weapon within reach in every mode while slot 1 is empty

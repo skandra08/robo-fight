@@ -865,6 +865,18 @@ class Bot:
             self.mem.positioned = False
             return "DISENGAGE"
 
+        # G2: arm first. A weapon we know of within 60 m beats farming with the gun alone
+        # (sim: matches that never armed scored 2.8 vs 3.7). Skip it only while a closer enemy hurts us.
+        if (
+            (levers.on("G2") and levers.on("G4"))
+            and second is None
+            and loot is not None
+            and loot_d < levers.p("ARM_D")
+            and me.get("in_zone", True)
+            and not (recent_dmg and visible and enemy_d < loot_d + 10.0)
+        ):
+            return "ARM"
+
         # N3: after a kill, loot then heal to ≥90% when quiet.
         if levers.on("N3") and self.mem.post_kill_phase and not visible:
             if self.mem.post_kill_phase == "loot":
@@ -880,10 +892,10 @@ class Bot:
                 self.mem.post_kill_phase = None
                 self.mem.post_kill_pos = None
 
-        # G2: arm first. A weapon we know of within 60 m beats farming with the gun alone
+        # G2 (no G4): arm first. A weapon we know of within 60 m beats farming with the gun alone
         # (sim: matches that never armed scored 2.8 vs 3.7). Skip it only while a closer enemy hurts us.
         if (
-            levers.on("G2")
+            (levers.on("G2") and not levers.on("G4"))
             and second is None
             and loot is not None
             and loot_d < levers.p("ARM_D")
