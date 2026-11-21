@@ -1418,6 +1418,31 @@ class Bot:
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
 
+        # While gun reloading: break LOS / use cover instead of standing exposed.
+        gun = (me.get("weapons") or [None])[0]
+        gun_reloading = bool(
+            gun
+            and gun.get("kind") == "gun"
+            and (
+                float(gun.get("reload") or 0) > 0.05
+                or (reload and int(gun.get("ammo") or 0) == 0)
+            )
+        )
+        if gun_reloading:
+            goal = self._safe_cover_goal(me, obs["zone"], bearing)
+            gd = math.dist(goal[:2], me["pos"][:2])
+            if 3.0 < gd < 55.0:
+                move, _ = self.nav.steer(me, goal, 1.0, t)
+                act["move"] = move
+                act["boost"] = energy_ok and gd > 10.0
+            else:
+                away = bearing + math.pi
+                side = away + (math.pi / 2) * 0.4 * self.mem.strafe_sign
+                act["move"] = [math.cos(side) * 0.95, math.sin(side) * 0.95]
+                act["boost"] = energy_ok
+            self.nav.update_stuck(me, t, True)
+            return
+
         # Laser on roof: hold firing edge for vision.
         if second == "laser" and self.mem.world_on_roof:
             roof = self.cover.roof(self.mem.roof_id) if self.mem.roof_id is not None else None
