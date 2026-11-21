@@ -1,7 +1,7 @@
 """Compare simulator results with known practice scores: python3 sim/calib.py out.json [metric]"""
 import json, sys, statistics as st
 PRACTICE = {"fa3e282": 2.75, "aee2114": 2.73, "b7b5c38": 2.65, "5e969f1": 2.5, "55f5015": 2.29, "9b820d1": 2.29,
-            "79d9eeb": 2.17, "3cbee64": 2.15, "b4d6e37": 2.00}
+            "79d9eeb": 2.17, "3cbee64": 2.15, "b4d6e37": 2.00, "481fed0": 2.81, "2e8b45e": 2.90}
 def ranks(v):
     o = sorted(range(len(v)), key=lambda i: v[i]); r = [0.0] * len(v); i = 0
     while i < len(o):
