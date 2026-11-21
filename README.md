@@ -1,6 +1,6 @@
 # loadout-hunter (robo-fight)
 
-Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loadout camp, take advantaged 1v1s; gated thirds vs shared-vision hunters.
+Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loadout camp, take advantaged 1v1s; stay and fight (no DISENGAGE/THIRD in practice).
 
 ## Stance
 
@@ -8,8 +8,7 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loado
 - **Mortar**: relocate to far ground inside the zone; hold range and lob on mid/far sounds.
 - **Laser**: climb a roof for vision; peek-shoot from the edge.
 - **Lightning**: hold tight corners, stay out of sight, burst when close.
-- **DISENGAGE / RESET**: leave bad fights (2nd hunter, ~400 HP lost, ~12s no kill), break LOS, then sit for regen.
-- **THIRD**: practice-gated — only after loadout position, HP>0.7, no recent damage, and **near** combat sounds (~3s); mid/far crash disabled (shared-vision packs).
+- **DISENGAGE / RESET / THIRD**: **disabled for practice** (R2) — latching DISENGAGE abandoned fights before the kill; THIRD crashed into shared-vision packs. Code kept for FFA (decision 6).
 - **ROTATE**: enter next circle (not loadout RELOCATE); edge-gatekeep late rotators when loadout/position allows.
 - **LOOT_SWAP**: nearby upgrades only; never mortar→lightning; laser threat → safe ground else drop mortar.
 - **FFA**: stubbed (decision 6) — practice mid-pack path only for now.
@@ -32,6 +31,7 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loado
 | v1.9 | Practice modes | DISENGAGE / RESET / THIRD / ROTATE / LOOT_SWAP wired into `_select_mode`; FFA detector stubbed; supply contest only when `alive`≤5 |
 | v1.10 | Practice survival hotfix | Gate THIRD (positioned + HP>0.7 + near-sound only); soften gun-only / unpositioned FIGHT; quieter ARM boost. Predicted: fewer place~14 early deaths vs shared-vision hunters; midpack practice score up from ~1.44 toward pre-aggression ~2.5 |
 | v1.11 | Gun primary on clear shot (R1) | Mortar only no-LOS in-range; lightning only clear ≤range; else gun. Drop pitch-0.6 mortar fallback (#8). Predicted: restore gun DPS for mortar/lightning loadouts (v1.3+v1.8 silence) |
+| v1.12 | Disable DISENGAGE/RESET/THIRD (R2) | Practice: stay in FIGHT (decision 5). Bodies kept for FFA. Predicted: finish 1v1s instead of looping DISENGAGE after ~400 HP lost |
 
 ## Local check
 

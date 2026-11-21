@@ -273,6 +273,10 @@ class Bot:
         return False
 
     def _should_disengage(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
+        # R2 (practice): DISENGAGE latches and abandons fights before the kill.
+        # Keep the body below for the FFA path (decision 6) once Sameer signs off.
+        if True:  # practice: always stay and fight
+            return False
         if self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until:
             return True
         in_fight = self.mem.mode in ("FIGHT", "THIRD", "DISENGAGE") or (
@@ -296,11 +300,14 @@ class Bot:
         return False
 
     def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
-        """Practice-gated third: positioned + healthy + near sound only.
+        """THIRD disabled for practice (R2). Body kept for FFA (decision 6).
 
-        Shared-vision house hunters punish mid/far crash-ins — you arrive into a
-        pack that already sees you. Prefer loadout camp first; only tip near fights.
+        Was practice-gated (v1.10): positioned + healthy + near sound only.
+        Shared-vision house hunters punish mid/far crash-ins.
         """
+        if True:  # practice: never crash into sound fights
+            self.mem.third_commit = False
+            return False
         if second is None:
             return False
         if visible:
@@ -482,13 +489,14 @@ class Bot:
         loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
         enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
 
-        # Stay in DISENGAGE until cover / timer.
+        # Stay in DISENGAGE until cover / timer. (R2 practice: _should_disengage
+        # is False, so we only clear a stale DISENGAGE if somehow entered.)
         if self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until:
             if not visible or enemy_d > 55:
-                # Reached relative safety → RESET.
-                if t - self.mem.last_took_weapon_damage_t >= self.regen_delay * 0.4:
-                    return "RESET"
-            return "DISENGAGE"
+                # Reached relative safety → fall through (RESET disabled in practice).
+                pass
+            else:
+                return "DISENGAGE"
 
         if self._should_disengage(me, visible, t):
             self.mem.disengage_until = t + 4.0
@@ -542,7 +550,7 @@ class Bot:
                     return "FIGHT"
                 # Unpositioned + undetected mid-range → fall through to RELOCATE/CAMP.
 
-        # THIRD: heavily gated for practice (see _want_third).
+        # THIRD: disabled for practice via _want_third (R2); body kept for FFA.
         if self._want_third(me, second, visible, t):
             return "THIRD"
 
@@ -559,8 +567,9 @@ class Bot:
             and t - self.mem.last_dealt_damage_t >= self.regen_delay
             and not visible
         )
-        # RESET after disengage: sit for regen when safe (even if HP not critically low).
-        if safe_for_regen and (
+        # R2 (practice): RESET disabled — it paired with latching DISENGAGE.
+        # Keep HEAL for critically low HP when safe. FFA can re-enable RESET.
+        if False and safe_for_regen and (
             self.mem.mode in ("DISENGAGE", "RESET")
             or (hp_frac < 0.85 and t - self.mem.fight_start_t < 30 and self.mem.fight_start_t > 0)
         ):
