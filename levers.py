@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "no-gate"
+LABEL = "ffa"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -18,8 +18,8 @@ LEVERS: Dict[str, bool] = {
     "N4": False,  # pre-charged laser peeks
     "N5": False,  # cube snowball (drones + kill cubes)
     "N6": False,  # contest supply drop 1
-    "S4": True,  # ROTATE gatekeep off in practice
-    "F1": False,  # FFA detector + survival mode
+    "S4": False,  # ROTATE gatekeep off in practice
+    "F1": True,  # FFA detector + survival mode
 }
 
 
