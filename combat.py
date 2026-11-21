@@ -64,6 +64,37 @@ class Combat:
             self._los_cache[eid] = ok
         return ok
 
+    def _prefer_threat(
+        self,
+        me: Dict[str, Any],
+        cands: List[Dict[str, Any]],
+        prefer_id: Optional[int],
+    ) -> Optional[Dict[str, Any]]:
+        """Threat order: laser charging → closest armed → weapon type (not raw distance/HP)."""
+        if not cands:
+            return None
+        mx, my = me["pos"][0], me["pos"][1]
+        # Lower = more dangerous / higher priority to shoot first.
+        wrank = {"laser": 0, "mortar": 1, "lightning": 2, "gun": 3}
+
+        def key(m: Dict[str, Any]):
+            kinds = [w for w in (m.get("weapons") or []) if isinstance(w, str)]
+            charging = bool(m.get("charging"))
+            armed = any(k in ("laser", "mortar", "lightning") for k in kinds)
+            best_w = min((wrank.get(k, 9) for k in kinds), default=9)
+            d = math.dist(m["pos"][:2], (mx, my))
+            sticky = 0 if (prefer_id is not None and int(m["id"]) == prefer_id) else 1
+            if charging:
+                tier = 0
+            elif armed:
+                tier = 1
+            else:
+                tier = 2
+            # Charging first; among armed prefer closest then better weapon; sticky ties.
+            return (tier, d if tier == 1 else best_w, best_w if tier == 1 else d, sticky)
+
+        return min(cands, key=key)
+
     def pick_target(
         self,
         me: Dict[str, Any],
@@ -79,19 +110,7 @@ class Combat:
             if require_clear and not self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 continue
             cands.append(m)
-        if not cands:
-            return None
-        if prefer_id is not None:
-            for m in cands:
-                if int(m["id"]) == prefer_id:
-                    return m
-
-        def key(m):
-            hp = m.get("hp", 1400)
-            d = math.dist(m["pos"][:2], me["pos"][:2])
-            return (hp, d)
-
-        return min(cands, key=key)
+        return self._prefer_threat(me, cands, prefer_id)
 
     def pick_fight_targets(
         self,
@@ -110,19 +129,10 @@ class Combat:
             if self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 clear_cands.append(m)
 
-        def choose(cands: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-            if not cands:
-                return None
-            if prefer_id is not None:
-                for m in cands:
-                    if int(m["id"]) == prefer_id:
-                        return m
-            return min(
-                cands,
-                key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
-            )
-
-        return choose(clear_cands), choose(any_cands)
+        return (
+            self._prefer_threat(me, clear_cands, prefer_id),
+            self._prefer_threat(me, any_cands, prefer_id),
+        )
 
     def aim_at(self, me: Dict[str, Any], target: Dict[str, Any], kind: str = "gun") -> List[float]:
         mx, my, mz = self.muzzle(me)
