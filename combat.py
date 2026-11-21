@@ -181,8 +181,14 @@ class Combat:
         target: Optional[Dict[str, Any]],
         t: float,
         mem: Any,
+        aim_kind: Optional[str] = None,
     ) -> Tuple[List[bool], bool, Optional[float]]:
-        """Returns fire[2], reload, optional drop_slot for COUNTER_LASER caller."""
+        """Returns fire[2], reload, optional drop_slot for COUNTER_LASER caller.
+
+        aim_kind: when set, only fire weapons compatible with that aim.
+        Gun requires gun lead aim (no skyfire on mortar lob / laser direct).
+        Lightning may share laser/gun direct-ish aim.
+        """
         fire = [False, False]
         reload = False
         weapons = me.get("weapons") or [None, None]
@@ -203,6 +209,16 @@ class Combat:
             if not w:
                 continue
             kind = w["kind"]
+            if aim_kind is not None:
+                if kind == "gun" and aim_kind != "gun":
+                    # Bug #7: don't dump the mag on mortar lob / laser direct aim.
+                    continue
+                if kind == "mortar" and aim_kind != "mortar":
+                    continue
+                if kind == "laser" and aim_kind != "laser":
+                    continue
+                if kind == "lightning" and aim_kind not in ("lightning", "laser", "gun"):
+                    continue
             cd = float(w.get("cooldown") or 0)
             if kind == "laser":
                 # Charging while way off-target telegraphs + risks hold_s auto-fire the wrong way.

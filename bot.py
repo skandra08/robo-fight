@@ -161,6 +161,9 @@ class Bot:
         ):
             self._avoid(obs, act)
 
+        # Bug #6: never drop a mid-charge laser blindly when the target leaves view.
+        self._laser_charge_hold(obs, act)
+
         ms = (time.perf_counter() - t_act0) * 1000
         self.mem.max_act_ms = max(self.mem.max_act_ms, ms)
         # Design budget: typical <15ms, worst <30ms of the 50ms tick.
@@ -377,9 +380,11 @@ class Bot:
             kind = "laser"
         elif second == "mortar":
             kind = "mortar"
+        # Bug #7: gun lead between laser shots; never fire gun on mortar lob aim.
+        kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, chase, kind)
         act["aim"] = aim
-        fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem)
+        fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem, aim_kind=aim_kind)
         act["fire"] = fire
         act["reload"] = reload
         mf.draw.line(
@@ -847,12 +852,77 @@ class Bot:
         if not target:
             return
         kind = "laser" if _slot_of(me, "laser") is not None else "gun"
+        kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, target, kind)
         act["aim"] = aim
-        fire, reload, _ = self.combat.fire_slots(me, aim, target, t, self.mem)
+        fire, reload, _ = self.combat.fire_slots(me, aim, target, t, self.mem, aim_kind=aim_kind)
         act["fire"] = fire
         if reload:
             act["reload"] = True
+
+    def _fight_aim_kind(self, me: Dict[str, Any], kind: str) -> tuple[str, str]:
+        """Pick aim weapon + fire_slots aim_kind (bug #7)."""
+        if kind == "mortar":
+            return "mortar", "mortar"
+        if kind == "laser":
+            slot = _slot_of(me, "laser")
+            if slot is not None:
+                w = (me.get("weapons") or [])[slot]
+                charge = float((w or {}).get("charge") or 0)
+                cd = float((w or {}).get("cooldown") or 0)
+                # Between laser shots (cooling, not charging): lead with the gun.
+                if charge <= 0.02 and cd > 0 and _slot_of(me, "gun") is not None:
+                    return "gun", "gun"
+            return "laser", "laser"
+        if kind == "lightning":
+            return "lightning", "lightning"
+        return "gun", "gun"
+
+    def _laser_charge_hold(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        """Final pass: keep / release a laser that was charging when the target vanished."""
+        me = obs["self"]
+        t = float(obs["t"])
+        weapons = me.get("weapons") or []
+        fire = list(act.get("fire") or [False, False])
+        while len(fire) < 2:
+            fire.append(False)
+        laser_cfg = (self.cfg.get("weapons") or {}).get("laser") or {}
+        need = float(laser_cfg.get("charge", 0.75))
+        hold_s = float(laser_cfg.get("hold_s", 2.0))
+        memory_s = float((self.cfg.get("vision") or {}).get("memory_s", 5.0))
+        changed = False
+        for i, w in enumerate(weapons):
+            if not w or w.get("kind") != "laser":
+                continue
+            charge = float(w.get("charge") or 0)
+            if charge <= 0.02:
+                continue
+            if fire[i]:
+                continue
+            # Target lost / mode didn't hold this slot — decide explicitly.
+            best = None
+            best_ang = 1e9
+            for e in self.mem.enemies.values():
+                if t - float(e.get("last_seen_t", -1e9)) > memory_s:
+                    continue
+                bearing = math.atan2(e["pos"][1] - me["pos"][1], e["pos"][0] - me["pos"][0])
+                ang = abs(_angdiff(me["aim"][0], bearing))
+                if ang < best_ang:
+                    best_ang = ang
+                    best = e
+            if best is not None and best_ang <= math.radians(8.0):
+                fire[i] = True
+                act["aim"] = self.combat.aim_at(me, best, "laser")
+                changed = True
+            elif charge >= need + hold_s - 0.08:
+                # Near auto-fire end — release (beam fires either way).
+                fire[i] = False
+            else:
+                # Don't drop the charge the tick the target disappears.
+                fire[i] = True
+                changed = True
+        if changed or fire != list(act.get("fire") or [False, False]):
+            act["fire"] = fire
 
     def _loot_is_elevated_roof(self, pos: List[float]) -> bool:
         gz = self.world.ground(pos[0], pos[1])
