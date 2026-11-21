@@ -68,8 +68,8 @@ Queued off old bar (superseded as next submit):
 
 | Priority | Hash | Name | Delta |
 | --- | --- | --- | --- |
-| **SUBMIT NOW** | _(filled after push)_ | `lh-rw-sticky` / `try/rw-sticky` | sticky FARM 2 s on best-350 |
-| Then | _(filled after push)_ | `lh-rw-upgsus` / `try/rw-upgsus` | nanites/plating/armor first on best-350 |
+| **SUBMIT NOW** | b5cb3b9e1f34df748390679ba31f87b731f90d13 | `lh-rw-sticky` / `try/rw-sticky` | sticky FARM 2 s on best-350 |
+| Then | 2878def10e3a98c2f4ab2e43db75e2de3f451635 | `lh-rw-upgsus` / `try/rw-upgsus` | nanites/plating/armor first on best-350 |
 
 Laser-ARM skipped: rewrite already prefers laser via `WEAPON_RANK` + loot farm when unarmed; classic arm-first FIGHT gate is largely covered by `FARM_FIGHT_S=75`.
 
