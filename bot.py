@@ -67,6 +67,11 @@ ENGAGE_MAX = 230.0  # gun range
 FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
 DUAL_FIRE = True  # gun fires while the laser charges
+TOPUP_RELOAD = False  # reload a partly empty gun whenever nothing is in our sights
+LIGHTNING_CLOSE = True  # lightning loadouts fight at 20-40 m
+LOWHP_BONUS = 30.0  # metres of preference for a nearly dead target
+HP_WEIGHT = 0.0  # metres of preference per 100 HP the target is missing
+STRAFE_PERIOD = 2.7
 LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
@@ -228,6 +233,12 @@ class Bot:
         if mode in ("FARM", "ROOF", "HEAL") and not self.mem.world_on_roof and not act.get("jump"):
             self._avoid(obs, act)
         self._laser_charge_hold(obs, act)
+        if TOPUP_RELOAD and not any(act.get("fire") or []) and not act.get("reload"):
+            g = (me.get("weapons") or [None])[0]
+            if g and g.get("kind") == "gun" and not g.get("reload"):
+                mag = int((g.get("stats") or {}).get("mag", 12))
+                if g.get("ammo") is not None and g["ammo"] < mag * 0.75:
+                    act["reload"] = True
         if "take" not in act:
             self._grab_in_reach(obs, act)
 
@@ -367,7 +378,9 @@ class Bot:
                     continue
                 d += 40.0  # prefer something we can actually shoot
             if self._nearly_dead(m):
-                d -= 30.0
+                d -= LOWHP_BONUS
+            if HP_WEIGHT and m.get("hp") is not None:
+                d -= HP_WEIGHT * max(0.0, float(m.get("max_hp") or 1400) - float(m["hp"])) / 100.0
             if self._target_id is not None and int(m["id"]) == self._target_id:
                 prev = (m, d)
             if d < best_d:
@@ -688,7 +701,7 @@ class Bot:
             return
 
         lo, hi = BAND_LO, BAND_HI
-        if second == "lightning" and _slot_of(me, "lightning") is not None:
+        if LIGHTNING_CLOSE and second == "lightning" and _slot_of(me, "lightning") is not None:
             lo, hi = 20.0, 40.0
         if finishing:
             lo = 25.0
@@ -707,7 +720,7 @@ class Bot:
             act["move"] = move
         else:
             # flip strafe direction every few seconds so we're not trivially led
-            if int(t / 2.7) % 2 == 0:
+            if int(t / STRAFE_PERIOD) % 2 == 0:
                 sgn = self.mem.strafe_sign
             else:
                 sgn = -self.mem.strafe_sign
