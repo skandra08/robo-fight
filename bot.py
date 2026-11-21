@@ -848,6 +848,21 @@ class Bot:
             self.mem.positioned = False
             return "DISENGAGE"
 
+        # N3: after a kill, loot then heal to ≥90% when quiet.
+        if levers.on("N3") and self.mem.post_kill_phase and not visible:
+            if self.mem.post_kill_phase == "loot":
+                pk = self.mem.post_kill_pos
+                if pk is not None and me.get("in_zone", True):
+                    dpk = math.dist(pk[:2], me["pos"][:2])
+                    if dpk <= 40.0:
+                        return "LOOT_SWAP" if self._loot_swap_target(me, second, t) else "ARM"
+                self.mem.post_kill_phase = "heal"
+            if self.mem.post_kill_phase == "heal" and hp_frac < 0.90:
+                return "HEAL"
+            if self.mem.post_kill_phase == "heal" and hp_frac >= 0.90:
+                self.mem.post_kill_phase = None
+                self.mem.post_kill_pos = None
+
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
         if t < 75.0 and not recent_dmg:
@@ -875,21 +890,6 @@ class Bot:
         mid_climb = self.mem.mode == "RELOCATE" and not me.get("grounded")
         if not recent_dmg and not mid_climb and self._cube_goal(obs, visible, enemy_d) is not None:
             return "CUBE"
-
-        # N3: after a kill, loot then heal to ≥90% when quiet.
-        if levers.on("N3") and self.mem.post_kill_phase and not visible:
-            if self.mem.post_kill_phase == "loot":
-                pk = self.mem.post_kill_pos
-                if pk is not None and me.get("in_zone", True):
-                    dpk = math.dist(pk[:2], me["pos"][:2])
-                    if dpk <= 40.0:
-                        return "LOOT_SWAP" if self._loot_swap_target(me, second, t) else "ARM"
-                self.mem.post_kill_phase = "heal"
-            if self.mem.post_kill_phase == "heal" and hp_frac < 0.90:
-                return "HEAL"
-            if self.mem.post_kill_phase == "heal" and hp_frac >= 0.90:
-                self.mem.post_kill_phase = None
-                self.mem.post_kill_pos = None
 
         # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us.
         if second is not None and not self.mem.world_on_roof:
