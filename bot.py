@@ -20,8 +20,13 @@ def _lightning_first() -> bool:
 
 
 def _quiet_arm() -> bool:
-    """No boost inside the zone while looting (sheep/snowball/edge / S3)."""
-    return levers.playbook() in ("edge-hunter", "zone-sheep", "cube-snowball") or levers.on("S3")
+    """No boost inside the zone while looting (precise/sheep/snowball/edge / S3)."""
+    return levers.playbook() in (
+        "precise",
+        "edge-hunter",
+        "zone-sheep",
+        "cube-snowball",
+    ) or levers.on("S3")
 
 
 def _cube_farm() -> bool:
@@ -30,13 +35,24 @@ def _cube_farm() -> bool:
 
 
 def _no_chase() -> bool:
-    """Hold ground when fighting — never close distance (sheep / HOLD_FIGHT)."""
-    return levers.playbook() == "zone-sheep" or levers.on("HOLD_FIGHT")
+    """Hold/strafe for clear shot — never chase (precise / sheep / HOLD_FIGHT)."""
+    return levers.playbook() in ("precise", "zone-sheep") or levers.on("HOLD_FIGHT")
+
+
+def _dual_fire() -> bool:
+    """Gun lead DPS while laser/lightning owns torso aim (precise / DUAL_FIRE)."""
+    return levers.playbook() == "precise" or levers.on("DUAL_FIRE")
 
 
 def _ground_only() -> bool:
-    """Never climb roofs (sheep / snowball / edge / loot)."""
-    return levers.playbook() in ("edge-hunter", "loot-brawl", "zone-sheep", "cube-snowball")
+    """Never climb roofs (precise / sheep / snowball / edge / loot)."""
+    return levers.playbook() in (
+        "precise",
+        "edge-hunter",
+        "loot-brawl",
+        "zone-sheep",
+        "cube-snowball",
+    )
 
 UPGRADE_PRIORITY = [
     "armor",
@@ -231,9 +247,9 @@ class Bot:
         # Bug #6: never drop a mid-charge laser blindly when the target leaves view.
         self._laser_charge_hold(obs, act)
 
-        # F1 / zone-sheep: walk silently (under step_speed, no boost) except zone escapes.
+        # precise / F1 / zone-sheep: walk silently (under step_speed, no boost) except zone escapes.
         silent = mode != "ESCAPE_ZONE" and (
-            levers.playbook() == "zone-sheep"
+            levers.playbook() in ("precise", "zone-sheep")
             or (levers.on("F1") and self.mem.ffa)
         )
         if silent:
@@ -304,8 +320,9 @@ class Bot:
             if self.mem.loadout_goal and math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 16.0:
                 return not self.mem.world_on_roof
             return False
-        if pb in ("zone-sheep", "cube-snowball"):
-            return self._deep_zone_ok(me, zone, 0.50 if pb == "cube-snowball" else 0.45)
+        if pb in ("zone-sheep", "cube-snowball", "precise"):
+            frac = 0.45 if pb == "zone-sheep" else 0.55 if pb == "precise" else 0.50
+            return self._deep_zone_ok(me, zone, frac)
         if self.mem.positioned and self.mem.loadout_goal:
             if math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 18.0:
                 return True
@@ -866,6 +883,8 @@ class Bot:
     def _select_mode(self, obs: mf.Observation, second: Optional[str]) -> str:
         """Dispatch to PLAYBOOK decision tree."""
         pb = levers.playbook()
+        if pb == "precise":
+            return self._select_precise(obs, second)
         if pb == "edge-hunter":
             return self._select_edge_hunter(obs, second)
         if pb == "loot-brawl":
@@ -1083,6 +1102,78 @@ class Bot:
         # Idle in pocket until a mid-range hunter appears.
         return "CAMP"
 
+    def _select_precise(self, obs: mf.Observation, second: Optional[str]) -> str:
+        """Thin mechanics-first: ARM → stay alive in zone → fight on contact.
+
+        Fight rule: 1 visible + (rear/flank OR HP edge) → take it; 2+ → cover;
+        if shot → return fire. No roof/sheep/snowball playbooks.
+        """
+        me = obs["self"]
+        t = float(obs["t"])
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        early = self._common_escape_counter(obs, me, t)
+        if early:
+            return early
+
+        recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
+        visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        self.mem.farm_drone_id = None
+
+        # 2+ hunters: break LOS to cover (don't 1v2).
+        if len(visible) >= 2:
+            if not (self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until):
+                self.mem.disengage_until = t + 4.0
+                self.mem.positioned = False
+            return "DISENGAGE"
+        if self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until:
+            if not visible:
+                self.mem.fight_start_t = -1e9
+                self.mem.disengage_rearm_t = t + 2.0
+                self.mem.disengage_goal = None
+            else:
+                return "DISENGAGE"
+
+        # Shot → always return fire.
+        if recent_dmg and visible:
+            return "FIGHT"
+
+        # 1v1: rear/flank or clear HP edge.
+        if len(visible) == 1:
+            e = visible[0]
+            d = math.dist(e["pos"][:2], me["pos"][:2])
+            rear = _we_flank(e, me["pos"])
+            ehp = e.get("hp")
+            emax = float(e.get("max_hp") or 1400.0)
+            their = float(ehp) / max(1.0, emax) if ehp is not None else 1.0
+            hp_edge = ehp is not None and (float(ehp) < 450.0 or hp_frac >= their + 0.20)
+            if (rear or hp_edge) and d < 120.0:
+                return "FIGHT"
+
+        # Zone: simple next-center bias — don't die to the storm.
+        if self._need_rotate(me, obs["zone"], t, second or "gun"):
+            return "ROTATE"
+        if self._zone_forces_reloc(me, obs["zone"], t):
+            return "ROTATE"
+        if not self._deep_zone_ok(me, obs["zone"], 0.60):
+            return "ROTATE"
+
+        # Regen: stop fighting the clock when quiet (don't reset 5s for nothing).
+        safe_for_regen = (
+            t - self.mem.last_took_weapon_damage_t >= self.regen_delay
+            and t - self.mem.last_dealt_damage_t >= self.regen_delay
+            and not visible
+        )
+        if safe_for_regen and hp_frac < 0.90:
+            return "HEAL"
+
+        if second is None:
+            return "ARM"
+
+        if not self._loadout_positioned(me, second, obs["zone"]):
+            return "RELOCATE"
+        self.mem.positioned = True
+        return "CAMP"
+
     def _select_zone_sheep(self, obs: mf.Observation, second: Optional[str]) -> str:
         """Pure placement: deep next-zone, quiet heal, never start fights, no climb."""
         me = obs["self"]
@@ -1204,7 +1295,12 @@ class Bot:
         goal = self.mem.disengage_goal
         move, yaw = self.nav.steer(me, goal, 1.0, t)
         act["move"] = move
-        act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.3
+        efrac = me["energy"] / max(1.0, me["max_energy"])
+        if levers.playbook() == "precise":
+            act["boost"] = (not me.get("in_zone", True)) and efrac > 0.35
+        else:
+            act["boost"] = efrac > 0.3
+        # Face the threat (don't give rear while peeling).
         act["aim"] = [away if away is not None else yaw, -0.05]
         # Stop shooting once LOS is broken / we put cover between us; peek-fire only if still pressed.
         still_pressed = False
@@ -1220,7 +1316,8 @@ class Bot:
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
-            act["boost"] = True
+            if levers.playbook() != "precise" or not me.get("in_zone", True):
+                act["boost"] = True
         _ = second
 
     def _do_reset(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
@@ -1416,8 +1513,23 @@ class Bot:
         t: float,
         bearing: float,
         clear: bool,
+        enemy: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
-        """HOLD_FIGHT movement: never close distance; hold roof or half-speed strafe."""
+        """HOLD_FIGHT / precise: never chase; strafe/hold; prefer rear arc when precise."""
+        if levers.playbook() == "precise" and enemy is not None and enemy.get("kind") == "mech":
+            eaim = (enemy.get("aim") or [0.0, 0.0])[0]
+            to_us = _bearing_to(enemy["pos"], me["pos"])
+            rear_yaw = eaim + math.pi
+            err = _angdiff(rear_yaw, to_us)
+            if abs(err) > math.radians(25):
+                self.mem.strafe_sign = 1.0 if err > 0 else -1.0
+            side = bearing + (math.pi / 2) * self.mem.strafe_sign
+            if not clear:
+                return [math.cos(side) * 0.55, math.sin(side) * 0.55]
+            if _we_flank(enemy, me["pos"]):
+                return [math.cos(side) * 0.4, math.sin(side) * 0.4]
+            return [math.cos(side) * 0.65, math.sin(side) * 0.65]
+
         side = bearing + (math.pi / 2) * self.mem.strafe_sign
         half = [math.cos(side) * 0.5, math.sin(side) * 0.5]
         if not self.mem.world_on_roof:
@@ -1494,11 +1606,33 @@ class Bot:
             if bearing is None:
                 bearing = me["aim"][0]
             act["aim"] = [bearing, -0.05]
-            # HOLD_FIGHT / sheep: no target → stand still, aim threat/scan, don't fire.
+            # HOLD_FIGHT / sheep / precise: no chase. Precise may spray sound (trees ≠ walls).
             if _no_chase():
                 act["move"] = [0.0, 0.0]
                 act["boost"] = False
                 act["fire"] = [False, False]
+                if levers.playbook() == "precise":
+                    for s in reversed(self.mem.sound_log):
+                        if s.get("bearing") is None:
+                            continue
+                        if s.get("kind") not in (
+                            "gun",
+                            "laser",
+                            "laser_charge",
+                            "lightning",
+                            "step",
+                            "boost",
+                            "mortar",
+                            "explosion",
+                        ):
+                            continue
+                        if s.get("dist") not in ("near", "mid"):
+                            continue
+                        aim_s = [float(s["bearing"]), -0.05]
+                        act["aim"] = aim_s
+                        if self.combat.aligned(me, aim_s, 8.0):
+                            act["fire"] = [True, False]
+                        break
                 return
             goal = [
                 me["pos"][0] + math.cos(bearing) * 30.0,
@@ -1553,22 +1687,38 @@ class Bot:
                 kind = "gun"
         elif second == "lightning":
             lr = float((self.combat.weapons.get("lightning") or {}).get("range", 45))
-            kind = "lightning" if clear and dist <= lr else "gun"
+            if levers.playbook() == "precise":
+                chain_r = float((self.combat.weapons.get("lightning") or {}).get("chain_range", 14))
+                npc_near = any(
+                    m.get("kind") == "npc"
+                    and math.dist(m["pos"][:2], chase["pos"][:2]) <= chain_r
+                    for m in (obs.get("mechs") or [])
+                )
+                kind = "lightning" if clear and (dist <= lr or (npc_near and dist <= lr + 8)) else "gun"
+            else:
+                kind = "lightning" if clear and dist <= lr else "gun"
         # Bug #8: invalid mortar lob → gun (never pitch-0.6 skyfire).
         if kind == "mortar":
             feet = [chase["pos"][0], chase["pos"][1], chase["pos"][2]]
             if self.combat.mortar_aim(me, feet, chase.get("vel") or [0, 0, 0]) is None:
                 kind = "gun"
+        # precise: no mortar when clear gun LOS (never skyfire dual).
+        if levers.playbook() == "precise" and kind == "mortar" and clear:
+            kind = "gun"
         # Bug #7: gun lead between laser shots; never fire gun on mortar lob aim.
-        # DUAL_FIRE: gun may still fire on its lead while laser/lightning own aim.
+        # DUAL_FIRE / precise: gun may still fire on its lead while laser/lightning own aim.
         kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, chase, kind)
         act["aim"] = aim
-        dual = levers.on("DUAL_FIRE")
+        dual = _dual_fire()
         gun_aim = self.combat.aim_at(me, chase, "gun") if dual and aim_kind in ("laser", "lightning") else None
-        fire, reload, _ = self.combat.fire_slots(
-            me, aim, chase, t, self.mem, aim_kind=aim_kind, dual_fire=dual, gun_aim=gun_aim
-        )
+        # Regen / LOS: don't dump ammo into buildings (trees ignored by clear_shot).
+        if levers.playbook() == "precise" and not clear and kind != "mortar":
+            fire, reload = [False, False], False
+        else:
+            fire, reload, _ = self.combat.fire_slots(
+                me, aim, chase, t, self.mem, aim_kind=aim_kind, dual_fire=dual, gun_aim=gun_aim
+            )
         act["fire"] = fire
         act["reload"] = reload
         mf.draw.line(
@@ -1584,10 +1734,18 @@ class Bot:
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
 
-        # HOLD_FIGHT / sheep: never steer toward the target. Hold roof or half-strafe.
+        # HOLD_FIGHT / sheep / precise: never chase. Strafe/hold; precise orbits for rear.
         if _no_chase() and chase.get("kind") != "npc" and chase.get("kind") != "crate":
-            act["move"] = self._hold_fight_move(me, t, bearing, clear)
+            act["move"] = self._hold_fight_move(me, t, bearing, clear, enemy=chase)
             act["boost"] = False
+            if (
+                levers.playbook() == "precise"
+                and second == "lightning"
+                and clear
+                and dist > float((self.combat.weapons.get("lightning") or {}).get("range", 45)) * 0.85
+            ):
+                move, _ = self.nav.steer(me, chase["pos"], 0.55, t)
+                act["move"] = move
             moving = math.hypot(act["move"][0], act["move"][1]) > 0.05
             self.nav.update_stuck(me, t, moving)
             if self.mem.stuck_until > t:
@@ -1899,24 +2057,34 @@ class Bot:
                 self._try_fight_overlay(obs, act)
             return
 
-        # zone-sheep / cube-snowball: deep next-zone, never climb, quiet.
-        if pb in ("zone-sheep", "cube-snowball"):
+        # precise / zone-sheep / cube-snowball: deep next-zone, never climb, quiet.
+        if pb in ("zone-sheep", "cube-snowball", "precise"):
             frac = 0.30 if pb == "zone-sheep" else 0.40
+            deep_ok = 0.55 if pb == "zone-sheep" else 0.65
             goal = self.mem.loadout_goal
             need = goal is None or not self._deep_zone_ok(
-                {"pos": [float(goal[0]), float(goal[1]), 0.0]}, z, 0.55 if pb == "zone-sheep" else 0.65
+                {"pos": [float(goal[0]), float(goal[1]), 0.0]}, z, deep_ok
             )
             if need:
                 self.mem.loadout_goal = self._deep_zone_goal(me, z, frac)
                 self.mem.roof_id = None
                 self.mem.climb_target = None
                 self.mem.reset_camp_counters()
-            move, yaw = self.nav.steer(me, self.mem.loadout_goal, 0.5 if pb == "zone-sheep" else 0.7, t)
+            speed = 0.5 if pb == "zone-sheep" else 0.6 if pb == "precise" else 0.7
+            move, yaw = self.nav.steer(me, self.mem.loadout_goal, speed, t)
             act["move"] = move
             act["boost"] = False
             act["jump"] = False
             act["aim"] = [yaw, -0.05]
-            if enemies and pb == "cube-snowball":
+            if pb == "precise":
+                for c in obs.get("cubes") or []:
+                    d = math.dist(c["pos"][:2], me["pos"][:2])
+                    if d < 8.0 and d > self.cube_r:
+                        move, yaw = self.nav.steer(me, c["pos"], 0.55, t)
+                        act["move"] = move
+                        act["aim"] = [yaw, -0.05]
+                        break
+            if enemies and pb in ("cube-snowball", "precise"):
                 self._try_fight_overlay(obs, act)
             return
 
@@ -2115,15 +2283,16 @@ class Bot:
                     return
 
         pb = levers.playbook()
-        # sheep / snowball: hold deep next-zone; quiet scan; never roof camp.
-        if pb in ("zone-sheep", "cube-snowball"):
+        # precise / sheep / snowball: hold deep next-zone; quiet scan; never roof camp.
+        if pb in ("zone-sheep", "cube-snowball", "precise"):
             goal = self.mem.loadout_goal
-            deep_frac = 0.45 if pb == "zone-sheep" else 0.50
+            deep_frac = 0.45 if pb == "zone-sheep" else 0.55 if pb == "precise" else 0.50
             if goal is None or not self._deep_zone_ok(me, obs["zone"], deep_frac + 0.1):
                 return self._do_relocate(obs, act, second)
             dist_g = math.dist(me["pos"][:2], goal[:2])
             if dist_g > 10.0:
-                move, yaw = self.nav.steer(me, goal, 0.4 if pb == "zone-sheep" else 0.55, t)
+                spd = 0.4 if pb == "zone-sheep" else 0.5 if pb == "precise" else 0.55
+                move, yaw = self.nav.steer(me, goal, spd, t)
                 act["move"] = move
             else:
                 side = me["aim"][0] + (math.pi / 2) * self.mem.strafe_sign
@@ -2133,8 +2302,14 @@ class Bot:
             act["aim"] = [self.mem.scan_yaw, -0.05]
             if self.mem.last_threat_bearing is not None:
                 act["aim"] = [self.mem.last_threat_bearing, -0.05]
-            # Sheep never peeks fire; snowball may return-fire overlay only if pressed.
-            if pb == "cube-snowball":
+            if pb == "precise":
+                for c in obs.get("cubes") or []:
+                    d = math.dist(c["pos"][:2], me["pos"][:2])
+                    if d < 8.0 and d > self.cube_r:
+                        move, yaw = self.nav.steer(me, c["pos"], 0.45, t)
+                        act["move"] = move
+                        break
+            if pb in ("cube-snowball", "precise"):
                 self._try_fight_overlay(obs, act)
             return
 
@@ -2518,7 +2693,7 @@ class Bot:
         kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, target, kind)
         act["aim"] = aim
-        dual = levers.on("DUAL_FIRE")
+        dual = _dual_fire()
         gun_aim = self.combat.aim_at(me, target, "gun") if dual and aim_kind in ("laser", "lightning") else None
         fire, reload, _ = self.combat.fire_slots(
             me, aim, target, t, self.mem, aim_kind=aim_kind, dual_fire=dual, gun_aim=gun_aim
@@ -2553,6 +2728,18 @@ class Bot:
         # R5: modes that deliberately set fire=False must not be overridden.
         climbing = bool(act.get("boost") or act.get("jump")) and mode in ("RELOCATE", "ROTATE")
         if mode in ("COUNTER_LASER", "ESCAPE_ZONE") or (mode == "RELOCATE" and climbing):
+            return
+        # precise HEAL: dump any mid-charge into the ground so regen can start (release fires).
+        if mode == "HEAL" and levers.playbook() == "precise":
+            weapons = me.get("weapons") or []
+            fire = list(act.get("fire") or [False, False])
+            while len(fire) < 2:
+                fire.append(False)
+            for i, w in enumerate(weapons):
+                if w and w.get("kind") == "laser" and float(w.get("charge") or 0) > 0.02:
+                    act["aim"] = [me["aim"][0], -0.45]
+                    fire[i] = False  # release into dirt
+            act["fire"] = fire
             return
         # N4: pre-charged peek already owns the laser trigger while precharge_active.
         if levers.on("N4") and self.mem.precharge_active and mode == "CAMP":

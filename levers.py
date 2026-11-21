@@ -3,7 +3,10 @@
 PLAYBOOK owns decisions. Legacy LEVERS stay False on pivot tags — bugfixes live
 in bot/combat/nav regardless. Bot.name = lh-<LABEL>.
 
-Simple placement playbooks (this pass):
+Mechanics-first (this pass):
+  precise — thin ARM → zone → fight; nail low-level exploits (rear/regen/gun/laser/…)
+
+Simple placement (prior):
   zone-sheep   — never start fights; deep next-zone; quiet heal
   cube-snowball — farm NPCs/crates/cubes ASAP; free fights only
 """
@@ -12,9 +15,9 @@ from __future__ import annotations
 from typing import Dict
 
 
-LABEL = "cube-snowball"
-# classic-roof | edge-hunter | loot-brawl | zone-sheep | cube-snowball
-PLAYBOOK = "cube-snowball"
+LABEL = "precise"
+# classic-roof | edge-hunter | loot-brawl | zone-sheep | cube-snowball | precise
+PLAYBOOK = "precise"
 
 # Legacy S/N/F levers — off for pivot playbooks (kept for test_strategy skips).
 LEVERS: Dict[str, bool] = {
