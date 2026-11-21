@@ -1391,6 +1391,7 @@ class Bot:
             else:
                 kind = "gun"
         elif second == "lightning":
+            # Prefer lightning whenever ≤45 m with LOS; fire_slots gates on the cone.
             lr = float((self.combat.weapons.get("lightning") or {}).get("range", 45))
             kind = "lightning" if clear and dist <= lr else "gun"
         # Bug #8: invalid mortar lob → gun (never pitch-0.6 skyfire).
@@ -1449,15 +1450,43 @@ class Bot:
                 act["move"] = [math.cos(side) * 0.55, math.sin(side) * 0.55]
             return
 
-        # Lightning: close corners — close gap, hug cover, burst.
+        # Lightning: close corners, cone alignment, prefer arc when ≤45 m + in cone.
         if second == "lightning":
-            if dist > 35 or not clear:
+            lw = self.combat.weapons.get("lightning") or {}
+            lr = float(lw.get("range", 45.0))
+            cone_half = math.radians(float(lw.get("cone_deg", 30)) / 2.0)
+            in_cone = abs(_angdiff(float(me["aim"][0]), bearing)) <= cone_half
+            zone = obs.get("zone") or {}
+            zc = zone.get("next_center") or zone.get("center") or me["pos"]
+            zr = float(zone.get("next_radius") or zone.get("radius") or 200.0)
+            if dist > lr or not clear:
+                # Close into arc range / regain LOS.
                 move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
                 act["move"] = move
                 act["boost"] = energy_ok and (dist > 40 or push_hard)
+            elif not in_cone:
+                # Cone alignment: strafe the short way so aim yaw catches the target.
+                err = _angdiff(bearing, float(me["aim"][0]))
+                sgn = 1.0 if err > 0.0 else -1.0
+                side = bearing + (math.pi / 2) * sgn
+                act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
             else:
-                side = bearing + (math.pi / 2) * self.mem.strafe_sign
-                act["move"] = [math.cos(side) * 0.8, math.sin(side) * 0.8]
+                # In cone ≤45 m: hug a close corner that still keeps the target in arc range.
+                corner = self.cover.corner_spot(me["pos"], zc, zr)
+                if (
+                    corner is not None
+                    and math.dist(corner[:2], chase["pos"][:2]) <= lr + 6.0
+                    and math.dist(me["pos"][:2], corner[:2]) > 3.5
+                ):
+                    move, _ = self.nav.steer(me, corner, 0.9, t)
+                    act["move"] = move
+                elif dist > 38.0:
+                    move, _ = self.nav.steer(me, chase["pos"], 0.95, t)
+                    act["move"] = move
+                    act["boost"] = energy_ok and push_hard
+                else:
+                    side = bearing + (math.pi / 2) * self.mem.strafe_sign
+                    act["move"] = [math.cos(side) * 0.65, math.sin(side) * 0.65]
             self.nav.update_stuck(me, t, True)
             if self.mem.stuck_until > t:
                 act["jump"] = bool(me.get("grounded"))
