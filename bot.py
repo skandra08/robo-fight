@@ -835,6 +835,10 @@ class Bot:
         if recent_dmg and visible:
             return "FIGHT"
 
+        # BET dive: a lone hunter is a target, not a threat: go for its back.
+        if len(visible) == 1 and hp_frac > 0.5 and enemy_d < 160:
+            return "FIGHT"
+
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
@@ -1389,6 +1393,21 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # BET dive: boost around a lone hunter to a point 18 m behind it for x1.5 rear hits.
+        if len(enemies) <= 1 and me["hp"] > 0.4 * me["max_hp"] and chase.get("kind") == "mech":
+            ea = (chase.get("aim") or [bearing + math.pi, 0.0])[0]
+            behind = [chase["pos"][0] - math.cos(ea) * 18.0, chase["pos"][1] - math.sin(ea) * 18.0]
+            if math.dist(behind, me["pos"][:2]) > 6.0:
+                move, _ = self.nav.steer(me, behind, 1.0, t)
+                act["move"] = move
+                act["boost"] = me["energy"] / me["max_energy"] > 0.15
+            else:
+                act["move"] = [math.cos(ea) * 0.5, math.sin(ea) * 0.5]
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
+                act["boost"] = True
+            return
         close_at = 55.0 if push_hard else 75.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
