@@ -66,6 +66,7 @@ CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
+DUAL_FIRE = True  # gun fires while the laser charges
 LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
@@ -1066,8 +1067,17 @@ class Bot:
                 w = (me.get("weapons") or [])[slot]
                 charge = float((w or {}).get("charge") or 0)
                 cd = float((w or {}).get("cooldown") or 0)
-                if charge <= 0.02 and cd > 0 and _slot_of(me, "gun") is not None:
+                has_gun = _slot_of(me, "gun") is not None
+                if charge <= 0.02 and cd > 0 and has_gun:
                     return "gun", "gun"
+                if DUAL_FIRE and has_gun:
+                    # Fire the gun while the laser charges (it sat idle ~45% of fight time).
+                    # Lead with the gun until the charge is nearly full, then aim direct
+                    # for the beam; the gun keeps firing whenever it is within 4 degrees.
+                    need = float(((w or {}).get("stats") or {}).get("charge", self.laser_charge_s))
+                    if 0.02 < charge < need - 0.15:
+                        return "gun", None  # type: ignore[return-value]
+                    return "laser", None  # type: ignore[return-value]
             return "laser", "laser"
         if kind == "lightning":
             return "lightning", "lightning"
