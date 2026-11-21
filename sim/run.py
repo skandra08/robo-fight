@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import multiprocessing as mp
 import os
 import statistics
@@ -71,6 +72,7 @@ class BotWrap:
         self.last = {}
         self.slow = 0
         self.worst = 0.0
+        self.tr = []
 
     def act(self, obs):
         if self.mf is not None:
@@ -86,19 +88,29 @@ class BotWrap:
             a = dict(self.last)
         dt = time.perf_counter() - t0
         self.worst = max(self.worst, dt)
+        mode = ""
         if self.mf is not None:
             try:
-                self.mf.draw.take()
+                d = self.mf.draw.take() or {}
+                mode = (d.get("label") or "").split(" ")[0]
             except Exception:
                 pass
+        me = obs["self"]
+        vis = sum(1 for m in obs.get("mechs") or [] if m.get("kind") == "mech")
+        w1 = me["weapons"][1]["kind"] if len(me.get("weapons") or []) > 1 and me["weapons"][1] else "-"
+        self.tr.append((obs["t"], mode, round(me["hp"]), round(me["energy"]), round(math.hypot(me["vel"][0], me["vel"][1]), 1),
+                        vis, bool((a.get("fire") or [False])[0]), me["cubes"], w1, bool(a.get("boost")), [round(v) for v in me["pos"]]))
         return a
 
 
 _world = {}
+TRACE = os.environ.get("SIM_TRACE") == "1"
 
 
 def one(job):
-    commit, d, seed, max_t, params = job
+    commit, d, seed, max_t, params = job[:5]
+    knobs = job[5] if len(job) > 5 else None
+    tag = job[6] if len(job) > 6 else commit
     sys.path.insert(0, HERE)
     import engine
     import housebot
@@ -107,6 +119,13 @@ def one(job):
             _world["w"] = engine.World(os.path.join(REPO, "arena"))
             _world["cfg"] = engine.load_config()
         botmod = load_bot(d)
+        if hasattr(botmod, "K"):
+            if not hasattr(botmod, "_K0"):
+                botmod._K0 = dict(botmod.K)
+            botmod.K.clear()
+            botmod.K.update(botmod._K0)
+            if knobs:
+                botmod.K.update(knobs)
         holder = {}
 
         def bf(hello):
@@ -118,10 +137,12 @@ def one(job):
         r = sim.run(max_t)
         r["wall"] = round(time.time() - t0, 1)
         r["worst_ms"] = round(holder["b"].worst * 1000, 1)
-        r["commit"] = commit
+        r["commit"] = tag
+        r["sha"] = commit
+        r["tr"] = holder["b"].tr if TRACE else None
         return r
     except Exception:
-        return {"commit": commit, "seed": seed, "error": traceback.format_exc()[-1500:]}
+        return {"commit": tag, "seed": seed, "error": traceback.format_exc()[-1500:]}
 
 
 def summarize(rows):
@@ -140,7 +161,8 @@ def summarize(rows):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("commits", nargs="+")
+    ap.add_argument("commits", nargs="*")
+    ap.add_argument("--variants", default=None, help="JSON file: [[tag, commit, knobs], ...]")
     ap.add_argument("--seeds", type=int, default=48)
     ap.add_argument("--seed0", type=int, default=1)
     ap.add_argument("--procs", type=int, default=4)
@@ -149,9 +171,12 @@ def main():
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     params = json.loads(a.params)
-    dirs = {c: install(c) for c in a.commits}
-    # group by commit so each worker reloads modules rarely
-    jobs = [(c, dirs[c], a.seed0 + s, a.max_t, params) for c in a.commits for s in range(a.seeds)]
+    vs = [[c, c, None] for c in a.commits]
+    if a.variants:
+        vs += json.load(open(a.variants))
+    dirs = {v[1]: install(v[1]) for v in vs}
+    # seed-major order so partial results stay paired across variants
+    jobs = [(v[1], dirs[v[1]], a.seed0 + s, a.max_t, params, v[2], v[0]) for s in range(a.seeds) for v in vs]
     t0 = time.time()
     rows = []
     ctx = mp.get_context("fork")
