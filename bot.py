@@ -707,7 +707,7 @@ class Bot:
             act["move"] = move
         else:
             # flip strafe direction every few seconds so we're not trivially led
-            if int(t / 2.7) % 2 == 0:
+            if int(t / 1.3) % 2 == 0:  # 381: flip strafe faster
                 sgn = self.mem.strafe_sign
             else:
                 sgn = -self.mem.strafe_sign
