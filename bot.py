@@ -835,6 +835,12 @@ class Bot:
         if recent_dmg and visible:
             return "FIGHT"
 
+        # BET hunt: take every fight at once and chase hunters we just lost, instead of waiting.
+        if visible and hp_frac > 0.45:
+            return "FIGHT"
+        if not visible and hp_frac > 0.8 and self.mem.enemies and second is not None:
+            return "FIGHT"
+
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
@@ -1389,11 +1395,11 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
+        close_at = 35.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
-            act["boost"] = energy_ok and (dist > 50 or push_hard)
+            act["boost"] = energy_ok
         else:
             side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
