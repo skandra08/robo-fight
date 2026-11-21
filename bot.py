@@ -79,7 +79,7 @@ class Bot:
         self.world = World(map_dir)
         self.cover = CoverBook(data_dir)
         self.mem = Memory()
-        self.mem.seed(int(hello.get("seed") or 1) ^ 0xC7C7C7)  # roof-ctr-noise: pure reshuffle vs roof-ctr 2.29
+        self.mem.seed(int(hello.get("seed") or 1))
         self.nav = Navigator(self.world, self.mem)
         self.combat = Combat(self.world, self.cfg)
         self.loot_r = float(self.cfg["loot"]["pickup_radius"])
