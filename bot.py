@@ -1224,8 +1224,29 @@ class Bot:
             act["boost"] = efrac > 0.5 and bool(me.get("grounded"))
         self._try_fight_overlay(obs, act)
 
+    def _best_charging_hunter(
+        self, me: Dict[str, Any], enemies: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """N1: pick a visible hunter whose laser is charging (prefer last threat, else low HP/near)."""
+        chargers = [m for m in enemies if m.get("charging")]
+        if not chargers:
+            return None
+        if self.mem.last_threat_id is not None:
+            for m in chargers:
+                if int(m["id"]) == int(self.mem.last_threat_id):
+                    return m
+        return min(
+            chargers,
+            key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
+        )
+
+    def _charger_aimed_at_us(self, me: Dict[str, Any], charger: Dict[str, Any], deg: float = 12.0) -> bool:
+        aim = charger.get("aim") or [0.0, 0.0]
+        bearing = math.atan2(me["pos"][1] - charger["pos"][1], me["pos"][0] - charger["pos"][0])
+        return abs(_angdiff(float(aim[0]), bearing)) < math.radians(deg)
+
     def _do_counter_laser(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
-        """N1: break LOS vs charging laser; fire our charged laser if aligned; mortar drop fallback."""
+        """N1: lightning-short a charging laser if in range; else break LOS / fire our laser / mortar drop."""
         me = obs["self"]
         t = float(obs["t"])
         away = self.mem.last_threat_bearing
@@ -1241,6 +1262,35 @@ class Bot:
                     safe = side
         d_safe = math.dist(me["pos"][:2], safe[:2])
         can_safe = d_safe < 45.0 or self.mem.world_on_roof or self.mem.camp_hidden is not None
+
+        # Lightning short: interrupt their charge before they release (beats laser cook-off).
+        slot_lt = _slot_of(me, "lightning")
+        if slot_lt is not None:
+            target = None
+            for m in obs.get("mechs") or []:
+                if m.get("kind") == "mech" and m.get("charging"):
+                    target = m
+                    break
+            if target is not None:
+                dist = math.dist(me["pos"][:2], target["pos"][:2])
+                cubes = target.get("cubes") if isinstance(target.get("cubes"), int) else None
+                if dist <= self.lightning_range and self.combat.clear_shot(
+                    me, target["pos"], int(target["id"]), cubes
+                ):
+                    aim = self.combat.aim_at(me, target, "lightning")
+                    act["aim"] = aim
+                    fire, reload, _ = self.combat.fire_slots(
+                        me, aim, target, t, self.mem, aim_kind="lightning"
+                    )
+                    act["fire"] = fire
+                    act["reload"] = reload
+                    if self.combat.aligned(me, aim, 15.0):
+                        act["move"] = [0.0, 0.0]
+                    else:
+                        move, _ = self.nav.steer(me, target["pos"], 1.0, t)
+                        act["move"] = move
+                        act["boost"] = True
+                    return
 
         # Our own fully charged + aligned laser: fire first.
         slot_l = _slot_of(me, "laser")
@@ -1333,6 +1383,26 @@ class Bot:
                 self.mem.enemies.values(),
                 key=lambda e: math.dist(e["pos"][:2], me["pos"][:2]),
             )
+        # N1 fight: prioritize hunters charging a laser — short with lightning or break LOS.
+        force_lightning = False
+        break_los = False
+        if levers.on("N1"):
+            charger = self._best_charging_hunter(me, enemies)
+            if charger is not None:
+                cubes = charger.get("cubes") if isinstance(charger.get("cubes"), int) else None
+                clear_c = self.combat.clear_shot(me, charger["pos"], int(charger["id"]), cubes)
+                d_c = math.dist(me["pos"][:2], charger["pos"][:2])
+                can_short = (
+                    _slot_of(me, "lightning") is not None
+                    and clear_c
+                    and d_c <= self.lightning_range
+                )
+                chase = charger
+                target = charger if clear_c else None
+                if can_short:
+                    force_lightning = True
+                elif self._charger_aimed_at_us(me, charger):
+                    break_los = True
         # N5: farm drone when no hunter chase target.
         if chase is None and self.mem.farm_drone_id is not None:
             for m in obs.get("mechs") or []:
@@ -1379,7 +1449,9 @@ class Bot:
         dist = math.dist(chase["pos"][:2], me["pos"][:2])
         # R1: gun is primary whenever it has a clear shot. Specials only when useful.
         kind = "gun"
-        if second == "laser":
+        if force_lightning:
+            kind = "lightning"
+        elif second == "laser":
             kind = "laser" if clear else "gun"
         elif second == "mortar":
             mw = self.combat.weapons.get("mortar") or {}
@@ -1449,8 +1521,8 @@ class Bot:
                 act["move"] = [math.cos(side) * 0.55, math.sin(side) * 0.55]
             return
 
-        # Lightning: close corners — close gap, hug cover, burst.
-        if second == "lightning":
+        # Lightning (or N1 short of a charging laser): close corners — close gap, hug cover, burst.
+        if force_lightning or second == "lightning":
             if dist > 35 or not clear:
                 move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
                 act["move"] = move
@@ -1462,6 +1534,23 @@ class Bot:
             if self.mem.stuck_until > t:
                 act["jump"] = bool(me.get("grounded"))
                 act["boost"] = True
+            return
+
+        # N1: charging laser aimed at us and we cannot short → break LOS while returning fire.
+        if break_los:
+            away = bearing + math.pi
+            safe = self._safe_cover_goal(me, obs["zone"], away)
+            d_safe = math.dist(me["pos"][:2], safe[:2])
+            if d_safe > 45.0:
+                side = self._side_step_cover(me, away)
+                if side is not None:
+                    safe = side
+            move, _ = self.nav.steer(me, safe, 1.0, t)
+            act["move"] = move
+            act["boost"] = True
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
