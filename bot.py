@@ -891,11 +891,14 @@ class Bot:
             return dist <= 50.0 and confident
 
         if second == "laser":
+            # Mid-long; don't start corner dives. Low-HP / free OK without clear yet.
             if dist < 18.0 and not free:
                 return False
-            if not clear and dist > 35.0 and not free:
+            if free or confident:
+                return dist <= 150.0
+            if not clear:
                 return False
-            return dist <= 150.0 and (free or confident)
+            return 35.0 <= dist <= 150.0
 
         if second == "mortar":
             if dist < 55.0:
