@@ -151,7 +151,12 @@ class Bot:
             self._do_camp(obs, act, second)
 
         climbing = bool(act.get("boost") or act.get("jump")) and mode == "RELOCATE"
-        if mode not in ("FIGHT", "COUNTER_LASER") and not climbing:
+        # Bug #4: avoid walks off roofs / can steer ESCAPE back out of the zone.
+        if (
+            mode not in ("FIGHT", "COUNTER_LASER", "ESCAPE_ZONE")
+            and not climbing
+            and not self.mem.world_on_roof
+        ):
             self._avoid(obs, act)
 
         ms = (time.perf_counter() - t_act0) * 1000
@@ -616,14 +621,19 @@ class Bot:
             act["boost"] = False
             return
 
-        self.mem.roof_id = int(roof["id"])
+        picked_id = int(roof["id"])
+        if self.mem.roof_id != picked_id:
+            self.mem.roof_id = picked_id
+            self.mem.reset_camp_counters()
         climb = self.cover.nearest_climb(roof, me["pos"])
-        if self.world.on_roof(me["pos"]):
+        # Bug #3: only "arrived" when on the picked roof id — not any roof.
+        here_rid = self.world.roof_at(me["pos"][0], me["pos"][1])
+        if here_rid is not None and int(here_rid) == picked_id:
             hid = self.cover.best_hidden(roof)
+            self.mem.reset_camp_counters()
             self.mem.camp_hidden = hid
             self.mem.loadout_goal = list((hid or roof["center"])[:2])
-            self.mem.reset_camp_counters()
-            self.mem.roofs_used.add(int(roof["id"]))
+            self.mem.roofs_used.add(picked_id)
             if hid:
                 move, yaw = self.nav.steer(me, hid, 0.6, t)
                 act["move"] = move
@@ -722,26 +732,55 @@ class Bot:
             return
 
         # Laser / default: roof peek camp.
-        rid = self.mem.roof_id or self.world.roof_at(me["pos"][0], me["pos"][1])
-        self.mem.roof_id = rid
+        # Prefer live roof under feet; never treat roof id 0 as missing via `or`.
+        here_rid = self.world.roof_at(me["pos"][0], me["pos"][1])
+        rid = here_rid if here_rid is not None else self.mem.roof_id
+        if rid is not None and self.mem.roof_id != int(rid):
+            self.mem.roof_id = int(rid)
+            self.mem.reset_camp_counters()
+        elif rid is not None:
+            self.mem.roof_id = int(rid)
         roof = self.cover.roof(rid) if rid is not None else None
         if roof is None:
             return self._do_relocate(obs, act, second)
 
-        hid = self.mem.camp_hidden or self.cover.best_hidden(roof)
-        self.mem.camp_hidden = hid
+        toward = self.mem.last_threat_bearing
+        if toward is None:
+            zc = obs["zone"]["center"]
+            toward = math.atan2(zc[1] - me["pos"][1], zc[0] - me["pos"][0])
+
+        # Bug #3: rebind fire/hidden for this roof; peek toward threat bearing.
+        if self.mem.camp_fire is None:
+            self.mem.camp_fire = self.cover.best_firing(roof, toward)
+        fire_pt = self.mem.camp_fire
+        if self.mem.camp_hidden is None:
+            hid_pts = roof.get("hidden_points") or []
+            if fire_pt and hid_pts:
+                # Prefer a hide spot near the chosen firing edge so peeks can reach it.
+                best_h = min(
+                    hid_pts,
+                    key=lambda p: (p[0] - fire_pt[0]) ** 2 + (p[1] - fire_pt[1]) ** 2,
+                )
+                self.mem.camp_hidden = [best_h[0], best_h[1]]
+            else:
+                self.mem.camp_hidden = self.cover.best_hidden(roof)
+        hid = self.mem.camp_hidden
         if hid is not None:
             self.mem.loadout_goal = list(hid[:2])
-        fire_pt = self.mem.camp_fire or self.cover.best_firing(roof)
-        self.mem.camp_fire = fire_pt
 
-        # peek cadence
+        # peek cadence: hold peek until near fire_pt (timeout ~2.5 s)
         if t >= self.mem.next_peek_t and self.mem.peek_phase == 0:
             self.mem.peek_phase = 1
-            self.mem.peek_until = t + 1.0
-            self.mem.next_peek_t = t + 3.0
-        if self.mem.peek_phase == 1 and t >= self.mem.peek_until:
-            self.mem.peek_phase = 0
+            self.mem.peek_until = t + 2.5
+            self.mem.next_peek_t = t + 4.0
+            self.mem.camp_fire = self.cover.best_firing(roof, toward)
+            fire_pt = self.mem.camp_fire
+        if self.mem.peek_phase == 1:
+            near_fire = (
+                fire_pt is not None and math.dist(me["pos"][:2], fire_pt[:2]) <= 2.0
+            )
+            if near_fire or t >= self.mem.peek_until:
+                self.mem.peek_phase = 0
 
         goal = fire_pt if self.mem.peek_phase == 1 and fire_pt else hid
         if goal:
@@ -752,10 +791,8 @@ class Bot:
             yaw = me["aim"][0]
 
         # aim
-        aim_yaw = yaw
-        if self.mem.last_threat_bearing is not None:
-            aim_yaw = self.mem.last_threat_bearing
-        else:
+        aim_yaw = toward if self.mem.last_threat_bearing is not None else yaw
+        if self.mem.last_threat_bearing is None:
             zc = obs["zone"]["center"]
             aim_yaw = math.atan2(zc[1] - me["pos"][1], zc[0] - me["pos"][0])
         act["aim"] = [aim_yaw, -0.05]
@@ -808,10 +845,14 @@ class Bot:
 
     def _avoid(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
-        mx, my = me["pos"][0], me["pos"][1]
+        mx, my, mz = me["pos"][0], me["pos"][1], me["pos"][2]
         push = [0.0, 0.0]
+        # Ignore objects well below us (ground NPCs/drops under a roof ledge).
+        below_slack = 4.0
         for m in obs.get("mechs") or []:
             if m.get("kind") != "npc":
+                continue
+            if mz - m["pos"][2] > below_slack:
                 continue
             d = math.dist(m["pos"][:2], (mx, my))
             if d < self.npc_avoid and d > 1e-3:
@@ -820,6 +861,8 @@ class Bot:
                 push[0] += ux
                 push[1] += uy
         for d in obs.get("drops") or []:
+            if mz - d["pos"][2] > below_slack:
+                continue
             dist = math.dist(d["pos"][:2], (mx, my))
             if dist < self.drop_avoid and dist > 1e-3:
                 ux = (mx - d["pos"][0]) / dist

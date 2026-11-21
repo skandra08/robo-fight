@@ -21,6 +21,7 @@ Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged
 | v1.3 | Loadout aggression | Ambush 1v1s; mortar far-ground / laser roof / lightning corner; aggressive ARM boost for loot |
 | v1.4 | Fix stuck steer locking forever | Pass match time into `Navigator.steer`; stuck heading only applies while `t < stuck_until` (was stuck forever after first wall) |
 | v1.5 | Climb through contact | Prefer RELOCATE over FIGHT mid-climb / near climb point; laser can still approach roof when hunter is farther than the climb |
+| v1.6 | Roof avoid + camp rebind | Skip `_avoid` on roof / ESCAPE; ignore objects >4 m below (npc 50 / drop 40); clear camp_fire/hidden on roof change; arrive only on picked roof id; peek toward threat via `best_firing(toward_yaw)` until near fire_pt |
 
 ## Local check
 

@@ -150,6 +150,11 @@ class Memory:
     def reset_camp_counters(self) -> None:
         self.shots_here = 0
         self.mortars_here = 0
+        # Bug #3: stale camp_fire/camp_hidden walk us off the new roof after relocate.
+        self.camp_fire = None
+        self.camp_hidden = None
+        self.peek_phase = 0
+        self.peek_until = 0.0
 
     def best_loot(self, pos: List[float], t: float) -> Optional[Dict[str, Any]]:
         best = None
