@@ -89,7 +89,7 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 11 | ffa | lh-ffa | `try/ffa` | `450ebfc7de4762023ff99d4f6cb1c1a2d9bafb8f` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
 | 12 | r3-core | lh-r3-core | `try/r3-core` | `3737f2636dde5ec00e880ca0201142b1ed2c1f77` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
 | 13 | r3-full | lh-r3-full | `try/r3-full` | `b4d6e37c727f7125bbf8c8087475b7a99fcaf910` | all S/N/F levers (= main) | full plan in one submit |
-| 14 | locked-proc | lh-locked-proc | `try/locked-proc` | PLACEHOLDER_HASH | **S1+N1** + locked ARM→CUBE→DRONE→ROOF→FIGHT (sticky+killreach off best-265) | submit after best-265; see `docs/LOCKED_PROC.md` |
+| 14 | locked-proc | lh-locked-proc | `try/locked-proc` | ``ab233a8a7f52617a2ba4984e975d268833d6d424`` | **S1+N1** + locked ARM→CUBE→DRONE→ROOF→FIGHT (sticky+killreach off best-265) | submit after best-265; see `docs/LOCKED_PROC.md` |
 
 
 Offline proxy / careful play WS: `python3 tools/offline_proxy.py`; `python3 tools/play_ws_harness.py` (max 1–3; do not spam the shared lobby).
