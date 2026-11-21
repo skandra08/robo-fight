@@ -912,6 +912,16 @@ class Bot:
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
+        # heal-after-burst: after dumping ~10 shots and a quiet beat, top off before re-peek.
+        if (
+            not recent_dmg
+            and int(getattr(self.mem, "shots_here", 0) or 0) >= 10
+            and t - self.mem.last_dealt_damage_t > 1.5
+            and me["hp"] / max(1.0, me.get("max_hp", 1400)) < 0.85
+            and (not visible or enemy_d > 55.0)
+        ):
+            self.mem.shots_here = 0
+            return "HEAL"
 
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
