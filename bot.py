@@ -232,6 +232,47 @@ class Bot:
             return None
         return e
 
+    def _easy_initiate(
+        self, me: Dict[str, Any], enemy: Dict[str, Any], second: Optional[str]
+    ) -> bool:
+        """Start a fight only on rear/undet or a clear win (weapon-hunt gate on best-265).
+
+        Return-fire is handled separately via recent_dmg → FIGHT. This only gates
+        cold initiates so we keep farming cubes / climbing instead of coinflip 1v1s.
+        """
+        rear = _we_flank(enemy, me["pos"])
+        undet = not _enemy_aware(enemy, me["pos"])
+        ehp = enemy.get("hp")
+        emax = float(enemy.get("max_hp") or 1400.0)
+        our_frac = me["hp"] / max(1.0, me["max_hp"])
+        their_frac = float(ehp) / max(1.0, emax) if ehp is not None else 1.0
+        our_cubes = int(me.get("cubes") or 0)
+        their_cubes = int(enemy.get("cubes") or 0)
+        clear = False
+        try:
+            clear = bool(self.combat.clear_shot(me, enemy["pos"], int(enemy["id"])))
+        except Exception:
+            clear = False
+        vulnerable = False
+        if enemy.get("charging"):
+            aim = enemy.get("aim") or [0.0, 0.0]
+            to_us = _bearing_to(enemy["pos"], me["pos"])
+            if not _enemy_aware(enemy, me["pos"]) or abs(_angdiff(aim[0], to_us)) > math.radians(20):
+                vulnerable = True
+        confident = (
+            (ehp is not None and float(ehp) < 500.0)
+            or (our_frac >= their_frac + 0.15 and our_frac >= 0.55)
+            or (our_cubes >= their_cubes + 2 and clear)
+            or vulnerable
+        )
+        free = rear or undet
+        if not (free or confident):
+            return False
+        # Gun-only: only free rear/undet initiates (no mid-range head-ons).
+        if second is None:
+            return free
+        return True
+
     def _loadout_positioned(self, me: Dict[str, Any], second: str, zone: Dict[str, Any]) -> bool:
         if self.mem.positioned and self.mem.loadout_goal:
             if math.dist(me["pos"][:2], self.mem.loadout_goal[:2]) < 18.0:
@@ -869,6 +910,13 @@ class Bot:
             ):
                 return "RELOCATE"
 
+        # Closest visible hunter — used to gate cold initiates (easy-fight pivot).
+        nearest = min(
+            visible,
+            key=lambda e: math.dist(e["pos"][:2], me["pos"][:2]),
+            default=None,
+        )
+
         # S2: remove 1v1 ambush (keep armed+undetected → set up first gating below).
         if not levers.on("S2"):
             ambush = self._ambush_target(me, visible)
@@ -876,7 +924,8 @@ class Bot:
                 gun_only_close = second is None and enemy_d < 50 and _we_flank(ambush, me["pos"])
                 if second is not None or gun_only_close:
                     if not (second is None and loot is not None and loot_d + 20 < enemy_d and loot_d < 70):
-                        return "FIGHT"
+                        if self._easy_initiate(me, ambush, second):
+                            return "FIGHT"
 
         # F1 survival: don't start fights — only when attacked, low-HP target, or rear shot.
         if ffa and visible and not recent_dmg:
@@ -890,7 +939,9 @@ class Bot:
                     return "ARM"
                 if len(visible) >= 2 and enemy_d > 45 and not recent_dmg:
                     return "ARM"
-            return "FIGHT"
+            # Under fire → always fight. Cold multi-contact → only if easy win.
+            if recent_dmg or (nearest is not None and self._easy_initiate(me, nearest, second)):
+                return "FIGHT"
 
         if visible and (second is not None or enemy_d < 120):
             aware = any(_enemy_aware(e, me["pos"]) for e in visible)
@@ -900,10 +951,12 @@ class Bot:
                 if enemy_d < 55 or (aware and enemy_d < 80) or recent_dmg:
                     if loot is not None and loot_d + 15 < enemy_d and loot_d < 90:
                         return "ARM"
-                    return "FIGHT"
+                    if recent_dmg or (nearest is not None and self._easy_initiate(me, nearest, second)):
+                        return "FIGHT"
             else:
                 if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
-                    return "FIGHT"
+                    if recent_dmg or (nearest is not None and self._easy_initiate(me, nearest, second)):
+                        return "FIGHT"
 
         if self._want_third(me, second, visible, t):
             return "THIRD"
