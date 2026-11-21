@@ -723,8 +723,16 @@ class Sim:
         ny = max(-331.0, min(386.0, ny))
         r = m.radius()
 
+        # Rim probes already inside a wall (the mech grew from cubes, or landed against an edge)
+        # used to block every move, pinning the mech for good. The server slides mechs clear of
+        # walls (protocol: roof edges), so let a move go when it heads away from those probes.
+        stuck_probes = [(ox, oy) for ox, oy in ((r, 0), (-r, 0), (0, r), (0, -r))
+                        if self.blocked_at(x + ox, y + oy, z, h, step)] if os.environ.get("SIM_UNPIN") == "1" else []
+
         def free(px, py):
             for ox, oy in ((0, 0), (r, 0), (-r, 0), (0, r), (0, -r)):
+                if (ox, oy) in stuck_probes and (px - x) * ox + (py - y) * oy < 0:
+                    continue
                 if self.blocked_at(px + ox, py + oy, z, h, step):
                     return False
             g = self.world.ground(px, py)
