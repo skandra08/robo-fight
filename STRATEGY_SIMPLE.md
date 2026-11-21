@@ -13,12 +13,12 @@ Practice hunters share vision. Score = mean(`16 − place`). Leaders ~5.5, early
 | 5 | Dual alone on simple camp | deferred — still fights; complexity we already A/B'd |
 | 6 | Fix loud boost / climb suicide / chase | **folded into both** — quiet arm, never climb, sheep holds |
 
-## Shipped try tags
+## Shipped try tags (full 40-char hashes)
 
-| # | tag | Bot.name | idea |
-| --- | --- | --- | --- |
-| 1 | `try/zone-sheep` | `lh-zone-sheep` | **submit first** — silent deep next-zone, heal hard, fight only when shot, no chase |
-| 2 | `try/cube-snowball` | `lh-cube-snowball` | farm NPCs/crates/cubes to `stat_cap`, free fights only, never climb |
+| # | tag | Bot.name | hash | idea |
+| --- | --- | --- | --- | --- |
+| 1 | `try/zone-sheep` | `lh-zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | **submit first** — silent deep next-zone, heal hard, fight only when shot, no chase |
+| 2 | `try/cube-snowball` | `lh-cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm NPCs/crates/cubes to `stat_cap`, free fights only, never climb |
 
 ```sh
 git fetch --tags --force

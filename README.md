@@ -73,10 +73,10 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 **Simple placement** (submit these — see `STRATEGY_SIMPLE.md`):
 
-| # | label | Bot.name | tag | try this if… |
-| --- | --- | --- | --- | --- |
-| 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | **submit first** — quiet deep next-zone, heal, never start fights |
-| 2 | cube-snowball | lh-cube-snowball | `try/cube-snowball` | farm cubes → tanky free fights |
+| # | label | Bot.name | tag | full hash | try this if… |
+| --- | --- | --- | --- | --- | --- |
+| 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | **submit first** — quiet deep next-zone, heal, never start fights |
+| 2 | cube-snowball | lh-cube-snowball | `try/cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm cubes → tanky free fights |
 
 ```sh
 git fetch --tags --force && git checkout try/zone-sheep
