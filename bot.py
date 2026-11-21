@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-fight-ready"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
@@ -518,8 +518,15 @@ class Bot:
             ):
                 return "RELOCATE"
 
-        # Ambush 1v1: armed OK; gun-only only when truly close + rear/undetected.
+        # try/fight-ready: once armed+positioned, take 1v1s aggressively (ambush + visible).
+        ready = second is not None and self.mem.positioned
         ambush = self._ambush_target(me, visible)
+        if ready and (ambush is not None or len(visible) == 1):
+            return "FIGHT"
+        if ready and visible and (recent_dmg or enemy_d < 120):
+            return "FIGHT"
+
+        # Ambush 1v1 before ready: armed OK; gun-only only when truly close + rear/undetected.
         if ambush is not None:
             gun_only_close = second is None and enemy_d < 50 and _we_flank(ambush, me["pos"])
             if second is not None or gun_only_close:
@@ -545,8 +552,8 @@ class Bot:
                         return "ARM"
                     return "FIGHT"
             else:
-                # Armed: fight if spotted/damaged/already camped; else set up first.
-                if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
+                # Armed but not yet positioned: fight if spotted/damaged/close; else set up.
+                if aware or recent_dmg or enemy_d < 70:
                     return "FIGHT"
                 # Unpositioned + undetected mid-range → fall through to RELOCATE/CAMP.
 

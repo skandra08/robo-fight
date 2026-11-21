@@ -52,3 +52,18 @@ python3 check/check.py --map-dir /arena -- docker run --rm -i --network none --c
 ## Submit
 
 Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/buildathon.
+
+## Trying variants
+
+A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` matches the label. Base: current `main` (v1.19 / open bugfixes).
+
+| # | label | Bot.name | tag | tweak | try this if… |
+| --- | --- | --- | --- | --- | --- |
+| 1 | v-safe | lh-v-safe | try/v-safe | main as-is (v1.19; THIRD off) | baseline / control |
+| 2 | third-armed | lh-third-armed | try/third-armed | THIRD on when armed after ~2–4s sounds | want crash-in thirds again |
+| 3 | no-third | lh-no-third | try/no-third | THIRD hard off (explicit) | confirm thirds were the problem |
+| 4 | arm-first | lh-arm-first | try/arm-first | ARM+position before FIGHT | dying while still looting |
+| 5 | fight-ready | lh-fight-ready | try/fight-ready | once armed+positioned, take 1v1s aggressively | camping too long / low kills |
+| 6 | camp-hold | lh-camp-hold | try/camp-hold | higher shots_here before RELOCATE (28/6) | relocating too often / abandon camp |
+
+Full hashes filled after push in agent try-list / `git rev-parse try/<label>`.
