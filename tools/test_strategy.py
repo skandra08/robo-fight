@@ -145,6 +145,15 @@ def test_farm(md: str) -> None:
     check("nothing later -> FARM search, no roof camping", mode_of(bot, _obs(t=150.0, tick=3000)) == "FARM")
 
 
+def test_supply(md: str) -> None:
+    bot = fresh(md)
+    drop = {"id": 20000, "pos": [30.0, -20.0, 1.3], "radius": 8, "lands_in": 2.0, "capture_s": 4, "progress": 0, "holder": None}
+    check("reachable supply drop -> SUPPLY", mode_of(bot, _obs(drops=[drop])) == "SUPPLY")
+    far = dict(drop, lands_in=25.0)
+    bot = fresh(md)
+    check("drop landing much later than we'd arrive -> not yet", mode_of(bot, _obs(drops=[far])) != "SUPPLY")
+
+
 def test_fight(md: str) -> None:
     bot = fresh(md)
     e = _mech(5, WEST, aim=0.0)
@@ -225,7 +234,7 @@ def main() -> int:
         print("FAIL: arena/v2 missing", file=sys.stderr)
         return 1
     print(f"strategy unit checks variant={levers.LABEL}")
-    tests = [test_upgrades, test_zone, test_farm, test_fight, test_heal, test_drone, test_timing]
+    tests = [test_upgrades, test_zone, test_farm, test_supply, test_fight, test_heal, test_drone, test_timing]
     failed = 0
     for fn in tests:
         try:

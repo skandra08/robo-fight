@@ -35,7 +35,7 @@ from combat import Combat
 from cover import CoverBook
 import levers
 from memory import Memory
-from nav import GridPlanner, Navigator
+from nav import Navigator
 from world import World
 
 UPGRADE_PRIORITY = [
@@ -64,7 +64,6 @@ BAND_LO = 55.0  # fight band: back off inside this
 BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
-USE_PLANNER = True
 FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
@@ -116,15 +115,15 @@ class Bot:
         self.cover = CoverBook(os.path.join(here, "data"))
         self.mem = Memory()
         self.mem.seed(int(hello.get("seed") or 1))
-        self.nav = Navigator(self.world, self.mem)
-        self.planner = GridPlanner(self.world)
-        self._path: Optional[List[List[float]]] = None
-        self._path_goal: Optional[List[float]] = None
-        self._path_until = -1.0
-        self._prog_goal: Optional[List[float]] = None
-        self._prog_t = -1.0
-        self._prog_d = 0.0
-        self._prog_last = -99.0
+        grid = None
+        try:
+            import pathing  # 4 m grid A* (from try/bf-noavoid, 3.48 on practice)
+
+            grid = pathing.PathGrid(self.world, os.path.join(here, "data"))
+        except Exception:
+            mf.log(f"pathgrid failed:\n{__import__('traceback').format_exc()}")
+        self.nav = Navigator(self.world, self.mem, grid)
+        self._supply: Optional[Dict[str, Any]] = None
         self.combat = Combat(self.world, self.cfg)
         cfg = self.cfg
         self.loot_r = float(cfg["loot"]["pickup_radius"])
@@ -142,7 +141,7 @@ class Bot:
         self.npc_h = float((cfg.get("npc") or {}).get("height", 3.5))
         self.mech_h = float((cfg.get("mech") or {}).get("height", 9.0))
         self.npc_aggro = float((cfg.get("npc") or {}).get("aggro_range", 45.0))
-        self.drop_avoid = 40.0
+        self.drop_avoid = 0.0  # we take drops now
         self.mem.strafe_sign = 1.0 if self.mem.rand() > 0.5 else -1.0
         self.mode = "FARM"
         self.mode_t = 0.0
@@ -212,6 +211,8 @@ class Bot:
             self._do_zone(obs, act)
         elif mode == "DRONE":
             self._do_drone(obs, act)
+        elif mode == "SUPPLY":
+            self._do_supply(obs, act)
         elif mode == "HEAL":
             self._do_heal(obs, act)
         elif mode == "FIGHT":
@@ -296,6 +297,12 @@ class Bot:
         busy = hit_by_mech or (target is not None and _d2(target["pos"], me["pos"]) < 90.0)
         if urgency < 20.0 and (not busy or not ZONE_FIGHT):
             return "ZONE"
+
+        # Supply drops: full HP + energy + 3 cubes, 3 per match, and the practice squad hunts us
+        # rather than contesting them (bf-noavoid took every one: 3.48). Fight from the ring.
+        sg = self._supply_goal(obs)
+        if sg is not None and not (hit_by_mech and mechs and _d2(sg["pos"], me["pos"]) > 60.0):
+            return "SUPPLY"
 
         # A drone shooting us while no mech is: kill it.
         if t - self._npc_hit_last_t < 2.5 and t - self._mech_hit_last_t > 2.0:
@@ -387,6 +394,48 @@ class Bot:
         travel = max(0.0, dist - 0.7 * nr) / walk
         return float(zone["shrink_end"]) - t - travel
 
+    # ------------------------------------------------------------------ supply
+    def _supply_goal(self, obs: mf.Observation) -> Optional[Dict[str, Any]]:
+        me = obs["self"]
+        my_id = int(me.get("id", self.slot))
+        speed = self.walk_speed * 0.8
+        zone = obs["zone"]
+        best, best_d = None, 1e9
+        for d in obs.get("drops") or []:
+            if d.get("holder") is not None and int(d["holder"]) != my_id:
+                continue
+            dist = _d2(d["pos"], me["pos"])
+            lands = float(d.get("lands_in") or 0.0)
+            if lands > dist / max(1.0, speed) + 6.0:
+                continue  # leave when the walk there ends about when it lands
+            if dist <= 450.0 and dist < best_d:
+                best, best_d = d, dist
+        if best is not None and self._zone_urgency(me, zone, float(obs["t"])) < 5.0:
+            nc, nr = zone["next_center"], float(zone["next_radius"])
+            if _d2(best["pos"], nc) > nr:
+                best = None
+        self._supply = best
+        return best
+
+    def _do_supply(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        me = obs["self"]
+        t = float(obs["t"])
+        d = self._supply
+        if d is None:
+            return self._do_farm(obs, act)
+        goal = d["pos"]
+        dist = _d2(goal, me["pos"])
+        radius = float((self.cfg.get("drops") or {}).get("radius", 8.0))
+        if dist > radius * 0.5:
+            move, yaw = self._go(me, goal, 1.0, t)
+            act["move"] = move
+            act["aim"] = [yaw, 0.0]
+            act["boost"] = dist > 30.0 and me["energy"] / max(1.0, me["max_energy"]) > 0.35
+            self._unstick(me, act, t)
+        elif self.mem.last_threat_bearing is not None:
+            act["aim"] = [self.mem.last_threat_bearing, 0.0]
+        self._fire_overlay(obs, act)
+
     # ----------------------------------------------------------------- farming
     def _farm_goal(self, obs: mf.Observation, mechs: List[Dict[str, Any]], t: float) -> Optional[Dict[str, Any]]:
         """Best farm target by value per distance. None when nothing worth it."""
@@ -460,7 +509,7 @@ class Bot:
                     if m.get("kind") != "npc":
                         continue
                     d = _d2(m["pos"], me["pos"])
-                    if d > 140.0 or not inzone(m["pos"], 0.0):
+                    if d > 150.0 or not inzone(m["pos"], 0.0):
                         continue
                     cands.append({"kind": "drone", "pos": list(m["pos"]), "id": int(m["id"]), "key": ("drone", int(m["id"])), "val": 2.0, "d": d * 0.6 + 25.0})
 
@@ -898,7 +947,7 @@ class Bot:
         act["move"] = move
         act["aim"] = [yaw, -0.05]
         efrac = float(me["energy"]) / max(1.0, float(me["max_energy"]))
-        if self._path:
+        if getattr(self.nav, "_on_path", False):
             act["boost"] = efrac > 0.4 and bool(me.get("grounded"))
             self._unstick(me, act, t)
             self._fire_overlay(obs, act)
@@ -993,32 +1042,7 @@ class Bot:
 
     # ------------------------------------------------------------------ shared
     def _go(self, me: Dict[str, Any], goal: List[float], speed: float, t: float) -> tuple:
-        """steer() toward goal; if we stop making progress for 2.5 s, plan a grid path around."""
-        d = _d2(goal, me["pos"])
-        if self._path and t < self._path_until and self._path_goal is not None and _d2(self._path_goal, goal) < 25.0:
-            path = self._path
-            while len(path) > 1 and _d2(path[0], me["pos"]) < 6.0:
-                path.pop(0)
-            if len(path) == 1 and _d2(path[0], me["pos"]) < 4.0:
-                self._path = None
-            else:
-                mf.draw.line(me["pos"], [path[0][0], path[0][1], me["pos"][2]], "#40c0ff")
-                return self.nav.steer(me, path[0], speed, t)
-        else:
-            self._path = None
-        if (
-            self._prog_goal is None
-            or _d2(self._prog_goal, goal) > 25.0
-            or t - self._prog_last > 0.5
-        ):
-            self._prog_goal, self._prog_t, self._prog_d = list(goal[:2]), t, d
-        elif t - self._prog_t > 2.5:
-            if USE_PLANNER and self._prog_d - d < 5.0 and d > 12.0 and me.get("grounded"):
-                path = self.planner.plan(me["pos"], goal)
-                if path:
-                    self._path, self._path_goal, self._path_until = path, list(goal[:2]), t + 30.0
-            self._prog_t, self._prog_d = t, d
-        self._prog_last = t
+        """Long-range move: Navigator.steer plans a grid path when the straight line is blocked."""
         return self.nav.steer(me, goal, speed, t)
 
     def _unstick(self, me: Dict[str, Any], act: Dict[str, Any], t: float) -> None:
