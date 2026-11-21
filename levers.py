@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "na-grab"
+LABEL = "na-arm"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -23,6 +23,7 @@ LEVERS: Dict[str, bool] = {
     "P1": True,  # grid A* path planning around buildings (nav.steer)
     "N7": True,  # take every supply drop (full heal + 3 cubes), fight from the ring
     "G1": True,  # take any weapon within reach in every mode while slot 1 is empty
+    "G2": True,  # go arm first when a known weapon is within 60 m and slot 1 is empty
 }
 
 

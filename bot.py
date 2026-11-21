@@ -880,6 +880,18 @@ class Bot:
                 self.mem.post_kill_phase = None
                 self.mem.post_kill_pos = None
 
+        # G2: arm first. A weapon we know of within 60 m beats farming with the gun alone
+        # (sim: matches that never armed scored 2.8 vs 3.7). Skip it only while a closer enemy hurts us.
+        if (
+            levers.on("G2")
+            and second is None
+            and loot is not None
+            and loot_d < 60.0
+            and me.get("in_zone", True)
+            and not (recent_dmg and visible and enemy_d < loot_d + 10.0)
+        ):
+            return "ARM"
+
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
         if t < 75.0 and not recent_dmg:
