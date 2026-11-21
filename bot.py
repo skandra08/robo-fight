@@ -834,8 +834,13 @@ class Bot:
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
         if t < 75.0 and not recent_dmg:
-            if self._cube_goal(obs, [], 1e9) is not None:
+            # BET favoid: farm, but keep away from a hunter in view instead of ignoring it.
+            near_hunter = bool(visible) and enemy_d < 110.0
+            if self._cube_goal(obs, visible if near_hunter else [], enemy_d if near_hunter else 1e9) is not None:
                 return "CUBE"
+            if near_hunter and hp_frac > 0.3:
+                self.mem.disengage_until = t + 3.0
+                return "DISENGAGE"
             if not visible:
                 drone = self._farmable_drone(obs)
                 if drone is not None:
