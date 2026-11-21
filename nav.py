@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from world import World
+from world import World, _point_in_prism_xy
 
 
 # Fewer feelers = fewer walkable_step tests; still covers front hemisphere well.
@@ -163,3 +163,132 @@ class Navigator:
         if d <= r:
             return [cx, cy]
         return [cx + dx / d * r, cy + dy / d * r]
+
+
+class GridPlanner:
+    """Coarse ground-level A* for when local steering stalls (stadium bowl, courtyards).
+
+    Cells are `cell` m squares of terrain; a cell is blocked if a prism fills it between
+    ground+1 m and ground+6 m (walls, bridges' piers). Moving up a cell edge is allowed when
+    the climb fits the slope limit; moving down is always allowed (falling is fine).
+    """
+
+    def __init__(self, world: World, cell: float = 5.0, slope_deg: float = 46.0):
+        self.world = world
+        self.cell = cell
+        self.x0 = world.min_x
+        self.y0 = world.min_y
+        span_x = (world.nx - 1) * world.step
+        span_y = (world.ny - 1) * world.step
+        self.nx = int(span_x // cell)
+        self.ny = int(span_y // cell)
+        n = self.nx * self.ny
+        self.h = [0.0] * n
+        self.free = bytearray(n)
+        self.up_max = math.tan(math.radians(slope_deg)) * cell
+        ground = world.ground
+        for j in range(self.ny):
+            cy = self.y0 + (j + 0.5) * cell
+            for i in range(self.nx):
+                cx = self.x0 + (i + 0.5) * cell
+                g = ground(cx, cy)
+                k = j * self.nx + i
+                self.h[k] = g
+                ok = True
+                for idx in world._candidates(cx, cy):
+                    p = world.prisms[idx]
+                    if p["top"] < g + 1.0 or p["base"] > g + 6.0:
+                        continue
+                    if cx < p["minx"] or cx > p["maxx"] or cy < p["miny"] or cy > p["maxy"]:
+                        continue
+                    if _point_in_prism_xy(cx, cy, p):
+                        ok = False
+                        break
+                self.free[k] = 1 if ok else 0
+
+    def idx(self, x: float, y: float) -> int:
+        i = int((x - self.x0) // self.cell)
+        j = int((y - self.y0) // self.cell)
+        i = max(0, min(self.nx - 1, i))
+        j = max(0, min(self.ny - 1, j))
+        return j * self.nx + i
+
+    def center(self, k: int) -> List[float]:
+        j, i = divmod(k, self.nx)
+        return [self.x0 + (i + 0.5) * self.cell, self.y0 + (j + 0.5) * self.cell]
+
+    def _nearest_free(self, k: int, r: int = 3) -> int:
+        if self.free[k]:
+            return k
+        j0, i0 = divmod(k, self.nx)
+        for rr in range(1, r + 1):
+            for dj in range(-rr, rr + 1):
+                for di in range(-rr, rr + 1):
+                    i, j = i0 + di, j0 + dj
+                    if 0 <= i < self.nx and 0 <= j < self.ny and self.free[j * self.nx + i]:
+                        return j * self.nx + i
+        return k
+
+    def plan(self, start: Sequence[float], goal: Sequence[float], max_expand: int = 4000) -> Optional[List[List[float]]]:
+        """A* path of cell centres from start to goal, or None. Bounded by max_expand."""
+        import heapq
+
+        nx, ny, cell = self.nx, self.ny, self.cell
+        s = self._nearest_free(self.idx(start[0], start[1]))
+        g = self._nearest_free(self.idx(goal[0], goal[1]))
+        gj, gi = divmod(g, nx)
+        h, free, up_max = self.h, self.free, self.up_max
+        diag = 1.41421356
+        nbrs = ((1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
+                (1, 1, diag), (1, -1, diag), (-1, 1, diag), (-1, -1, diag))
+        dist = {s: 0.0}
+        came: Dict[int, int] = {}
+        sj, si = divmod(s, nx)
+        openq = [(math.hypot(si - gi, sj - gj), s)]
+        best_k, best_h = s, 1e9
+        expanded = 0
+        closed = set()
+        while openq and expanded < max_expand:
+            _, k = heapq.heappop(openq)
+            if k in closed:
+                continue
+            closed.add(k)
+            expanded += 1
+            kj, ki = divmod(k, nx)
+            hk = math.hypot(ki - gi, kj - gj)
+            if hk < best_h:
+                best_h, best_k = hk, k
+            if k == g:
+                break
+            dk = dist[k]
+            for di, dj, c in nbrs:
+                i, j = ki + di, kj + dj
+                if i < 0 or j < 0 or i >= nx or j >= ny:
+                    continue
+                n = j * nx + i
+                if not free[n] or n in closed:
+                    continue
+                dh = h[n] - h[k]
+                if dh > up_max * c:
+                    continue
+                if c > 1.0 and not (free[kj * nx + i] and free[j * nx + ki]):
+                    continue  # don't cut wall corners
+                nd = dk + c + (0.3 * dh if dh > 0 else 0.0) / cell
+                if nd < dist.get(n, 1e18):
+                    dist[n] = nd
+                    came[n] = k
+                    heapq.heappush(openq, (nd + math.hypot(i - gi, j - gj), n))
+        end = g if g in closed else best_k
+        if end == s:
+            return None
+        path = []
+        k = end
+        while k != s:
+            path.append(self.center(k))
+            k = came[k]
+        path.reverse()
+        # thin: keep every other cell, always the last
+        thin = path[1::2]
+        if not thin or thin[-1] is not path[-1]:
+            thin.append(path[-1])
+        return thin

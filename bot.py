@@ -35,7 +35,7 @@ from combat import Combat
 from cover import CoverBook
 import levers
 from memory import Memory
-from nav import Navigator
+from nav import GridPlanner, Navigator
 from world import World
 
 UPGRADE_PRIORITY = [
@@ -111,6 +111,14 @@ class Bot:
         self.mem = Memory()
         self.mem.seed(int(hello.get("seed") or 1))
         self.nav = Navigator(self.world, self.mem)
+        self.planner = GridPlanner(self.world)
+        self._path: Optional[List[List[float]]] = None
+        self._path_goal: Optional[List[float]] = None
+        self._path_until = -1.0
+        self._prog_goal: Optional[List[float]] = None
+        self._prog_t = -1.0
+        self._prog_d = 0.0
+        self._prog_last = -99.0
         self.combat = Combat(self.world, self.cfg)
         cfg = self.cfg
         self.loot_r = float(cfg["loot"]["pickup_radius"])
@@ -144,6 +152,8 @@ class Bot:
         self._farm_key: Any = None
         self._farm_since = 0.0
         self._farm_bl: Dict[Any, float] = {}
+        self._search_wp: Optional[List[float]] = None
+        self._search_until = -1.0
         # fight target stickiness
         self._target_id: Optional[int] = None
         # heal cover cache
@@ -269,7 +279,11 @@ class Bot:
         hit_by_mech = t - self._mech_hit_last_t < 1.5
         target = self._fight_target(me, mechs, t)
 
-        if self._zone_pressure(me, zone, t):
+        urgency = self._zone_urgency(me, zone, t)
+        if urgency < 5.0:
+            return "ZONE"
+        busy = hit_by_mech or (target is not None and _d2(target["pos"], me["pos"]) < 90.0)
+        if urgency < 20.0 and not busy:
             return "ZONE"
 
         # A drone shooting us while no mech is: kill it.
@@ -340,17 +354,16 @@ class Bot:
         self._target_id = int(best["id"]) if best is not None else None
         return best
 
-    def _zone_pressure(self, me: Dict[str, Any], zone: Dict[str, Any], t: float) -> bool:
-        """The next circle closes before we could walk into it (with slack)."""
+    def _zone_urgency(self, me: Dict[str, Any], zone: Dict[str, Any], t: float) -> float:
+        """Seconds of slack before the next circle closes on us (1e9 when safely inside)."""
         nc, nr = zone["next_center"], float(zone["next_radius"])
         dist = math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1])
-        if dist <= 0.85 * nr:
-            return False
+        inside = 0.75 * nr if self.mode == "ZONE" else 0.85 * nr
+        if dist <= inside:
+            return 1e9
         walk = max(1.0, float((me.get("stats") or {}).get("walk_speed", self.walk_speed)))
         travel = max(0.0, dist - 0.7 * nr) / walk
-        if self.mode == "ZONE" and dist > 0.75 * nr:
-            return True
-        return float(zone["shrink_end"]) - t < travel + 20.0
+        return float(zone["shrink_end"]) - t - travel
 
     # ----------------------------------------------------------------- farming
     def _farm_goal(self, obs: mf.Observation, mechs: List[Dict[str, Any]], t: float) -> Optional[Dict[str, Any]]:
@@ -467,11 +480,19 @@ class Bot:
         goal = self._farm
         efrac = me["energy"] / max(1.0, me["max_energy"])
         if goal is None:
-            # Early search: weave around the zone interior, scanning with the torso.
-            zc = self.nav.zone_goal(obs["zone"], me["pos"], 0.55)
-            yaw = self.mem.scan_yaw
-            dest = [zc[0] + math.cos(yaw * 0.25) * 90.0, zc[1] + math.sin(yaw * 0.25) * 90.0]
-            move, _ = self.nav.steer(me, dest, 1.0, t)
+            # Early search: walk to waypoints inside the next circle, scanning with the torso.
+            z = obs["zone"]
+            dest = self._search_wp
+            if dest is None or _d2(dest, me["pos"]) < 15.0 or t > self._search_until:
+                nc, nr = z["next_center"], float(z["next_radius"])
+                ang = self.mem.rand() * 2 * math.pi
+                rr = math.sqrt(self.mem.rand()) * 0.6 * nr
+                # bias toward our side of the circle so we don't cross the whole map
+                bx = 0.5 * (me["pos"][0] - nc[0])
+                by = 0.5 * (me["pos"][1] - nc[1])
+                dest = [nc[0] + bx * 0.5 + math.cos(ang) * rr, nc[1] + by * 0.5 + math.sin(ang) * rr]
+                self._search_wp, self._search_until = dest, t + 30.0
+            move, _ = self._go(me, dest, 1.0, t)
             act["move"] = move
             act["aim"] = [self.mem.scan_yaw, -0.05]
             act["boost"] = efrac > 0.7
@@ -503,14 +524,14 @@ class Bot:
                 if clear and d <= 95.0:
                     self._shoot_drone(obs, act, me, drone, t)
                     return
-                move, yaw = self.nav.steer(me, drone["pos"], 1.0, t)
+                move, yaw = self._go(me, drone["pos"], 1.0, t)
                 act["move"] = move
                 act["aim"] = self.combat.aim_at(me, tgt, "gun")
                 act["boost"] = efrac > 0.6 and d > 60.0
                 self._unstick(me, act, t)
                 return
         # walk to it (cube, site, loot, unseen crate, drone out of view)
-        move, yaw = self.nav.steer(me, goal["pos"], 1.0, t)
+        move, yaw = self._go(me, goal["pos"], 1.0, t)
         act["move"] = move
         act["aim"] = [_bearing_to(me["pos"], goal["pos"]), -0.05]
         d = _d2(goal["pos"], me["pos"])
@@ -753,7 +774,13 @@ class Bot:
             self.mem.roof_id = int(roof["id"])
             self.mem.reset_camp_counters()
         climb = self.cover.nearest_climb(roof, me["pos"])
-        if climb:
+        if climb and _d2(climb, me["pos"]) > 20.0 and me.get("grounded"):
+            self.mem.climb_target = climb
+            move, yaw = self._go(me, climb, 1.0, t)
+            act["move"] = move
+            act["aim"] = [yaw, -0.05]
+            act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.8
+        elif climb:
             self.mem.climb_target = climb
             act.update(self.nav.climb_action(me, roof, climb, t))
         else:
@@ -841,10 +868,15 @@ class Bot:
         me = obs["self"]
         t = float(obs["t"])
         goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.65)
-        move, yaw = self.nav.steer(me, goal, 1.0, t)
+        move, yaw = self._go(me, goal, 1.0, t)
         act["move"] = move
         act["aim"] = [yaw, -0.05]
         efrac = float(me["energy"]) / max(1.0, float(me["max_energy"]))
+        if self._path:
+            act["boost"] = efrac > 0.4 and bool(me.get("grounded"))
+            self._unstick(me, act, t)
+            self._fire_overlay(obs, act)
+            return
         # Local steering gets trapped (stadium bowl, courtyards, wall pockets). Track progress
         # toward the circle; if it stalls for 1.5 s, jet straight at the goal over whatever is
         # in the way. Keep energy for that: ground boost only while energy is above half.
@@ -876,7 +908,7 @@ class Bot:
         z = obs["zone"]
         nz = {"center": z["next_center"], "radius": z["next_radius"]}
         goal = self.nav.zone_goal(nz, me["pos"], 0.6)
-        move, yaw = self.nav.steer(me, goal, 1.0, t)
+        move, yaw = self._go(me, goal, 1.0, t)
         act["move"] = move
         act["aim"] = [yaw, -0.05]
         efrac = me["energy"] / max(1.0, me["max_energy"])
@@ -934,6 +966,35 @@ class Bot:
         act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
 
     # ------------------------------------------------------------------ shared
+    def _go(self, me: Dict[str, Any], goal: List[float], speed: float, t: float) -> tuple:
+        """steer() toward goal; if we stop making progress for 2.5 s, plan a grid path around."""
+        d = _d2(goal, me["pos"])
+        if self._path and t < self._path_until and self._path_goal is not None and _d2(self._path_goal, goal) < 25.0:
+            path = self._path
+            while len(path) > 1 and _d2(path[0], me["pos"]) < 6.0:
+                path.pop(0)
+            if len(path) == 1 and _d2(path[0], me["pos"]) < 4.0:
+                self._path = None
+            else:
+                mf.draw.line(me["pos"], [path[0][0], path[0][1], me["pos"][2]], "#40c0ff")
+                return self.nav.steer(me, path[0], speed, t)
+        else:
+            self._path = None
+        if (
+            self._prog_goal is None
+            or _d2(self._prog_goal, goal) > 25.0
+            or t - self._prog_last > 0.5
+        ):
+            self._prog_goal, self._prog_t, self._prog_d = list(goal[:2]), t, d
+        elif t - self._prog_t > 2.5:
+            if self._prog_d - d < 5.0 and d > 12.0 and me.get("grounded"):
+                path = self.planner.plan(me["pos"], goal)
+                if path:
+                    self._path, self._path_goal, self._path_until = path, list(goal[:2]), t + 30.0
+            self._prog_t, self._prog_d = t, d
+        self._prog_last = t
+        return self.nav.steer(me, goal, speed, t)
+
     def _unstick(self, me: Dict[str, Any], act: Dict[str, Any], t: float) -> None:
         mv = act.get("move") or [0.0, 0.0]
         self.nav.update_stuck(me, t, math.hypot(mv[0], mv[1]) > 0.3)
