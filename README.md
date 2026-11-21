@@ -55,15 +55,15 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 ## Trying variants
 
-A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` matches the label. Base: current `main` (v1.19 / open bugfixes).
+A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` matches the label. Base: `b6aa100` (v1.19).
 
-| # | label | Bot.name | tag | tweak | try this if… |
-| --- | --- | --- | --- | --- | --- |
-| 1 | v-safe | lh-v-safe | try/v-safe | main as-is (v1.19; THIRD off) | baseline / control |
-| 2 | third-armed | lh-third-armed | try/third-armed | THIRD on when armed after ~2–4s sounds | want crash-in thirds again |
-| 3 | no-third | lh-no-third | try/no-third | THIRD hard off (explicit) | confirm thirds were the problem |
-| 4 | arm-first | lh-arm-first | try/arm-first | ARM+position before FIGHT | dying while still looting |
-| 5 | fight-ready | lh-fight-ready | try/fight-ready | once armed+positioned, take 1v1s aggressively | camping too long / low kills |
-| 6 | camp-hold | lh-camp-hold | try/camp-hold | higher shots_here before RELOCATE (28/6) | relocating too often / abandon camp |
+| # | label | Bot.name | tag | full hash | tweak | try this if… |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | v-safe | lh-v-safe | `try/v-safe` | `dcbf62c6c6b21216a1c599d6487b43cde5945ea2` | main as-is (v1.19; THIRD off) | baseline / control |
+| 2 | third-armed | lh-third-armed | `try/third-armed` | `be19f8c317e36f9e93364f000985a46b052a05ce` | THIRD on when armed after ~2–4s sounds | want crash-in thirds again |
+| 3 | no-third | lh-no-third | `try/no-third` | `34ed5ea27a9ea23385fac137afd421111273629d` | THIRD hard off (explicit) | confirm thirds were the problem |
+| 4 | arm-first | lh-arm-first | `try/arm-first` | `7fad754b7a40ad915abefb5a505cac001065ed03` | ARM+position before FIGHT | dying while still looting |
+| 5 | fight-ready | lh-fight-ready | `try/fight-ready` | `ea1afe63ae326191d9d3e31c6a9a056d84d756ce` | once armed+positioned, take 1v1s aggressively | camping too long / low kills |
+| 6 | camp-hold | lh-camp-hold | `try/camp-hold` | `da7039002602c6a06128fef790139dd4eb2ade19` | higher shots_here before RELOCATE (28/6) | relocating too often / abandon camp |
 
-Full hashes filled after push in agent try-list / `git rev-parse try/<label>`.
+`try/v115-safe` / `try/v119-safe` alias `try/v-safe`.
