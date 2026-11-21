@@ -831,6 +831,12 @@ class Bot:
         if recent_dmg and visible:
             return "FIGHT"
 
+        # Farm first, fight later: the showdown winner landed its first hit on a mech at 61 s and
+        # spent the first minute on crates and drones. Until 60 s, ignore mechs that aren't shooting us.
+        if t < 60.0 and not recent_dmg:
+            visible = []
+            enemy_d = 1e9
+
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
