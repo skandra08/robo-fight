@@ -1465,6 +1465,7 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # no-boost-strafe: ADS strafe is walk-only so aim stays stable; boost only on close.
         close_at = 55.0 if push_hard else 75.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
@@ -1473,9 +1474,11 @@ class Bot:
         else:
             side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
+            act["boost"] = False
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
+            # still allow boost when truly stuck
             act["boost"] = True
 
     def _cube_goal(self, obs: mf.Observation, visible: List[Dict[str, Any]], enemy_d: float) -> Optional[Dict[str, Any]]:
