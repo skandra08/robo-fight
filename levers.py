@@ -23,6 +23,7 @@ LEVERS: Dict[str, bool] = {
     "F1": False,  # FFA detector + survival mode
     "P1": True,  # grid A* path planning around buildings (nav.steer)
     "C1": True,  # gun keeps firing while the laser charges
+    "C2": False,  # gun keeps firing alongside lightning
     "S5": False,  # path following slides along walls the grid missed (footprint probe)
     "G4": False,  # G2 is checked before the post-kill loot/heal (walk to the weapon while regenerating)
     "P2": True,  # path search budget in nodes (1024/tick), not wall-clock: same moves every run

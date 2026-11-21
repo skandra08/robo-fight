@@ -2248,6 +2248,10 @@ class Bot:
                 return "laser", None
             return "laser", "laser"
         if kind == "lightning":
+            # C2: same idle-gun gap as C1. Lightning aims straight at the target inside 45 m,
+            # close enough for the gun's lead, so let both fire.
+            if levers.on("C2"):
+                return "lightning", None
             return "lightning", "lightning"
         return "gun", "gun"
 
