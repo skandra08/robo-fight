@@ -11,8 +11,14 @@
     "per_tag": 2,
     "rooms": 2,
     "host": "play.joinbuilders.org",
-    "when": "2026-11-21T06:01:00Z",
+    "when": "2026-11-21T06:28:02Z",
     "status": "no_games",
-    "reason": "GET /mm/code/new returned HTTP 429 {\"error\":\"slow\",\"retry_s\":20} (also 503 busy) for >30 minutes including a 5-minute quiet period. Harness and protocol verified; first probe earlier in the session did return a room. Did not fall back to public /play lobby (doc: private rooms only; do not spam lobby)."
+    "reason": "GET /mm/code/new stayed HTTP 429 {\"error\":\"slow\"} (retry_s 1\u201320) for >40 minutes including a 10-minute zero-request quiet window and 60s-spaced probes. One early probe in-session did return a room; thereafter this IP was refused. Did not use public /play lobby (doc + Sameer). Harness ready: tools/private_room_harness.py + lobby_harness.js on cursor/live-testbed-6fb8.",
+    "watch_feed": "wss://watch.joinbuilders.org/live reachable (house bots visible)",
+    "check_pass": {
+      "best-265": "b7b5c38367dbf208f836f77d8f8a1ee4dd2658f4",
+      "cubes-sticky": "cc6052e5513b3c5b1eaec151ce127c57e871ed88",
+      "cubes-killreach": "80fb28e258916627993362dfb0d4cc711773edba"
+    }
   }
 }
