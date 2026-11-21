@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-camp-hold"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
@@ -582,8 +582,8 @@ class Bot:
         if second is None:
             return "ARM"
 
-        # Armed: set up loadout camp, then hold. Relocate when burnt / zone leaves camp.
-        burnt = self.mem.shots_here > 12 or self.mem.mortars_here >= 3
+        # try/camp-hold: hold loadout camp longer (higher burn thresholds).
+        burnt = self.mem.shots_here > 28 or self.mem.mortars_here >= 6
         if burnt:
             self.mem.positioned = False
             self.mem.loadout_goal = None
