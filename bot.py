@@ -671,12 +671,10 @@ class Bot:
         act["reload"] = reload
 
         bearing = _bearing_to(me["pos"], chase["pos"])
-        efrac = me["energy"] / max(1.0, me["max_energy"])
         finishing = self._nearly_dead(chase)
 
-        # On a roof: hold it. Move to the firing edge toward them; never jump down to chase
-        # unless they're nearly dead.
-        if self.mem.world_on_roof and not (finishing and not clear and dist < 80.0):
+        # On a roof: hold / firing edge / strafe — never jump down to chase.
+        if self.mem.world_on_roof:
             roof = self._roof_here(me)
             fp = self.cover.best_firing(roof, bearing) if roof else None
             if fp and (not clear or dist > BAND_LO):
@@ -685,22 +683,16 @@ class Bot:
             else:
                 side = bearing + (math.pi / 2) * self.mem.strafe_sign
                 act["move"] = [math.cos(side) * 0.4, math.sin(side) * 0.4]
+            act["boost"] = False
             return
 
-        lo, hi = BAND_LO, BAND_HI
+        # NO_CHASE: never steer toward chase["pos"]. Kite when too close; else hold/strafe.
+        lo = BAND_LO
         if second == "lightning" and _slot_of(me, "lightning") is not None:
-            lo, hi = 20.0, 40.0
+            lo = 20.0
         if finishing:
             lo = 25.0
-        if not clear:
-            move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
-            act["move"] = move
-            act["boost"] = efrac > 0.45 and dist > 40.0
-        elif dist > hi:
-            move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
-            act["move"] = move
-            act["boost"] = efrac > 0.5 and dist > hi + 40.0
-        elif dist < lo:
+        if dist < lo:
             away = bearing + math.pi + 0.5 * self.mem.strafe_sign
             dest = [me["pos"][0] + math.cos(away) * 25.0, me["pos"][1] + math.sin(away) * 25.0]
             move, _ = self.nav.steer(me, dest, 1.0, t)
@@ -715,6 +707,7 @@ class Bot:
             dest = [me["pos"][0] + math.cos(side) * 15.0, me["pos"][1] + math.sin(side) * 15.0]
             move, _ = self.nav.steer(me, dest, 0.75, t)
             act["move"] = move
+        act["boost"] = False
         self._unstick(me, act, t)
 
     # ------------------------------------------------------------------ healing

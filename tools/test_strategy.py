@@ -173,6 +173,13 @@ def test_fight(md: str) -> None:
     a = bot.act(_obs(mechs=[e], t=90.0, tick=1800))  # type: ignore[arg-type]
     check("backs off when inside the fight band", a["move"][0] > 0.2)
 
+    # NO_CHASE: far clear target is west of ME — must not close (move.x strongly negative).
+    bot = fresh(md)
+    e = _mech(5, WEST, aim=0.0)
+    a = bot.act(_obs(mechs=[e], t=90.0, tick=1800))  # type: ignore[arg-type]
+    check("no-chase: does not steer toward far fight target", a["move"][0] > -0.2)
+    check("no-chase: no boost while holding/strafing", not a.get("boost"))
+
     bot = fresh(md)
     lowhp = {"hp": 400.0}
     check("low HP with mech in view -> HEAL", mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST)], t=90.0, tick=1800)) == "HEAL")
