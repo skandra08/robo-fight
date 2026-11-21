@@ -227,6 +227,8 @@ class Bot:
         if mode in ("FARM", "ROOF", "HEAL") and not self.mem.world_on_roof and not act.get("jump"):
             self._avoid(obs, act)
         self._laser_charge_hold(obs, act)
+        if "take" not in act:
+            self._grab_in_reach(obs, act)
 
         ms = (time.perf_counter() - t_act0) * 1000
         self.mem.max_act_ms = max(self.mem.max_act_ms, ms)
@@ -1101,6 +1103,27 @@ class Bot:
             changed = True
         if changed:
             act["fire"] = fire
+
+    def _grab_in_reach(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        """Any mode: take a better weapon we're standing on (swap out the worse one)."""
+        me = obs["self"]
+        second = _has_second(me)
+        have = WEAPON_RANK.get(second or "", 0)
+        for p in obs.get("pickups") or []:
+            if WEAPON_RANK.get(p.get("kind", ""), 0) <= have:
+                continue
+            if _d2(p["pos"], me["pos"]) > self.loot_r - 0.3 or abs(p["pos"][2] - me["pos"][2]) > 3.5:
+                continue
+            if second == "laser":
+                continue
+            slot = _slot_of(me, second) if second else None
+            if slot is not None:
+                w = (me.get("weapons") or [])[slot] or {}
+                if float(w.get("charge") or 0) > 0.02:
+                    continue  # can't swap a charging laser
+                act["drop"] = slot
+            act["take"] = p["id"]
+            return
 
     def _avoid(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         """Steer clear of supply drops (hunters converge) and, when hurt, of drones."""
