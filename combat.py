@@ -190,8 +190,8 @@ class Combat:
         tx, ty = float(target_feet[0]), float(target_feet[1])
         tz = float(target_feet[2]) + 1.0
         vx, vy = float(vel[0]), float(vel[1])
-        # iterate lead; damp long-flight lead so walking targets aren't aimed 70 m ahead
-        lead_cap = 15.0
+        # splash-mortar-predict: allow longer lead so shells land on walking splash radius
+        lead_cap = 28.0
         px, py = tx, ty
         best: Optional[List[float]] = None
         for _ in range(3):
