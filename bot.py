@@ -1465,11 +1465,13 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # energy-save-fight: boost only for long closes or low-HP panic — keep jets for escape.
         close_at = 55.0 if push_hard else 75.0
+        low_hp = me["hp"] / max(1.0, me.get("max_hp", 1400)) < 0.45
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
-            act["boost"] = energy_ok and (dist > 50 or push_hard)
+            act["boost"] = energy_ok and (dist > 70 or low_hp or push_hard)
         else:
             side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
