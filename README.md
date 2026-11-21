@@ -1,6 +1,13 @@
-# rooftop-camper (robo-fight)
+# loadout-hunter (robo-fight)
 
-Mech Royale bot: arm (laser > mortar > lightning), climb a roof inside the zone, peek-shoot, heal out of sight.
+Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged 1v1s, then camp by loadout.
+
+## Stance
+
+- **Ambush**: if 1v1 and hunter has not locked you (or you flank), take the fight when armed / in contact.
+- **Mortar**: relocate to far ground inside the zone; hold range and lob on mid/far sounds.
+- **Laser**: climb a roof for vision; peek-shoot from the edge.
+- **Lightning**: hold tight corners, stay out of sight, burst when close.
 
 ## Version log
 
@@ -11,6 +18,7 @@ Mech Royale bot: arm (laser > mortar > lightning), climb a roof inside the zone,
 | v1.2 | Arm/fight/nav/cover for practice scoring | No 150m ARM flee; loot memory + scan search; fight visible hunters (chase if no LOS); wider aim hold; side-waypoint nav; real cover.bin; camp always return-fires |
 | v1.2b | shots_here / laser charge / climb idle | Count gun shots via ammo drop; only charge laser when ~on target; strafe while waiting for climb energy |
 | v1.2c | Decision-time LOS/nav optimization | Per-tick LOS cache, coarser segment tests, single-pass target pick, fewer steer feelers; act ≪ 50ms |
+| v1.3 | Loadout aggression | Ambush 1v1s; mortar far-ground / laser roof / lightning corner; aggressive ARM boost for loot |
 
 ## Local check
 

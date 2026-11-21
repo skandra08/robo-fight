@@ -161,6 +161,82 @@ class CoverBook:
                     best = [x, y]
         return best
 
+    def far_ground_spot(
+        self,
+        pos: Sequence[float],
+        zone_c: Sequence[float],
+        zone_r: float,
+        away_from: Optional[Sequence[float]] = None,
+    ) -> Optional[List[float]]:
+        """Mortar camp: deep inside the zone, far from threats / current pos."""
+        if not self.cover_ok:
+            # geometric fallback: 0.55 * radius opposite away_from
+            if away_from is None:
+                away_from = pos
+            dx, dy = pos[0] - away_from[0], pos[1] - away_from[1]
+            if dx * dx + dy * dy < 1:
+                dx, dy = 1.0, 0.0
+            ln = math.hypot(dx, dy) or 1.0
+            r = 0.55 * zone_r
+            return [zone_c[0] + dx / ln * r, zone_c[1] + dy / ln * r]
+        best = None
+        best_s = -1e9
+        ix0 = int((zone_c[0] - self.minx) / self.step)
+        iy0 = int((zone_c[1] - self.miny) / self.step)
+        span = max(8, int(0.7 * zone_r / self.step))
+        for dy in range(-span, span + 1, 2):
+            for dx in range(-span, span + 1, 2):
+                cell = self._cell(ix0 + dx, iy0 + dy)
+                if cell is None:
+                    continue
+                flag, opens = cell
+                if not (flag & 1):
+                    continue
+                x = self.minx + (ix0 + dx) * self.step
+                y = self.miny + (iy0 + dy) * self.step
+                if (x - zone_c[0]) ** 2 + (y - zone_c[1]) ** 2 > (0.7 * zone_r) ** 2:
+                    continue
+                dist_me = math.hypot(x - pos[0], y - pos[1])
+                dist_threat = 0.0
+                if away_from is not None:
+                    dist_threat = math.hypot(x - away_from[0], y - away_from[1])
+                blocked = sum(1 for d in opens if d < 20)
+                s = dist_threat * 0.4 + dist_me * 0.15 + blocked * 2.0
+                if s > best_s:
+                    best_s = s
+                    best = [x, y]
+        return best
+
+    def corner_spot(self, pos: Sequence[float], zone_c: Sequence[float], zone_r: float) -> Optional[List[float]]:
+        """Lightning: tight cover, many blocked close rays, still in zone."""
+        if not self.cover_ok:
+            return self.ground_spot(pos, zone_c, zone_r)
+        best = None
+        best_s = -1e9
+        ix0 = int((pos[0] - self.minx) / self.step)
+        iy0 = int((pos[1] - self.miny) / self.step)
+        for dy in range(-16, 17):
+            for dx in range(-16, 17):
+                cell = self._cell(ix0 + dx, iy0 + dy)
+                if cell is None:
+                    continue
+                flag, opens = cell
+                if not (flag & 1):
+                    continue
+                blocked_close = sum(1 for d in opens if d < 12)
+                if blocked_close < 8:
+                    continue
+                x = self.minx + (ix0 + dx) * self.step
+                y = self.miny + (iy0 + dy) * self.step
+                if (x - zone_c[0]) ** 2 + (y - zone_c[1]) ** 2 > (0.85 * zone_r) ** 2:
+                    continue
+                travel = math.hypot(x - pos[0], y - pos[1])
+                s = blocked_close * 12 - 0.05 * travel
+                if s > best_s:
+                    best_s = s
+                    best = [x, y]
+        return best or self.ground_spot(pos, zone_c, zone_r)
+
 
 def _angdiff(a: float, b: float) -> float:
     d = (a - b + math.pi) % (2 * math.pi) - math.pi

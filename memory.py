@@ -45,6 +45,9 @@ class Memory:
         self.arm_goal: Optional[List[float]] = None
         self._gun_ammo_seen: Optional[float] = None
         self._gun_held_last = False
+        self.strafe_sign = 1.0
+        self.positioned = False
+        self.loadout_goal: Optional[List[float]] = None
 
     def seed(self, seed: int) -> None:
         self.rng_state = int(seed) & 0x7FFFFFFF or 1
