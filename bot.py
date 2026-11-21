@@ -688,7 +688,7 @@ class Bot:
             if m.get("kind") != "npc":
                 continue
             d = math.dist(m["pos"][:2], me["pos"][:2])
-            if d > 150.0:
+            if d > levers.p("DRONE_D"):
                 continue  # any range: aggro just means they come to us (2 cubes each)
             if (m["pos"][0] - zc[0]) ** 2 + (m["pos"][1] - zc[1]) ** 2 > (0.9 * zr) ** 2:
                 continue
@@ -865,6 +865,18 @@ class Bot:
             self.mem.positioned = False
             return "DISENGAGE"
 
+        # G2: arm first. A weapon we know of within 60 m beats farming with the gun alone
+        # (sim: matches that never armed scored 2.8 vs 3.7). Skip it only while a closer enemy hurts us.
+        if (
+            (levers.on("G2") and levers.on("G4"))
+            and second is None
+            and loot is not None
+            and loot_d < levers.p("ARM_D")
+            and me.get("in_zone", True)
+            and not (recent_dmg and visible and enemy_d < loot_d + 10.0)
+        ):
+            return "ARM"
+
         # N3: after a kill, loot then heal to ≥90% when quiet.
         if levers.on("N3") and self.mem.post_kill_phase and not visible:
             if self.mem.post_kill_phase == "loot":
@@ -874,19 +886,19 @@ class Bot:
                     if dpk <= 40.0:
                         return "LOOT_SWAP" if self._loot_swap_target(me, second, t) else "ARM"
                 self.mem.post_kill_phase = "heal"
-            if self.mem.post_kill_phase == "heal" and hp_frac < 0.90:
+            if self.mem.post_kill_phase == "heal" and hp_frac < levers.p("N3_HEAL"):
                 return "HEAL"
-            if self.mem.post_kill_phase == "heal" and hp_frac >= 0.90:
+            if self.mem.post_kill_phase == "heal" and hp_frac >= levers.p("N3_HEAL"):
                 self.mem.post_kill_phase = None
                 self.mem.post_kill_pos = None
 
         # G2: arm first. A weapon we know of within 60 m beats farming with the gun alone
         # (sim: matches that never armed scored 2.8 vs 3.7). Skip it only while a closer enemy hurts us.
         if (
-            levers.on("G2")
+            (levers.on("G2") and not levers.on("G4"))
             and second is None
             and loot is not None
-            and loot_d < 60.0
+            and loot_d < levers.p("ARM_D")
             and me.get("in_zone", True)
             and not (recent_dmg and visible and enemy_d < loot_d + 10.0)
         ):
@@ -894,7 +906,7 @@ class Bot:
 
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
-        if t < 75.0 and not recent_dmg:
+        if t < levers.p("FARM_T") and not recent_dmg:
             if self._cube_goal(obs, [], 1e9) is not None:
                 return "CUBE"
             if not visible:
@@ -991,7 +1003,7 @@ class Bot:
             if time_left < 25.0 or hp_frac < 0.90:
                 return "HEAL"
 
-        if safe_for_regen and hp_frac < 0.65:
+        if safe_for_regen and hp_frac < levers.p("HEAL_FRAC"):
             return "HEAL"
 
         if second is None:
@@ -2155,6 +2167,11 @@ class Bot:
         me = obs["self"]
         my_id = int(me.get("id", self.slot))
         speed = float((self.cfg.get("mech") or {}).get("walk_speed", 11.7)) * 0.8
+        sv = levers.p("SUP_VIS")
+        if sv > 0 and enemy_d < sv:
+            self.mem.supply_goal = None
+            self.mem.contest_drop_id = None
+            return None
         best, best_d = None, 1e9
         for d in obs.get("drops") or []:
             if d.get("holder") is not None and int(d["holder"]) != my_id:
@@ -2163,7 +2180,7 @@ class Bot:
             lands = float(d.get("lands_in") or 0.0)
             if lands > dist / max(1.0, speed) + 6.0:
                 continue  # leave when the walk there ends about when it lands
-            if dist <= 450.0 and dist < best_d:
+            if dist <= levers.p("SUP_D") and dist < best_d:
                 best, best_d = d, dist
         self.mem.supply_goal = best
         self.mem.contest_drop_id = int(best["id"]) if best is not None else None
