@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "diag-pacifist"
+LABEL = "diag-cap1"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -29,16 +29,26 @@ def on(key: str) -> bool:
 
 # --- Diagnostic builds (try/diag-*) -------------------------------------------------
 # DIAG = None: normal bot. "pacifist": never pull a trigger (no kills, no drone aggro).
+# "cap": normal until DIAG_K kills, then never fires again.
 # "freeze": play normally until DIAG_T seconds, then stand still and never fire again.
-DIAG = "pacifist"
+DIAG = "cap"
 DIAG_T = 150.0
+DIAG_K = 1
+_diag_kills = [0]
 
 
 def diag_filter(obs, act):
     if DIAG is None:
         return act
     act = dict(act or {})
-    if DIAG == "pacifist":
+    if DIAG == "cap":
+        for e in obs.get("events") or []:
+            if e.get("type") == "kill":
+                _diag_kills[0] += 1
+        if _diag_kills[0] >= DIAG_K:
+            act["fire"] = [False, False]
+            act.pop("reload", None)
+    elif DIAG == "pacifist":
         act["fire"] = [False, False]
         act.pop("reload", None)
     elif DIAG == "freeze" and float(obs.get("t", 0.0)) >= DIAG_T:
