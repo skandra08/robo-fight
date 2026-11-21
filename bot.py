@@ -117,6 +117,10 @@ class Bot:
         )
 
     def act(self, obs: mf.Observation) -> mf.Action:
+        a = self._act_inner(obs)
+        return levers.diag_filter(obs, a)
+
+    def _act_inner(self, obs: mf.Observation) -> mf.Action:
         t_act0 = time.perf_counter()
         try:
             return self._act(obs, t_act0)

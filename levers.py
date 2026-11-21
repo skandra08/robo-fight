@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "gz-noroof"
+LABEL = "diag-pacifist"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -25,3 +25,24 @@ LEVERS: Dict[str, bool] = {
 
 def on(key: str) -> bool:
     return bool(LEVERS.get(key))
+
+
+# --- Diagnostic builds (try/diag-*) -------------------------------------------------
+# DIAG = None: normal bot. "pacifist": never pull a trigger (no kills, no drone aggro).
+# "freeze": play normally until DIAG_T seconds, then stand still and never fire again.
+DIAG = "pacifist"
+DIAG_T = 150.0
+
+
+def diag_filter(obs, act):
+    if DIAG is None:
+        return act
+    act = dict(act or {})
+    if DIAG == "pacifist":
+        act["fire"] = [False, False]
+        act.pop("reload", None)
+    elif DIAG == "freeze" and float(obs.get("t", 0.0)) >= DIAG_T:
+        act = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
+        if obs.get("offer"):
+            act["pick"] = 0
+    return act
