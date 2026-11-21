@@ -1,6 +1,6 @@
 # loadout-hunter (robo-fight)
 
-Mech Royale practice bot. **Pivot:** three playbooks in `levers.PLAYBOOK` (`classic-roof` / `edge-hunter` / `loot-brawl`) — see `STRATEGY_PIVOT.md`. Legacy R3 lever A/B tags remain on origin for history.
+Mech Royale practice bot. **Simple pass:** `zone-sheep` / `cube-snowball` — see `STRATEGY_SIMPLE.md`. Prior pivot playbooks (`classic-roof` / `edge-hunter` / `loot-brawl`) in `STRATEGY_PIVOT.md`. Legacy R3 lever A/B tags remain on origin for history.
 
 ## Stance
 
@@ -71,17 +71,16 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 ## Trying variants
 
-**Pivot playbooks** (submit these — see `STRATEGY_PIVOT.md`):
+**Simple placement** (submit these — see `STRATEGY_SIMPLE.md`):
 
-| # | label | Bot.name | tag | full hash | try this if… |
-| --- | --- | --- | --- | --- | --- |
-| 1 | classic-roof | lh-classic-roof | `try/classic-roof` | `c458a037d465005c84fc2dc3e78022accef1cdff` | **submit first** — old ARM→roof→CAMP + bugfixes |
-| 2 | edge-hunter | lh-edge-hunter | `try/edge-hunter` | `92ec1947dde62f4c3031ed0aeb7cb030e82a3a7b` | classic dies early on roofs / shared vision |
-| 3 | loot-brawl | lh-loot-brawl | `try/loot-brawl` | `6eb0fa370c5560208a0b519738546ab819768546` | need ground DPS / mid-range trades |
+| # | label | Bot.name | tag | try this if… |
+| --- | --- | --- | --- | --- |
+| 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | **submit first** — quiet deep next-zone, heal, never start fights |
+| 2 | cube-snowball | lh-cube-snowball | `try/cube-snowball` | farm cubes → tanky free fights |
 
 ```sh
-git fetch --tags --force && git checkout try/classic-roof
+git fetch --tags --force && git checkout try/zone-sheep
 python3 tools/test_strategy.py && python3 check/check.py -- python3 -u bot.py
 ```
 
-Legacy lever A/B tags still on origin (`try/roof-all` ~2.29 best of that loop, `try/r3-*`, dual/hold/ground-*, etc.).
+Prior pivot + lever A/B tags still on origin (`try/classic-roof`, `try/roof-all` ~2.29, etc.).

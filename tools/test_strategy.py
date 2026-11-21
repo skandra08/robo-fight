@@ -626,6 +626,103 @@ def test_playbook_loot(bot: Bot) -> None:
     check(f"loot mid-range 1v1 → FIGHT (got {mode1})", mode1 == "FIGHT")
 
 
+def test_playbook_sheep(bot: Bot) -> None:
+    if levers.playbook() != "zone-sheep":
+        print("  SKIP zone-sheep playbook")
+        return
+    check("sheep Bot.name", Bot.name == "lh-zone-sheep")
+    check("sheep no roof", not bot._wants_roof("laser"))
+    check("sheep quiet arm", __import__("bot")._quiet_arm())
+    check("sheep no chase", __import__("bot")._no_chase())
+    enemy = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [40.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],  # rear opportunity — sheep still ignores
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    obs = _base_obs(
+        mechs=[enemy],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "laser", "charge": 0, "cooldown": 0},
+            ],
+        },
+    )
+    # Deep enough that ROTATE isn't forced.
+    obs["zone"]["next_center"] = [0.0, 0.0]
+    obs["zone"]["next_radius"] = 400.0
+    bot.mem.last_took_weapon_damage_t = -1e9
+    bot.mem.positioned = True
+    bot.mem.world_on_roof = False
+    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
+    check(f"sheep ignores free rear 1v1 (got {mode})", mode != "FIGHT")
+    bot.mem.last_took_weapon_damage_t = float(obs["t"])
+    mode2 = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
+    check(f"sheep fights back when shot (got {mode2})", mode2 == "FIGHT")
+
+
+def test_playbook_snowball(bot: Bot) -> None:
+    if levers.playbook() != "cube-snowball":
+        print("  SKIP cube-snowball playbook")
+        return
+    check("snowball Bot.name", Bot.name == "lh-cube-snowball")
+    check("snowball no roof", not bot._wants_roof("mortar"))
+    check("snowball farms cubes", __import__("bot")._cube_farm())
+    check("snowball quiet arm", __import__("bot")._quiet_arm())
+    check("snowball cubes_want=cap", bot.mem.cubes_want == bot.cube_stat_cap)
+    drone = {
+        "id": 101,
+        "kind": "npc",
+        "pos": [50.0, 0.0, 2.0],
+        "vel": [0, 0, 0],
+        "aim": [0, 0],
+        "hp": 200,
+    }
+    obs = _base_obs(
+        mechs=[drone],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "cubes": 0,
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "laser", "charge": 0, "cooldown": 0},
+            ],
+        },
+    )
+    obs["zone"]["next_center"] = [0.0, 0.0]
+    obs["zone"]["next_radius"] = 400.0
+    bot.mem.last_took_weapon_damage_t = -1e9
+    bot.mem.world_on_roof = False
+    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
+    check(
+        f"snowball farms drone (mode={mode} id={bot.mem.farm_drone_id})",
+        mode == "FIGHT" and bot.mem.farm_drone_id == 101,
+    )
+    # Aware frontal mid-range with 0 cubes → not free fight.
+    enemy = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [50.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    obs2 = _base_obs(mechs=[enemy], self=obs["self"])
+    obs2["zone"]["next_center"] = [0.0, 0.0]
+    obs2["zone"]["next_radius"] = 400.0
+    bot.mem.farm_drone_id = None
+    mode2 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check(f"snowball skips aware frontal (got {mode2})", mode2 != "FIGHT")
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
@@ -640,6 +737,8 @@ def main() -> int:
         test_playbook_classic,
         test_playbook_edge,
         test_playbook_loot,
+        test_playbook_sheep,
+        test_playbook_snowball,
         test_s1_roof,
         test_n1_counter,
         test_n2_edge,
