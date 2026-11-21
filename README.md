@@ -89,7 +89,9 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 11 | ffa | lh-ffa | `try/ffa` | `450ebfc7de4762023ff99d4f6cb1c1a2d9bafb8f` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
 | 12 | r3-core | lh-r3-core | `try/r3-core` | `3737f2636dde5ec00e880ca0201142b1ed2c1f77` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
 | 13 | r3-full | lh-r3-full | `try/r3-full` | `b4d6e37c727f7125bbf8c8087475b7a99fcaf910` | all S/N/F levers (= main) | full plan in one submit |
-| 14 | pivot-sticky-reach | lh-pivot-sticky-reach | `try/pivot-sticky-reach` | *(tag tip)* | **S1+N1** + sticky CUBE 2s + killreach (locked-proc off best-265) | first fleet pivot; early-ditch @≪2.3; see `docs/LOCKED_PROC.md` |
+| 14 | pivot-sticky-reach | lh-pivot-sticky-reach | `try/pivot-sticky-reach` | `63f5ce20b74ac38bb0a313b9f7723e2272c4f55a` | **S1+N1** + sticky CUBE 2s + killreach | first fleet pivot; ditch if ≪2.3 @8–12 |
+| 15 | pivot-mincubes | lh-pivot-mincubes | `try/pivot-mincubes` | `413a002802235e6e03c4c17bd921c7f038b2e588` | thin early: reach 140 / crate 180 | roof+CUBE; ditch if ≪2.3 @8–12 |
+| 16 | pivot-farm-open | lh-pivot-farm-open | `try/pivot-farm-open` | `7429bc0b041551a7d2419cccceffbc1bd2617250` | opening t&lt;60: cube 150 / crate 215 | roof+CUBE; ditch if ≪2.3 @8–12 |
 
 Prior A/B (still on origin): `try/camp-hold`, `try/arm-first`, `try/fight-ready`, `try/third-armed`, `try/no-third`.
 
