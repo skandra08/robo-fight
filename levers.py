@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "arm-quiet"
+LABEL = "laser-peek"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -14,8 +14,8 @@ LEVERS: Dict[str, bool] = {
     "N2": False,  # edge-guard hunters climbing our roof
     "N3": False,  # after kill: loot then heal ≥90%
     "S2": False,  # remove 1v1 ambush
-    "S3": True,  # no ARM boost inside the zone
-    "N4": False,  # pre-charged laser peeks
+    "S3": False,  # no ARM boost inside the zone
+    "N4": True,  # pre-charged laser peeks
     "N5": False,  # cube snowball (drones + kill cubes)
     "N6": False,  # contest supply drop 1
     "S4": False,  # ROTATE gatekeep off in practice
