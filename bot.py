@@ -863,7 +863,11 @@ class Bot:
         act["reload"] = reload
         mf.draw.line(
             self.combat.muzzle(me),
-            [chase["pos"][0], chase["pos"][1], chase["pos"][2] + 4.5],
+            [
+                chase["pos"][0],
+                chase["pos"][1],
+                self.combat.com_z(chase["pos"][2], chase.get("cubes")),
+            ],
             "#ff5040",
         )
 
@@ -1175,7 +1179,7 @@ class Bot:
                 aim_yaw = math.atan2(zc[1] - me["pos"][1], zc[0] - me["pos"][0])
             act["aim"] = [aim_yaw, -0.05]
             # Lob on mid/far combat sounds from far ground.
-            if t - self.mem.last_mortar_t >= 4.0:
+            if t - self.mem.last_mortar_t >= self.combat.mortar_gap():
                 for s in self.mem.sound_log:
                     if s.get("kind") in ("gun", "laser", "laser_charge", "explosion") and s.get("dist") in (
                         "mid",
@@ -1304,7 +1308,7 @@ class Bot:
                 break
 
         # mortar lob on mid/far gun/laser (if somehow dual-wielding / leftover)
-        if _slot_of(me, "mortar") is not None and t - self.mem.last_mortar_t >= 4.0:
+        if _slot_of(me, "mortar") is not None and t - self.mem.last_mortar_t >= self.combat.mortar_gap():
             for s in self.mem.sound_log:
                 if s.get("kind") in ("gun", "laser", "laser_charge") and s.get("dist") in ("mid", "far"):
                     bearing = float(s["bearing"])
