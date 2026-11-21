@@ -42,6 +42,7 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up roof 
 | v1.17 | Mortar low-arc + damped lead (#8) | Prefer low arc when lob clears; else high. Cap lead at 15 m. Drop pitch>0.25 fire gate (blocked low arc). Predicted: shells land on walking targets instead of 70 m ahead |
 | v1.18 | Body centre from config | Aim/LOS CoM = `mech.height/2` × cube scale (was hard-coded +4.5). Predicted: neutral at default height; correct vs tall cube mechs |
 | v1.19 | Firing-point yaw coverage (#10) | Precompute bins firing pts by 16 yaw sectors (≤3 each); hidden by hf. Regenerated `data/roofs.json`. Predicted: CAMP peeks toward any compass threat |
+| v1.20 | Strategy plan S1–F1 (levers) | Roof camp all loadouts; laser counter; edge-guard; post-kill loot→heal; no ambush; quiet ARM; precharged peeks; cube/drone farm; contest drop 1; ROTATE gatekeep off; FFA detector+survival behind `levers.py`. Predicted: practice +0.5–2.0; FFA for qualifiers |
 | S1 | Every loadout camps on a roof | Mortar/lightning use roof path; `_loadout_positioned` = on roof. Predicted: +0.2 to +0.5 |
 | N1 | Laser counter all loadouts | Break LOS on charging aim≤8°; return on beam/hold; mortar drop only if no cover ~45 m. Predicted: +0.3 to +1.0 |
 | N2 | Edge-guard climb | Hold 4–6 m inside threat edge; shoot z>roof−2; mortar wall-base. Predicted: +0.4 to +1.0 |
