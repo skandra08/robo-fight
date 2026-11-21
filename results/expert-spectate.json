@@ -1,0 +1,3362 @@
+{
+  "generated_at": "2026-11-21T05:39:11Z",
+  "baseline": "2.65 @ b7b5c38367dbf208f836f77d8f8a1ee4dd2658f4",
+  "n_games": 4,
+  "sources": [
+    "private_room_smoke",
+    "public_live_room_2",
+    "public_live_room_3",
+    "watch"
+  ],
+  "note": "Private/public play rooms are FFA (expert+probe-*). Not practice scores. Observation-only.",
+  "aggregate": {
+    "byClass": {
+      "probe_red_honest": {
+        "n": 12,
+        "meanPlace": 11.33,
+        "meanKills": 0.25,
+        "meanRoofPct": 24.5,
+        "meanRoofAfterArmPct": 0.0,
+        "meanStillPct": 11.3,
+        "meanBoostPct": 33.1,
+        "meanLaserChargePct": 5.1,
+        "medFirstWeaponT": 27.6,
+        "medFirstRoofT": 11.0,
+        "medFirstCubeT": 27.5,
+        "medFirstMechHit": 16.15,
+        "medFirstCrate": 14.8,
+        "meanDroneHits": 0.2,
+        "meanCubes30": 0.25,
+        "meanCubes60": 0.33,
+        "meanUpgrades": 0.67,
+        "medEngageRange": 63.34,
+        "meanMultiAttackerPct": 21.9,
+        "meanInZonePct": 100.0,
+        "weaponTakes": {
+          "laser": 6,
+          "mortar": 1,
+          "lightning": 2
+        },
+        "firstWeapon": {
+          "laser": 4,
+          "mortar": 1,
+          "lightning": 2
+        },
+        "dealtByWeapon": {
+          "gun": 6853,
+          "laser": 5388,
+          "lightning": 812
+        },
+        "top4rate": 8.3,
+        "winRate": 8.3
+      },
+      "probe_red_best": {
+        "n": 12,
+        "meanPlace": 7.83,
+        "meanKills": 0.25,
+        "meanRoofPct": 33.3,
+        "meanRoofAfterArmPct": 0.0,
+        "meanStillPct": 8.4,
+        "meanBoostPct": 31.4,
+        "meanLaserChargePct": 4.1,
+        "medFirstWeaponT": 9.7,
+        "medFirstRoofT": 11.75,
+        "medFirstCubeT": 55.75,
+        "medFirstMechHit": 8.15,
+        "medFirstCrate": 2.25,
+        "meanDroneHits": 3.5,
+        "meanCubes30": 0,
+        "meanCubes60": 0.29,
+        "meanUpgrades": 0.33,
+        "medEngageRange": 83.42,
+        "meanMultiAttackerPct": 9.0,
+        "meanInZonePct": 99.1,
+        "weaponTakes": {
+          "laser": 4,
+          "mortar": 0,
+          "lightning": 2
+        },
+        "firstWeapon": {
+          "laser": 4,
+          "mortar": 0,
+          "lightning": 2
+        },
+        "dealtByWeapon": {
+          "gun": 6617,
+          "laser": 5693,
+          "lightning": 353
+        },
+        "top4rate": 25.0,
+        "winRate": 0.0
+      },
+      "probe_astra_finalist": {
+        "n": 11,
+        "meanPlace": 9.64,
+        "meanKills": 0.91,
+        "meanRoofPct": 27.2,
+        "meanRoofAfterArmPct": 0.0,
+        "meanStillPct": 6.6,
+        "meanBoostPct": 16.1,
+        "meanLaserChargePct": 4.9,
+        "medFirstWeaponT": 4.25,
+        "medFirstRoofT": 4.5,
+        "medFirstCubeT": 9.5,
+        "medFirstMechHit": 16.0,
+        "medFirstCrate": 5.95,
+        "meanDroneHits": 2.5,
+        "meanCubes30": 1.56,
+        "meanCubes60": 8.5,
+        "meanUpgrades": 1.75,
+        "medEngageRange": 60.72,
+        "meanMultiAttackerPct": 32.8,
+        "meanInZonePct": 100.0,
+        "weaponTakes": {
+          "laser": 3,
+          "mortar": 2,
+          "lightning": 5
+        },
+        "firstWeapon": {
+          "laser": 1,
+          "mortar": 2,
+          "lightning": 5
+        },
+        "dealtByWeapon": {
+          "gun": 15768,
+          "laser": 5190,
+          "lightning": 4311,
+          "mortar": 1032
+        },
+        "top4rate": 9.1,
+        "winRate": 0.0
+      },
+      "expert": {
+        "n": 12,
+        "meanPlace": 7.67,
+        "meanKills": 0.5,
+        "meanRoofPct": 38.1,
+        "meanRoofAfterArmPct": 0.0,
+        "meanStillPct": 12.3,
+        "meanBoostPct": 28.2,
+        "meanLaserChargePct": 5.8,
+        "medFirstWeaponT": 5.2,
+        "medFirstRoofT": 11.25,
+        "medFirstCubeT": 20.5,
+        "medFirstMechHit": 9.15,
+        "medFirstCrate": 18.2,
+        "meanDroneHits": 2.1,
+        "meanCubes30": 0.42,
+        "meanCubes60": 0.71,
+        "meanUpgrades": 1.22,
+        "medEngageRange": 56.97,
+        "meanMultiAttackerPct": 19.9,
+        "meanInZonePct": 100.0,
+        "weaponTakes": {
+          "laser": 5,
+          "mortar": 3,
+          "lightning": 4
+        },
+        "firstWeapon": {
+          "laser": 5,
+          "mortar": 2,
+          "lightning": 2
+        },
+        "dealtByWeapon": {
+          "gun": 10115,
+          "laser": 4483,
+          "lightning": 3163,
+          "mortar": 1951
+        },
+        "top4rate": 25.0,
+        "winRate": 8.3
+      },
+      "probe_astra_skirmish": {
+        "n": 11,
+        "meanPlace": 8.73,
+        "meanKills": 2,
+        "meanRoofPct": 28.8,
+        "meanRoofAfterArmPct": 0.0,
+        "meanStillPct": 10.9,
+        "meanBoostPct": 21.2,
+        "meanLaserChargePct": 6.5,
+        "medFirstWeaponT": 3.95,
+        "medFirstRoofT": 8.5,
+        "medFirstCubeT": 15.25,
+        "medFirstMechHit": 7.45,
+        "medFirstCrate": 13.4,
+        "meanDroneHits": 5.9,
+        "meanCubes30": 2,
+        "meanCubes60": 7.75,
+        "meanUpgrades": 2.75,
+        "medEngageRange": 52.97,
+        "meanMultiAttackerPct": 17.4,
+        "meanInZonePct": 100.0,
+        "weaponTakes": {
+          "laser": 4,
+          "mortar": 2,
+          "lightning": 5
+        },
+        "firstWeapon": {
+          "laser": 1,
+          "mortar": 2,
+          "lightning": 5
+        },
+        "dealtByWeapon": {
+          "gun": 15360,
+          "laser": 12201,
+          "lightning": 3295,
+          "mortar": 658
+        },
+        "top4rate": 27.3,
+        "winRate": 9.1
+      },
+      "idle_host": {
+        "n": 6,
+        "meanPlace": 3.33,
+        "meanKills": 0,
+        "meanRoofPct": 50.5,
+        "meanRoofAfterArmPct": 0.0,
+        "meanStillPct": 40.7,
+        "meanBoostPct": 14.6,
+        "meanLaserChargePct": 0.0,
+        "medFirstWeaponT": 28.1,
+        "medFirstRoofT": 0.0,
+        "medFirstCubeT": null,
+        "medFirstMechHit": 5.3,
+        "medFirstCrate": null,
+        "meanDroneHits": 0,
+        "meanCubes30": 0,
+        "meanCubes60": 0,
+        "meanUpgrades": 0,
+        "medEngageRange": 136.54,
+        "meanMultiAttackerPct": 0.9,
+        "meanInZonePct": 95.7,
+        "weaponTakes": {
+          "laser": 0,
+          "mortar": 1,
+          "lightning": 0
+        },
+        "firstWeapon": {
+          "laser": 0,
+          "mortar": 1,
+          "lightning": 0
+        },
+        "dealtByWeapon": {
+          "gun": 1953,
+          "mortar": 660
+        },
+        "top4rate": 83.3,
+        "winRate": 16.7
+      }
+    },
+    "topFinishes": [
+      {
+        "id": 6,
+        "name": "Skirmish",
+        "bot": null,
+        "botLabel": "house:probe-astra-skirmish",
+        "class": "probe_astra_skirmish",
+        "place": 1,
+        "kills": 8,
+        "deathT": null,
+        "cubes": {
+          "20": 2,
+          "30": 3,
+          "45": 5,
+          "60": 9,
+          "90": 11,
+          "120": 34
+        },
+        "weap": {
+          "mortar": 1,
+          "laser": 1
+        },
+        "ups": [
+          "gun_mag",
+          "laser_damage",
+          "laser_damage",
+          "armor",
+          "laser_charge",
+          "gun_mag",
+          "gun_rate"
+        ],
+        "firstWeaponT": 3.3,
+        "firstWeapon": "mortar",
+        "weaponTakes": [
+          [
+            3.3,
+            "mortar"
+          ],
+          [
+            17.6,
+            "laser"
+          ]
+        ],
+        "firstCrate": 6.2,
+        "firstCubeT": 15.0,
+        "firstRoofT": 12.5,
+        "firstMechHit": 2.7,
+        "medHeight": -2.87,
+        "roofPct": 13.0,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": 3.47,
+        "medSpeed": 2.32,
+        "stillPct": 13.0,
+        "boostPct": 25.6,
+        "laserChargePct": 28.1,
+        "dmgOut": 7259,
+        "dmgIn": 2341,
+        "multiAttackerPct": 33.5,
+        "crateHits": 20,
+        "droneHits": 8,
+        "medRange": 62.01,
+        "medEngageHeight": null,
+        "healed": 42,
+        "cubePickups": 35,
+        "fires": {
+          "gun": 367,
+          "mortar": 4
+        },
+        "dealtByWeapon": {
+          "gun": 2015,
+          "laser": 5244
+        },
+        "hitByWeapon": {
+          "gun": 1628,
+          "laser": 315,
+          "mortar": 397
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            -249.1,
+            152.8,
+            -9.2,
+            0
+          ],
+          [
+            3.0,
+            -276.3,
+            115.2,
+            -9.2,
+            0
+          ],
+          [
+            6.0,
+            -272.6,
+            90.3,
+            -9.2,
+            0
+          ],
+          [
+            9.0,
+            -268.5,
+            92.4,
+            -9.2,
+            0
+          ],
+          [
+            12.0,
+            -264.1,
+            109.6,
+            1.4,
+            0
+          ],
+          [
+            15.0,
+            -276.4,
+            127.2,
+            -9.2,
+            1
+          ],
+          [
+            18.0,
+            -260.2,
+            92.6,
+            -9.2,
+            2
+          ],
+          [
+            21.0,
+            -280.4,
+            49.1,
+            -1.5,
+            2
+          ]
+        ],
+        "upgradeCount": 7,
+        "match": "pub-2",
+        "source": "watch"
+      },
+      {
+        "id": 9,
+        "name": "expert",
+        "bot": null,
+        "botLabel": "house:expert",
+        "class": "expert",
+        "place": 1,
+        "kills": 2,
+        "deathT": null,
+        "cubes": {
+          "20": 0,
+          "30": 2,
+          "45": 2,
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "weap": {
+          "laser": 1
+        },
+        "ups": [
+          "plating",
+          "plating",
+          "reactor",
+          "plating",
+          "capacitor",
+          "armor",
+          "capacitor",
+          "jets",
+          "laser_damage"
+        ],
+        "firstWeaponT": 2.6,
+        "firstWeapon": "laser",
+        "weaponTakes": [
+          [
+            2.6,
+            "laser"
+          ]
+        ],
+        "firstCrate": 14.2,
+        "firstCubeT": 20.5,
+        "firstRoofT": 47.0,
+        "firstMechHit": 5.1,
+        "medHeight": 4.57,
+        "roofPct": 68.7,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": 4.73,
+        "medSpeed": 2.34,
+        "stillPct": 17.6,
+        "boostPct": 21.9,
+        "laserChargePct": 12.5,
+        "dmgOut": 3238,
+        "dmgIn": 2336,
+        "multiAttackerPct": 23.1,
+        "crateHits": 14,
+        "droneHits": 0,
+        "medRange": 61.48,
+        "medEngageHeight": null,
+        "healed": 1028,
+        "cubePickups": 43,
+        "fires": {
+          "gun": 60
+        },
+        "dealtByWeapon": {
+          "gun": 1185,
+          "laser": 2053
+        },
+        "hitByWeapon": {
+          "lightning": 900,
+          "gun": 833,
+          "laser": 603
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            465.9,
+            -43.8,
+            2.3,
+            0
+          ],
+          [
+            3.0,
+            457.1,
+            -95.8,
+            1.8,
+            0
+          ],
+          [
+            6.0,
+            432.8,
+            -95.2,
+            1.8,
+            0
+          ],
+          [
+            9.0,
+            420.7,
+            -120.5,
+            1.4,
+            0
+          ],
+          [
+            12.0,
+            431.7,
+            -127.1,
+            1.5,
+            0
+          ],
+          [
+            15.0,
+            456.9,
+            -105.3,
+            1.9,
+            0
+          ],
+          [
+            18.0,
+            458.2,
+            -103.8,
+            1.9,
+            0
+          ],
+          [
+            21.0,
+            470.8,
+            -98.4,
+            2.0,
+            1
+          ]
+        ],
+        "upgradeCount": 9,
+        "match": "pub-0",
+        "source": "public_live_room_2"
+      },
+      {
+        "id": 2,
+        "name": "crimson",
+        "bot": null,
+        "class": "probe_red_honest",
+        "place": 1,
+        "kills": 1,
+        "deathT": null,
+        "cubes": {
+          "20": 0,
+          "30": 0,
+          "45": 0,
+          "60": 0,
+          "90": 0,
+          "120": 0
+        },
+        "weap": {
+          "lightning": 1,
+          "laser": 1
+        },
+        "ups": [
+          "armor",
+          "plating",
+          "gun_damage",
+          "armor",
+          "gun_damage",
+          "armor",
+          "laser_charge",
+          "laser_damage"
+        ],
+        "firstWeaponT": 80.4,
+        "firstWeapon": "lightning",
+        "weaponTakes": [
+          [
+            80.4,
+            "lightning"
+          ],
+          [
+            162.7,
+            "laser"
+          ]
+        ],
+        "firstCrate": 144.5,
+        "firstCubeT": 130.0,
+        "firstRoofT": 1.0,
+        "firstMechHit": 37.6,
+        "medHeight": 0.0,
+        "roofPct": 12.2,
+        "lateMedHeight": 0.0,
+        "medSpeed": 2.35,
+        "stillPct": 6.1,
+        "boostPct": 28.8,
+        "laserChargePct": 1.5,
+        "dmgOut": 2691,
+        "dmgIn": 3097,
+        "multiAttackerPct": 4.0,
+        "crateHits": 4,
+        "droneHits": 0,
+        "medRange": 58.5,
+        "medEngageHeight": 0.0,
+        "healed": 193,
+        "cubePickups": 37,
+        "fires": {
+          "gun": 59
+        },
+        "dealtByWeapon": {
+          "gun": 1359,
+          "lightning": 812,
+          "laser": 520
+        },
+        "hitByWeapon": {
+          "laser": 1880,
+          "lightning": 360,
+          "gun": 797,
+          "zone": 60
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            -366.5,
+            53.2,
+            0.1,
+            "slot-1",
+            0
+          ],
+          [
+            3.0,
+            -312.6,
+            58.5,
+            57.0,
+            "slot-1",
+            0
+          ],
+          [
+            6.0,
+            -278.6,
+            39.2,
+            4.6,
+            "slot-1",
+            0
+          ],
+          [
+            9.0,
+            -250.6,
+            16.6,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            12.0,
+            -240.2,
+            15.7,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            15.0,
+            -249.9,
+            0.2,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            18.0,
+            -280.2,
+            2.7,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            21.0,
+            -305.5,
+            7.9,
+            -0.0,
+            "slot-1",
+            0
+          ]
+        ],
+        "botLabel": "house:probe-red-honest",
+        "match": 0,
+        "source": "private_room_smoke"
+      },
+      {
+        "id": 5,
+        "name": "red",
+        "bot": null,
+        "class": "probe_red_best",
+        "place": 2,
+        "kills": 2,
+        "deathT": null,
+        "cubes": {
+          "20": 0,
+          "30": 0,
+          "45": 0,
+          "60": 0,
+          "90": 0,
+          "120": 0
+        },
+        "weap": {
+          "laser": 1
+        },
+        "ups": [],
+        "firstWeaponT": 7.7,
+        "firstWeapon": "laser",
+        "weaponTakes": [
+          [
+            7.7,
+            "laser"
+          ]
+        ],
+        "firstCrate": null,
+        "firstCubeT": null,
+        "firstRoofT": 9.5,
+        "firstMechHit": 8.0,
+        "medHeight": 0.0,
+        "roofPct": 15.1,
+        "lateMedHeight": 0.0,
+        "medSpeed": 2.34,
+        "stillPct": 8.4,
+        "boostPct": 32.3,
+        "laserChargePct": 18.0,
+        "dmgOut": 5580,
+        "dmgIn": 3067,
+        "multiAttackerPct": 22.3,
+        "crateHits": 0,
+        "droneHits": 6,
+        "medRange": 68.81,
+        "medEngageHeight": -0.0,
+        "healed": 427,
+        "cubePickups": 0,
+        "fires": {
+          "gun": 84
+        },
+        "dealtByWeapon": {
+          "gun": 2065,
+          "laser": 3515
+        },
+        "hitByWeapon": {
+          "gun": 1318,
+          "npc": 600,
+          "laser": 955,
+          "lightning": 194
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            420.7,
+            84.1,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            3.0,
+            386.1,
+            101.9,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            6.0,
+            357.7,
+            131.8,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            9.0,
+            349.3,
+            140.4,
+            1.8,
+            "mortar",
+            0
+          ],
+          [
+            12.0,
+            356.9,
+            150.8,
+            0.0,
+            "mortar",
+            0
+          ],
+          [
+            15.0,
+            365.3,
+            129.5,
+            0.0,
+            "mortar",
+            0
+          ],
+          [
+            18.0,
+            360.0,
+            132.5,
+            -0.0,
+            "mortar",
+            0
+          ],
+          [
+            21.0,
+            379.5,
+            134.1,
+            7.1,
+            "mortar",
+            0
+          ]
+        ],
+        "botLabel": "house:probe-red-best",
+        "match": 0,
+        "source": "private_room_smoke"
+      },
+      {
+        "id": 9,
+        "name": "Expert 2",
+        "bot": null,
+        "botLabel": "house:expert",
+        "class": "expert",
+        "place": 2,
+        "kills": 0,
+        "deathT": 142.4,
+        "cubes": {
+          "20": 0,
+          "30": 2,
+          "45": 2,
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "weap": {
+          "mortar": 1
+        },
+        "ups": [
+          "gun_damage"
+        ],
+        "firstWeaponT": 10.7,
+        "firstWeapon": "mortar",
+        "weaponTakes": [
+          [
+            10.7,
+            "mortar"
+          ]
+        ],
+        "firstCrate": 57.9,
+        "firstCubeT": 21.0,
+        "firstRoofT": 0.0,
+        "firstMechHit": 67.1,
+        "medHeight": 4.55,
+        "roofPct": 89.8,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": 5.3,
+        "medSpeed": 2.33,
+        "stillPct": 28.8,
+        "boostPct": 21.8,
+        "laserChargePct": 0.0,
+        "dmgOut": 3709,
+        "dmgIn": 1846,
+        "multiAttackerPct": 0.0,
+        "crateHits": 2,
+        "droneHits": 8,
+        "medRange": 61.04,
+        "medEngageHeight": null,
+        "healed": 65,
+        "cubePickups": 2,
+        "fires": {
+          "gun": 106,
+          "mortar": 17
+        },
+        "dealtByWeapon": {
+          "gun": 1958,
+          "mortar": 1751
+        },
+        "hitByWeapon": {
+          "npc": 75,
+          "gun": 898,
+          "laser": 873
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            313.4,
+            227.8,
+            4.2,
+            0
+          ],
+          [
+            3.0,
+            325.8,
+            189.0,
+            4.3,
+            0
+          ],
+          [
+            6.0,
+            350.0,
+            155.9,
+            4.4,
+            0
+          ],
+          [
+            9.0,
+            371.8,
+            126.0,
+            4.5,
+            0
+          ],
+          [
+            12.0,
+            396.1,
+            104.7,
+            8.6,
+            0
+          ],
+          [
+            15.0,
+            384.2,
+            87.3,
+            22.0,
+            0
+          ],
+          [
+            18.0,
+            378.8,
+            76.1,
+            5.1,
+            0
+          ],
+          [
+            21.0,
+            406.8,
+            77.1,
+            4.2,
+            1
+          ]
+        ],
+        "upgradeCount": 1,
+        "match": "pub-2",
+        "source": "watch"
+      },
+      {
+        "id": 9,
+        "name": "astra",
+        "bot": null,
+        "class": "probe_astra_finalist",
+        "place": 3,
+        "kills": 5,
+        "deathT": 154.2,
+        "cubes": {
+          "20": 1,
+          "30": 1,
+          "45": 8,
+          "60": 13,
+          "90": 14,
+          "120": 38
+        },
+        "weap": {
+          "lightning": 1,
+          "laser": 1
+        },
+        "ups": [
+          "gun_damage",
+          "armor",
+          "plating",
+          "gun_damage",
+          "gun_velocity",
+          "plating",
+          "plating",
+          "laser_charge"
+        ],
+        "firstWeaponT": 3.6,
+        "firstWeapon": "lightning",
+        "weaponTakes": [
+          [
+            3.6,
+            "lightning"
+          ],
+          [
+            44.8,
+            "laser"
+          ]
+        ],
+        "firstCrate": 5.7,
+        "firstCubeT": 9.0,
+        "firstRoofT": 11.0,
+        "firstMechHit": 25.9,
+        "medHeight": 0.0,
+        "roofPct": 10.0,
+        "lateMedHeight": 0.93,
+        "medSpeed": 2.34,
+        "stillPct": 7.4,
+        "boostPct": 23.9,
+        "laserChargePct": 22.0,
+        "dmgOut": 7585,
+        "dmgIn": 5343,
+        "multiAttackerPct": 59.1,
+        "crateHits": 18,
+        "droneHits": 5,
+        "medRange": 42.23,
+        "medEngageHeight": 0.76,
+        "healed": 275,
+        "cubePickups": 35,
+        "fires": {
+          "gun": 267
+        },
+        "dealtByWeapon": {
+          "gun": 3297,
+          "lightning": 1220,
+          "laser": 3068
+        },
+        "hitByWeapon": {
+          "gun": 2861,
+          "npc": 75,
+          "laser": 2242,
+          "lightning": 166
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            -58.4,
+            -252.0,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            3.0,
+            -72.0,
+            -210.3,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            6.0,
+            -87.6,
+            -177.8,
+            0.0,
+            "lightning",
+            0
+          ],
+          [
+            9.0,
+            -121.0,
+            -186.5,
+            -0.0,
+            "lightning",
+            1
+          ],
+          [
+            12.0,
+            -104.8,
+            -156.5,
+            11.4,
+            "lightning",
+            1
+          ],
+          [
+            15.0,
+            -92.5,
+            -122.1,
+            2.5,
+            "lightning",
+            1
+          ],
+          [
+            18.0,
+            -116.0,
+            -102.1,
+            2.7,
+            "lightning",
+            1
+          ],
+          [
+            21.0,
+            -100.6,
+            -73.9,
+            2.2,
+            "lightning",
+            1
+          ]
+        ],
+        "botLabel": "house:probe-astra-finalist",
+        "match": 0,
+        "source": "private_room_smoke"
+      },
+      {
+        "id": 3,
+        "name": "red",
+        "bot": null,
+        "botLabel": "house:probe-red-best",
+        "class": "probe_red_best",
+        "place": 3,
+        "kills": 0,
+        "deathT": 141.1,
+        "cubes": {
+          "20": 0,
+          "30": 0,
+          "45": 0,
+          "60": 0,
+          "90": 1,
+          "120": 1
+        },
+        "weap": {
+          "laser": 1
+        },
+        "ups": [
+          "armor"
+        ],
+        "firstWeaponT": 88.8,
+        "firstWeapon": "laser",
+        "weaponTakes": [
+          [
+            88.8,
+            "laser"
+          ]
+        ],
+        "firstCrate": null,
+        "firstCubeT": 89.0,
+        "firstRoofT": 27.5,
+        "firstMechHit": 115.0,
+        "medHeight": 1.86,
+        "roofPct": 49.5,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": 14.71,
+        "medSpeed": 2.35,
+        "stillPct": 7.8,
+        "boostPct": 24.0,
+        "laserChargePct": 3.9,
+        "dmgOut": 775,
+        "dmgIn": 2010,
+        "multiAttackerPct": 0.0,
+        "crateHits": 0,
+        "droneHits": 25,
+        "medRange": 130.08,
+        "medEngageHeight": null,
+        "healed": 116,
+        "cubePickups": 1,
+        "fires": {
+          "gun": 44
+        },
+        "dealtByWeapon": {
+          "gun": 172,
+          "laser": 603
+        },
+        "hitByWeapon": {
+          "npc": 488,
+          "gun": 125,
+          "zone": 1264,
+          "laser": 134
+        },
+        "inZonePct": 89.0,
+        "zoneExitT": 126.0,
+        "openMove": [
+          [
+            0.0,
+            -320.8,
+            -290.0,
+            -5.4,
+            0
+          ],
+          [
+            3.0,
+            -351.0,
+            -252.9,
+            -5.5,
+            0
+          ],
+          [
+            6.0,
+            -339.6,
+            -234.9,
+            -5.5,
+            0
+          ],
+          [
+            9.0,
+            -326.2,
+            -220.3,
+            -5.4,
+            0
+          ],
+          [
+            12.0,
+            -308.8,
+            -212.3,
+            -5.3,
+            0
+          ],
+          [
+            15.0,
+            -297.9,
+            -215.7,
+            -5.3,
+            0
+          ],
+          [
+            18.0,
+            -275.8,
+            -206.1,
+            -5.4,
+            0
+          ],
+          [
+            21.0,
+            -272.2,
+            -189.9,
+            -5.4,
+            0
+          ]
+        ],
+        "upgradeCount": 1,
+        "match": "pub-0",
+        "source": "public_live_room_2"
+      },
+      {
+        "id": 3,
+        "name": "expert",
+        "bot": null,
+        "botLabel": "house:expert",
+        "class": "expert",
+        "place": 3,
+        "kills": 0,
+        "deathT": null,
+        "cubes": {
+          "20": 0,
+          "30": 0
+        },
+        "weap": {
+          "laser": 1
+        },
+        "ups": [],
+        "firstWeaponT": 3.3,
+        "firstWeapon": "laser",
+        "weaponTakes": [
+          [
+            3.3,
+            "laser"
+          ]
+        ],
+        "firstCrate": null,
+        "firstCubeT": null,
+        "firstRoofT": 23.5,
+        "firstMechHit": null,
+        "medHeight": -1.91,
+        "roofPct": 6.5,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": null,
+        "medSpeed": 2.34,
+        "stillPct": 5.2,
+        "boostPct": 24.7,
+        "laserChargePct": 3.9,
+        "dmgOut": 0,
+        "dmgIn": 75,
+        "multiAttackerPct": 0.0,
+        "crateHits": 0,
+        "droneHits": 8,
+        "medRange": null,
+        "medEngageHeight": null,
+        "healed": 0,
+        "cubePickups": 0,
+        "fires": {
+          "gun": 21
+        },
+        "dealtByWeapon": {},
+        "hitByWeapon": {
+          "npc": 75
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            319.4,
+            -287.4,
+            -2.3,
+            0
+          ],
+          [
+            3.0,
+            274.9,
+            -288.9,
+            -2.5,
+            0
+          ],
+          [
+            6.0,
+            254.4,
+            -284.2,
+            -0.7,
+            0
+          ],
+          [
+            9.0,
+            236.9,
+            -272.4,
+            -2.3,
+            0
+          ],
+          [
+            12.0,
+            218.2,
+            -266.1,
+            -2.8,
+            0
+          ],
+          [
+            15.0,
+            199.3,
+            -256.9,
+            -3.1,
+            0
+          ],
+          [
+            18.0,
+            181.5,
+            -258.4,
+            -2.2,
+            0
+          ],
+          [
+            21.0,
+            173.0,
+            -248.8,
+            -0.6,
+            0
+          ]
+        ],
+        "upgradeCount": 0,
+        "match": "pub-1",
+        "source": "public_live_room_3"
+      },
+      {
+        "id": 6,
+        "name": "skirmish",
+        "bot": null,
+        "botLabel": "house:probe-astra-skirmish",
+        "class": "probe_astra_skirmish",
+        "place": 4,
+        "kills": 7,
+        "deathT": 118.8,
+        "cubes": {
+          "20": 3,
+          "30": 5,
+          "45": 5,
+          "60": 8,
+          "90": 23
+        },
+        "weap": {
+          "lightning": 1,
+          "laser": 1
+        },
+        "ups": [
+          "plating",
+          "armor",
+          "gun_mag",
+          "plating",
+          "gun_damage",
+          "gun_rate",
+          "laser_damage",
+          "plating"
+        ],
+        "firstWeaponT": 4.6,
+        "firstWeapon": "lightning",
+        "weaponTakes": [
+          [
+            4.6,
+            "lightning"
+          ],
+          [
+            30.8,
+            "laser"
+          ]
+        ],
+        "firstCrate": 1.2,
+        "firstCubeT": 4.5,
+        "firstRoofT": 0.0,
+        "firstMechHit": 5.6,
+        "medHeight": 5.62,
+        "roofPct": 100.0,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": null,
+        "medSpeed": 2.33,
+        "stillPct": 21.8,
+        "boostPct": 17.6,
+        "laserChargePct": 13.9,
+        "dmgOut": 9480,
+        "dmgIn": 5798,
+        "multiAttackerPct": 22.4,
+        "crateHits": 7,
+        "droneHits": 0,
+        "medRange": 39.03,
+        "medEngageHeight": null,
+        "healed": 760,
+        "cubePickups": 33,
+        "fires": {
+          "gun": 182
+        },
+        "dealtByWeapon": {
+          "lightning": 2022,
+          "gun": 4679,
+          "laser": 2778
+        },
+        "hitByWeapon": {
+          "gun": 2775,
+          "lightning": 55,
+          "laser": 2968
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            288.4,
+            159.8,
+            4.2,
+            0
+          ],
+          [
+            3.0,
+            296.2,
+            144.3,
+            4.4,
+            0
+          ],
+          [
+            6.0,
+            312.3,
+            128.5,
+            7.0,
+            1
+          ],
+          [
+            9.0,
+            345.2,
+            136.5,
+            6.8,
+            1
+          ],
+          [
+            12.0,
+            333.3,
+            116.3,
+            4.3,
+            1
+          ],
+          [
+            15.0,
+            318.7,
+            112.3,
+            4.3,
+            2
+          ],
+          [
+            18.0,
+            298.1,
+            118.8,
+            6.5,
+            3
+          ],
+          [
+            21.0,
+            318.7,
+            137.9,
+            4.5,
+            3
+          ]
+        ],
+        "upgradeCount": 8,
+        "match": "pub-0",
+        "source": "public_live_room_2"
+      },
+      {
+        "id": 15,
+        "name": "red",
+        "bot": null,
+        "class": "probe_red_best",
+        "place": 4,
+        "kills": 0,
+        "deathT": 149.5,
+        "cubes": {
+          "20": 0,
+          "30": 0,
+          "45": 0,
+          "60": 0,
+          "90": 3,
+          "120": 3
+        },
+        "weap": {},
+        "ups": [
+          "nanites",
+          "nanites"
+        ],
+        "firstWeaponT": null,
+        "firstWeapon": null,
+        "weaponTakes": [],
+        "firstCrate": null,
+        "firstCubeT": 66.5,
+        "firstRoofT": 35.5,
+        "firstMechHit": 8.3,
+        "medHeight": 0.0,
+        "roofPct": 8.7,
+        "lateMedHeight": 0.0,
+        "medSpeed": 2.34,
+        "stillPct": 7.4,
+        "boostPct": 32.1,
+        "laserChargePct": 0.0,
+        "dmgOut": 1711,
+        "dmgIn": 3905,
+        "multiAttackerPct": 0.0,
+        "crateHits": 0,
+        "droneHits": 0,
+        "medRange": 80.46,
+        "medEngageHeight": 0.0,
+        "healed": 559,
+        "cubePickups": 0,
+        "fires": {
+          "gun": 48
+        },
+        "dealtByWeapon": {
+          "gun": 1711
+        },
+        "hitByWeapon": {
+          "gun": 1411,
+          "laser": 2494
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            302.2,
+            258.8,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            3.0,
+            338.5,
+            217.2,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            6.0,
+            341.1,
+            176.2,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            9.0,
+            330.7,
+            154.8,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            12.0,
+            321.3,
+            175.7,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            15.0,
+            304.2,
+            193.9,
+            0.0,
+            "slot-1",
+            0
+          ],
+          [
+            18.0,
+            301.8,
+            224.5,
+            -0.0,
+            "slot-1",
+            0
+          ],
+          [
+            21.0,
+            320.2,
+            258.2,
+            0.0,
+            "slot-1",
+            0
+          ]
+        ],
+        "botLabel": "house:probe-red-best",
+        "match": 0,
+        "source": "private_room_smoke"
+      },
+      {
+        "id": 5,
+        "name": "skirmish",
+        "bot": null,
+        "botLabel": "house:probe-astra-skirmish",
+        "class": "probe_astra_skirmish",
+        "place": 4,
+        "kills": 0,
+        "deathT": null,
+        "cubes": {
+          "20": 0,
+          "30": 0
+        },
+        "weap": {},
+        "ups": [],
+        "firstWeaponT": null,
+        "firstWeapon": null,
+        "weaponTakes": [],
+        "firstCrate": null,
+        "firstCubeT": null,
+        "firstRoofT": null,
+        "firstMechHit": 5.6,
+        "medHeight": -2.8,
+        "roofPct": 0.0,
+        "roofAfterArmPct": 0.0,
+        "lateMedHeight": null,
+        "medSpeed": 2.34,
+        "stillPct": 7.8,
+        "boostPct": 10.4,
+        "laserChargePct": 0.0,
+        "dmgOut": 338,
+        "dmgIn": 1080,
+        "multiAttackerPct": 58.3,
+        "crateHits": 0,
+        "droneHits": 1,
+        "medRange": 62.02,
+        "medEngageHeight": null,
+        "healed": 0,
+        "cubePickups": 0,
+        "fires": {
+          "gun": 65
+        },
+        "dealtByWeapon": {
+          "gun": 338
+        },
+        "hitByWeapon": {
+          "gun": 1080
+        },
+        "inZonePct": 100.0,
+        "zoneExitT": null,
+        "openMove": [
+          [
+            0.0,
+            -58.8,
+            140.9,
+            -1.0,
+            0
+          ],
+          [
+            3.0,
+            -76.0,
+            107.4,
+            -1.6,
+            0
+          ],
+          [
+            6.0,
+            -100.0,
+            89.2,
+            -1.6,
+            0
+          ],
+          [
+            9.0,
+            -132.4,
+            102.5,
+            -2.6,
+            0
+          ],
+          [
+            12.0,
+            -164.2,
+            116.8,
+            -2.4,
+            0
+          ],
+          [
+            15.0,
+            -151.8,
+            105.8,
+            -2.6,
+            0
+          ],
+          [
+            18.0,
+            -137.8,
+            91.5,
+            -2.8,
+            0
+          ],
+          [
+            21.0,
+            -171.5,
+            88.5,
+            -2.6,
+            0
+          ]
+        ],
+        "upgradeCount": 0,
+        "match": "pub-1",
+        "source": "public_live_room_3"
+      }
+    ],
+    "nMatches": 4
+  },
+  "tactics": [
+    {
+      "rank": 1,
+      "id": "laser-first-arm-under-15s",
+      "title": "Take laser within ~8\u201315s; fight only after armed",
+      "fit": "ARM mode; prefer laser like house:expert / probe-red-best",
+      "procedure": [
+        "expert medFirstWeaponT=5.2 firstWeapon={'laser': 5, 'mortar': 2, 'lightning': 2}",
+        "probe-red-best medFirstWeaponT=9.7 firstWeapon={'laser': 4, 'mortar': 0, 'lightning': 2}",
+        "Spawn \u2192 nearest laser loot; lightning only if laser >~80m.",
+        "Exit ARM on laser take; allow crate/drone gun poke before secondary."
+      ],
+      "evidence": {
+        "expert": {
+          "n": 12,
+          "meanPlace": 7.67,
+          "top4rate": 25.0,
+          "winRate": 8.3,
+          "medFirstWeaponT": 5.2,
+          "medFirstRoofT": 11.25,
+          "medFirstCubeT": 20.5,
+          "medFirstMechHit": 9.15,
+          "meanRoofPct": 38.1,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 28.2,
+          "meanStillPct": 12.3,
+          "meanLaserChargePct": 5.8,
+          "medEngageRange": 56.97,
+          "meanMultiAttackerPct": 19.9,
+          "meanDroneHits": 2.1,
+          "meanCubes30": 0.42,
+          "meanCubes60": 0.71,
+          "meanUpgrades": 1.22,
+          "firstWeapon": {
+            "laser": 5,
+            "mortar": 2,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 10115,
+            "laser": 4483,
+            "lightning": 3163,
+            "mortar": 1951
+          },
+          "meanInZonePct": 100.0
+        },
+        "probe_red_best": {
+          "n": 12,
+          "meanPlace": 7.83,
+          "top4rate": 25.0,
+          "winRate": 0.0,
+          "medFirstWeaponT": 9.7,
+          "medFirstRoofT": 11.75,
+          "medFirstCubeT": 55.75,
+          "medFirstMechHit": 8.15,
+          "meanRoofPct": 33.3,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 31.4,
+          "meanStillPct": 8.4,
+          "meanLaserChargePct": 4.1,
+          "medEngageRange": 83.42,
+          "meanMultiAttackerPct": 9.0,
+          "meanDroneHits": 3.5,
+          "meanCubes30": 0,
+          "meanCubes60": 0.29,
+          "meanUpgrades": 0.33,
+          "firstWeapon": {
+            "laser": 4,
+            "mortar": 0,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 6617,
+            "laser": 5693,
+            "lightning": 353
+          },
+          "meanInZonePct": 99.1
+        },
+        "topArms": [
+          {
+            "name": "Skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 1,
+            "firstWeapon": "mortar",
+            "firstWeaponT": 3.3,
+            "firstMechHit": 2.7
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 1,
+            "firstWeapon": "laser",
+            "firstWeaponT": 2.6,
+            "firstMechHit": 5.1
+          },
+          {
+            "name": "crimson",
+            "class": "probe_red_honest",
+            "place": 1,
+            "firstWeapon": "lightning",
+            "firstWeaponT": 80.4,
+            "firstMechHit": 37.6
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 2,
+            "firstWeapon": "laser",
+            "firstWeaponT": 7.7,
+            "firstMechHit": 8.0
+          },
+          {
+            "name": "Expert 2",
+            "class": "expert",
+            "place": 2,
+            "firstWeapon": "mortar",
+            "firstWeaponT": 10.7,
+            "firstMechHit": 67.1
+          },
+          {
+            "name": "astra",
+            "class": "probe_astra_finalist",
+            "place": 3,
+            "firstWeapon": "lightning",
+            "firstWeaponT": 3.6,
+            "firstMechHit": 25.9
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 3,
+            "firstWeapon": "laser",
+            "firstWeaponT": 88.8,
+            "firstMechHit": 115.0
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 3,
+            "firstWeapon": "laser",
+            "firstWeaponT": 3.3,
+            "firstMechHit": null
+          },
+          {
+            "name": "skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 4,
+            "firstWeapon": "lightning",
+            "firstWeaponT": 4.6,
+            "firstMechHit": 5.6
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 4,
+            "firstWeapon": null,
+            "firstWeaponT": null,
+            "firstMechHit": 8.3
+          }
+        ]
+      },
+      "change_first": "Hard-prefer laser in ARM loot ranking; exit ARM immediately on laser take."
+    },
+    {
+      "rank": 2,
+      "id": "brief-roof-then-mobile-midrange",
+      "title": "Roof as short staging (\u224810\u201325% time), laser peek 50\u201370m, then relocate",
+      "fit": "S1 roof camp \u2014 soften with peek-timeout, do not delete S1 for practice",
+      "procedure": [
+        "expert meanRoofPct=38.1 roofAfterArm=0.0 firstRoofT=11.25",
+        "engage range med\u224856.97m; boost\u224828.2%",
+        "After arm: climb \u226415s, one laser cycle, leave if no isolate / after ~8s empty.",
+        "Winners keep inZone\u2248100 and stay mobile \u2014 not AFK roof camps."
+      ],
+      "evidence": {
+        "expert": {
+          "n": 12,
+          "meanPlace": 7.67,
+          "top4rate": 25.0,
+          "winRate": 8.3,
+          "medFirstWeaponT": 5.2,
+          "medFirstRoofT": 11.25,
+          "medFirstCubeT": 20.5,
+          "medFirstMechHit": 9.15,
+          "meanRoofPct": 38.1,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 28.2,
+          "meanStillPct": 12.3,
+          "meanLaserChargePct": 5.8,
+          "medEngageRange": 56.97,
+          "meanMultiAttackerPct": 19.9,
+          "meanDroneHits": 2.1,
+          "meanCubes30": 0.42,
+          "meanCubes60": 0.71,
+          "meanUpgrades": 1.22,
+          "firstWeapon": {
+            "laser": 5,
+            "mortar": 2,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 10115,
+            "laser": 4483,
+            "lightning": 3163,
+            "mortar": 1951
+          },
+          "meanInZonePct": 100.0
+        },
+        "crimson": {
+          "n": 12,
+          "meanPlace": 11.33,
+          "top4rate": 8.3,
+          "winRate": 8.3,
+          "medFirstWeaponT": 27.6,
+          "medFirstRoofT": 11.0,
+          "medFirstCubeT": 27.5,
+          "medFirstMechHit": 16.15,
+          "meanRoofPct": 24.5,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 33.1,
+          "meanStillPct": 11.3,
+          "meanLaserChargePct": 5.1,
+          "medEngageRange": 63.34,
+          "meanMultiAttackerPct": 21.9,
+          "meanDroneHits": 0.2,
+          "meanCubes30": 0.25,
+          "meanCubes60": 0.33,
+          "meanUpgrades": 0.67,
+          "firstWeapon": {
+            "laser": 4,
+            "mortar": 1,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 6853,
+            "laser": 5388,
+            "lightning": 812
+          },
+          "meanInZonePct": 100.0
+        },
+        "astra": {
+          "n": 11,
+          "meanPlace": 9.64,
+          "top4rate": 9.1,
+          "winRate": 0.0,
+          "medFirstWeaponT": 4.25,
+          "medFirstRoofT": 4.5,
+          "medFirstCubeT": 9.5,
+          "medFirstMechHit": 16.0,
+          "meanRoofPct": 27.2,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 16.1,
+          "meanStillPct": 6.6,
+          "meanLaserChargePct": 4.9,
+          "medEngageRange": 60.72,
+          "meanMultiAttackerPct": 32.8,
+          "meanDroneHits": 2.5,
+          "meanCubes30": 1.56,
+          "meanCubes60": 8.5,
+          "meanUpgrades": 1.75,
+          "firstWeapon": {
+            "laser": 1,
+            "mortar": 2,
+            "lightning": 5
+          },
+          "dealtByWeapon": {
+            "gun": 15768,
+            "laser": 5190,
+            "lightning": 4311,
+            "mortar": 1032
+          },
+          "meanInZonePct": 100.0
+        },
+        "topRoof": [
+          {
+            "name": "Skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 1,
+            "roofPct": 13.0,
+            "boostPct": 25.6,
+            "stillPct": 13.0,
+            "medRange": 62.01,
+            "laserChargePct": 28.1
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 1,
+            "roofPct": 68.7,
+            "boostPct": 21.9,
+            "stillPct": 17.6,
+            "medRange": 61.48,
+            "laserChargePct": 12.5
+          },
+          {
+            "name": "crimson",
+            "class": "probe_red_honest",
+            "place": 1,
+            "roofPct": 12.2,
+            "boostPct": 28.8,
+            "stillPct": 6.1,
+            "medRange": 58.5,
+            "laserChargePct": 1.5
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 2,
+            "roofPct": 15.1,
+            "boostPct": 32.3,
+            "stillPct": 8.4,
+            "medRange": 68.81,
+            "laserChargePct": 18.0
+          },
+          {
+            "name": "Expert 2",
+            "class": "expert",
+            "place": 2,
+            "roofPct": 89.8,
+            "boostPct": 21.8,
+            "stillPct": 28.8,
+            "medRange": 61.04,
+            "laserChargePct": 0.0
+          },
+          {
+            "name": "astra",
+            "class": "probe_astra_finalist",
+            "place": 3,
+            "roofPct": 10.0,
+            "boostPct": 23.9,
+            "stillPct": 7.4,
+            "medRange": 42.23,
+            "laserChargePct": 22.0
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 3,
+            "roofPct": 49.5,
+            "boostPct": 24.0,
+            "stillPct": 7.8,
+            "medRange": 130.08,
+            "laserChargePct": 3.9
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 3,
+            "roofPct": 6.5,
+            "boostPct": 24.7,
+            "stillPct": 5.2,
+            "medRange": null,
+            "laserChargePct": 3.9
+          },
+          {
+            "name": "skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 4,
+            "roofPct": 100.0,
+            "boostPct": 17.6,
+            "stillPct": 21.8,
+            "medRange": 39.03,
+            "laserChargePct": 13.9
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 4,
+            "roofPct": 8.7,
+            "boostPct": 32.1,
+            "stillPct": 7.4,
+            "medRange": 80.46,
+            "laserChargePct": 0.0
+          }
+        ]
+      },
+      "change_first": "Add CAMP peek-timeout \u2192 RELOCATE after laser cycle with no target."
+    },
+    {
+      "rank": 3,
+      "id": "disengage-multi-attacker",
+      "title": "Hard DISENGAGE when 2+ mechs hit within ~3s",
+      "fit": "DISENGAGE mode; multiAttackerPct is the mid-pack death signature",
+      "procedure": [
+        "expert meanMulti=19.9; top places often multi\u226a30%",
+        "Trigger on \u22652 mech damage sources in 2.5s OR dmgIn spike >250/2s.",
+        "Boost perpendicular + break LOS; no greed laser finish.",
+        "Re-enter FIGHT only if \u22641 aggressor and HP\u226545%."
+      ],
+      "evidence": {
+        "byClassMulti": {
+          "probe_red_honest": 21.9,
+          "probe_red_best": 9.0,
+          "probe_astra_finalist": 32.8,
+          "expert": 19.9,
+          "probe_astra_skirmish": 17.4,
+          "idle_host": 0.9
+        },
+        "topMulti": [
+          {
+            "name": "Skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 1,
+            "multi": 33.5,
+            "dmgIn": 2341
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 1,
+            "multi": 23.1,
+            "dmgIn": 2336
+          },
+          {
+            "name": "crimson",
+            "class": "probe_red_honest",
+            "place": 1,
+            "multi": 4.0,
+            "dmgIn": 3097
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 2,
+            "multi": 22.3,
+            "dmgIn": 3067
+          },
+          {
+            "name": "Expert 2",
+            "class": "expert",
+            "place": 2,
+            "multi": 0.0,
+            "dmgIn": 1846
+          },
+          {
+            "name": "astra",
+            "class": "probe_astra_finalist",
+            "place": 3,
+            "multi": 59.1,
+            "dmgIn": 5343
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 3,
+            "multi": 0.0,
+            "dmgIn": 2010
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 3,
+            "multi": 0.0,
+            "dmgIn": 75
+          },
+          {
+            "name": "skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 4,
+            "multi": 22.4,
+            "dmgIn": 5798
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 4,
+            "multi": 0.0,
+            "dmgIn": 3905
+          },
+          {
+            "name": "skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 4,
+            "multi": 58.3,
+            "dmgIn": 1080
+          }
+        ]
+      },
+      "change_first": "Lower multi-source DISENGAGE threshold; forbid THIRD while multi flag set."
+    },
+    {
+      "rank": 4,
+      "id": "cube-upgrade-snowball-like-astra",
+      "title": "Early cube/crate/drone path + spend upgrades (astra-finalist pattern)",
+      "fit": "N5 cube snowball + upgrade picker",
+      "procedure": [
+        "astra cubes30=1.56 cubes60=8.5 ups=1.75 drones=2.5",
+        "expert cubes30=0.42 ups=1.22",
+        "On ARM/RELOCATE: crate \u226440m, scoop cubes, 1\u20132 drones before long rotate.",
+        "Spend promptly: armor/plating \u2192 gun_damage \u2192 laser_damage/charge."
+      ],
+      "evidence": {
+        "astra": {
+          "n": 11,
+          "meanPlace": 9.64,
+          "top4rate": 9.1,
+          "winRate": 0.0,
+          "medFirstWeaponT": 4.25,
+          "medFirstRoofT": 4.5,
+          "medFirstCubeT": 9.5,
+          "medFirstMechHit": 16.0,
+          "meanRoofPct": 27.2,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 16.1,
+          "meanStillPct": 6.6,
+          "meanLaserChargePct": 4.9,
+          "medEngageRange": 60.72,
+          "meanMultiAttackerPct": 32.8,
+          "meanDroneHits": 2.5,
+          "meanCubes30": 1.56,
+          "meanCubes60": 8.5,
+          "meanUpgrades": 1.75,
+          "firstWeapon": {
+            "laser": 1,
+            "mortar": 2,
+            "lightning": 5
+          },
+          "dealtByWeapon": {
+            "gun": 15768,
+            "laser": 5190,
+            "lightning": 4311,
+            "mortar": 1032
+          },
+          "meanInZonePct": 100.0
+        },
+        "expert": {
+          "n": 12,
+          "meanPlace": 7.67,
+          "top4rate": 25.0,
+          "winRate": 8.3,
+          "medFirstWeaponT": 5.2,
+          "medFirstRoofT": 11.25,
+          "medFirstCubeT": 20.5,
+          "medFirstMechHit": 9.15,
+          "meanRoofPct": 38.1,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 28.2,
+          "meanStillPct": 12.3,
+          "meanLaserChargePct": 5.8,
+          "medEngageRange": 56.97,
+          "meanMultiAttackerPct": 19.9,
+          "meanDroneHits": 2.1,
+          "meanCubes30": 0.42,
+          "meanCubes60": 0.71,
+          "meanUpgrades": 1.22,
+          "firstWeapon": {
+            "laser": 5,
+            "mortar": 2,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 10115,
+            "laser": 4483,
+            "lightning": 3163,
+            "mortar": 1951
+          },
+          "meanInZonePct": 100.0
+        },
+        "topCubes": [
+          {
+            "name": "Skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 1,
+            "cubes": {
+              "20": 2,
+              "30": 3,
+              "45": 5,
+              "60": 9,
+              "90": 11,
+              "120": 34
+            },
+            "ups": [
+              "gun_mag",
+              "laser_damage",
+              "laser_damage",
+              "armor",
+              "laser_charge",
+              "gun_mag",
+              "gun_rate"
+            ],
+            "droneHits": 8,
+            "cubePickups": 35
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 1,
+            "cubes": {
+              "20": 0,
+              "30": 2,
+              "45": 2,
+              "60": 2,
+              "90": 2,
+              "120": 2
+            },
+            "ups": [
+              "plating",
+              "plating",
+              "reactor",
+              "plating",
+              "capacitor",
+              "armor",
+              "capacitor",
+              "jets",
+              "laser_damage"
+            ],
+            "droneHits": 0,
+            "cubePickups": 43
+          },
+          {
+            "name": "crimson",
+            "class": "probe_red_honest",
+            "place": 1,
+            "cubes": {
+              "20": 0,
+              "30": 0,
+              "45": 0,
+              "60": 0,
+              "90": 0,
+              "120": 0
+            },
+            "ups": [
+              "armor",
+              "plating",
+              "gun_damage",
+              "armor",
+              "gun_damage",
+              "armor",
+              "laser_charge",
+              "laser_damage"
+            ],
+            "droneHits": 0,
+            "cubePickups": 37
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 2,
+            "cubes": {
+              "20": 0,
+              "30": 0,
+              "45": 0,
+              "60": 0,
+              "90": 0,
+              "120": 0
+            },
+            "ups": [],
+            "droneHits": 6,
+            "cubePickups": 0
+          },
+          {
+            "name": "Expert 2",
+            "class": "expert",
+            "place": 2,
+            "cubes": {
+              "20": 0,
+              "30": 2,
+              "45": 2,
+              "60": 2,
+              "90": 2,
+              "120": 2
+            },
+            "ups": [
+              "gun_damage"
+            ],
+            "droneHits": 8,
+            "cubePickups": 2
+          },
+          {
+            "name": "astra",
+            "class": "probe_astra_finalist",
+            "place": 3,
+            "cubes": {
+              "20": 1,
+              "30": 1,
+              "45": 8,
+              "60": 13,
+              "90": 14,
+              "120": 38
+            },
+            "ups": [
+              "gun_damage",
+              "armor",
+              "plating",
+              "gun_damage",
+              "gun_velocity",
+              "plating",
+              "plating",
+              "laser_charge"
+            ],
+            "droneHits": 5,
+            "cubePickups": 35
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 3,
+            "cubes": {
+              "20": 0,
+              "30": 0,
+              "45": 0,
+              "60": 0,
+              "90": 1,
+              "120": 1
+            },
+            "ups": [
+              "armor"
+            ],
+            "droneHits": 25,
+            "cubePickups": 1
+          },
+          {
+            "name": "expert",
+            "class": "expert",
+            "place": 3,
+            "cubes": {
+              "20": 0,
+              "30": 0
+            },
+            "ups": [],
+            "droneHits": 8,
+            "cubePickups": 0
+          },
+          {
+            "name": "skirmish",
+            "class": "probe_astra_skirmish",
+            "place": 4,
+            "cubes": {
+              "20": 3,
+              "30": 5,
+              "45": 5,
+              "60": 8,
+              "90": 23
+            },
+            "ups": [
+              "plating",
+              "armor",
+              "gun_mag",
+              "plating",
+              "gun_damage",
+              "gun_rate",
+              "laser_damage",
+              "plating"
+            ],
+            "droneHits": 0,
+            "cubePickups": 33
+          },
+          {
+            "name": "red",
+            "class": "probe_red_best",
+            "place": 4,
+            "cubes": {
+              "20": 0,
+              "30": 0,
+              "45": 0,
+              "60": 0,
+              "90": 3,
+              "120": 3
+            },
+            "ups": [
+              "nanites",
+              "nanites"
+            ],
+            "droneHits": 0,
+            "cubePickups": 0
+          }
+        ]
+      },
+      "change_first": "Keep/enable N5; earlier armor+gun upgrades; short crate detour during ARM."
+    },
+    {
+      "rank": 5,
+      "id": "zone-hug-skip-early-third",
+      "title": "Always hug zone; delay thirds until armed+healthy; skip skirmish early brawls",
+      "fit": "ESCAPE_ZONE + THIRD gates",
+      "procedure": [
+        "Top inZonePct\u224899.1",
+        "Never leave ring for loot after t>45s.",
+        "THIRD only if armed, HP\u226555%, target already fighting, path stays in zone.",
+        "skirmish meanPlace=8.73 firstHit=7.45 \u2014 early brawl places worse"
+      ],
+      "evidence": {
+        "skirmish": {
+          "n": 11,
+          "meanPlace": 8.73,
+          "top4rate": 27.3,
+          "winRate": 9.1,
+          "medFirstWeaponT": 3.95,
+          "medFirstRoofT": 8.5,
+          "medFirstCubeT": 15.25,
+          "medFirstMechHit": 7.45,
+          "meanRoofPct": 28.8,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 21.2,
+          "meanStillPct": 10.9,
+          "meanLaserChargePct": 6.5,
+          "medEngageRange": 52.97,
+          "meanMultiAttackerPct": 17.4,
+          "meanDroneHits": 5.9,
+          "meanCubes30": 2,
+          "meanCubes60": 7.75,
+          "meanUpgrades": 2.75,
+          "firstWeapon": {
+            "laser": 1,
+            "mortar": 2,
+            "lightning": 5
+          },
+          "dealtByWeapon": {
+            "gun": 15360,
+            "laser": 12201,
+            "lightning": 3295,
+            "mortar": 658
+          },
+          "meanInZonePct": 100.0
+        },
+        "expert": {
+          "n": 12,
+          "meanPlace": 7.67,
+          "top4rate": 25.0,
+          "winRate": 8.3,
+          "medFirstWeaponT": 5.2,
+          "medFirstRoofT": 11.25,
+          "medFirstCubeT": 20.5,
+          "medFirstMechHit": 9.15,
+          "meanRoofPct": 38.1,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 28.2,
+          "meanStillPct": 12.3,
+          "meanLaserChargePct": 5.8,
+          "medEngageRange": 56.97,
+          "meanMultiAttackerPct": 19.9,
+          "meanDroneHits": 2.1,
+          "meanCubes30": 0.42,
+          "meanCubes60": 0.71,
+          "meanUpgrades": 1.22,
+          "firstWeapon": {
+            "laser": 5,
+            "mortar": 2,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 10115,
+            "laser": 4483,
+            "lightning": 3163,
+            "mortar": 1951
+          },
+          "meanInZonePct": 100.0
+        },
+        "red_best": {
+          "n": 12,
+          "meanPlace": 7.83,
+          "top4rate": 25.0,
+          "winRate": 0.0,
+          "medFirstWeaponT": 9.7,
+          "medFirstRoofT": 11.75,
+          "medFirstCubeT": 55.75,
+          "medFirstMechHit": 8.15,
+          "meanRoofPct": 33.3,
+          "meanRoofAfterArmPct": 0.0,
+          "meanBoostPct": 31.4,
+          "meanStillPct": 8.4,
+          "meanLaserChargePct": 4.1,
+          "medEngageRange": 83.42,
+          "meanMultiAttackerPct": 9.0,
+          "meanDroneHits": 3.5,
+          "meanCubes30": 0,
+          "meanCubes60": 0.29,
+          "meanUpgrades": 0.33,
+          "firstWeapon": {
+            "laser": 4,
+            "mortar": 0,
+            "lightning": 2
+          },
+          "dealtByWeapon": {
+            "gun": 6617,
+            "laser": 5693,
+            "lightning": 353
+          },
+          "meanInZonePct": 99.1
+        }
+      },
+      "change_first": "Tighten THIRD preconditions; never fail ESCAPE_ZONE; no FIGHT before arm complete."
+    }
+  ],
+  "per_match": [
+    {
+      "match": 0,
+      "source": "private_room_smoke",
+      "bots": [
+        "human",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best"
+      ],
+      "frames": 1298,
+      "events": 3521,
+      "top": [
+        {
+          "place": 1,
+          "name": "crimson",
+          "class": "probe_red_honest",
+          "kills": 1,
+          "roofPct": 12.2,
+          "firstWeapon": "lightning",
+          "firstWeaponT": 80.4,
+          "firstRoofT": 1.0,
+          "firstCubeT": 130.0,
+          "firstMechHit": 37.6,
+          "medRange": 58.5,
+          "multi": 4.0,
+          "boostPct": 28.8,
+          "droneHits": 0,
+          "cubes30": 0,
+          "ups": [
+            "armor",
+            "plating",
+            "gun_damage",
+            "armor",
+            "gun_damage",
+            "armor",
+            "laser_charge",
+            "laser_damage"
+          ],
+          "dealt": {
+            "gun": 1359,
+            "lightning": 812,
+            "laser": 520
+          }
+        },
+        {
+          "place": 2,
+          "name": "red",
+          "class": "probe_red_best",
+          "kills": 2,
+          "roofPct": 15.1,
+          "firstWeapon": "laser",
+          "firstWeaponT": 7.7,
+          "firstRoofT": 9.5,
+          "firstCubeT": null,
+          "firstMechHit": 8.0,
+          "medRange": 68.81,
+          "multi": 22.3,
+          "boostPct": 32.3,
+          "droneHits": 6,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "gun": 2065,
+            "laser": 3515
+          }
+        },
+        {
+          "place": 3,
+          "name": "astra",
+          "class": "probe_astra_finalist",
+          "kills": 5,
+          "roofPct": 10.0,
+          "firstWeapon": "lightning",
+          "firstWeaponT": 3.6,
+          "firstRoofT": 11.0,
+          "firstCubeT": 9.0,
+          "firstMechHit": 25.9,
+          "medRange": 42.23,
+          "multi": 59.1,
+          "boostPct": 23.9,
+          "droneHits": 5,
+          "cubes30": 1,
+          "ups": [
+            "gun_damage",
+            "armor",
+            "plating",
+            "gun_damage",
+            "gun_velocity",
+            "plating",
+            "plating",
+            "laser_charge"
+          ],
+          "dealt": {
+            "gun": 3297,
+            "lightning": 1220,
+            "laser": 3068
+          }
+        },
+        {
+          "place": 4,
+          "name": "red",
+          "class": "probe_red_best",
+          "kills": 0,
+          "roofPct": 8.7,
+          "firstWeapon": null,
+          "firstWeaponT": null,
+          "firstRoofT": 35.5,
+          "firstCubeT": 66.5,
+          "firstMechHit": 8.3,
+          "medRange": 80.46,
+          "multi": 0.0,
+          "boostPct": 32.1,
+          "droneHits": 0,
+          "cubes30": 0,
+          "ups": [
+            "nanites",
+            "nanites"
+          ],
+          "dealt": {
+            "gun": 1711
+          }
+        },
+        {
+          "place": 5,
+          "name": "expert",
+          "class": "expert",
+          "kills": 1,
+          "roofPct": 26.0,
+          "firstWeapon": "laser",
+          "firstWeaponT": 4.2,
+          "firstRoofT": 12.5,
+          "firstCubeT": null,
+          "firstMechHit": 13.3,
+          "medRange": 52.49,
+          "multi": 10.5,
+          "boostPct": 27.2,
+          "droneHits": 8,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "laser": 1775,
+            "gun": 978,
+            "lightning": 526
+          }
+        },
+        {
+          "place": 6,
+          "name": "skirmish",
+          "class": "probe_astra_skirmish",
+          "kills": 4,
+          "roofPct": 2.9,
+          "firstWeapon": "laser",
+          "firstWeaponT": 2.8,
+          "firstRoofT": 99.5,
+          "firstCubeT": 18.5,
+          "firstMechHit": 5.1,
+          "medRange": 69.6,
+          "multi": 22.0,
+          "boostPct": 23.4,
+          "droneHits": 3,
+          "cubes30": 1,
+          "ups": [
+            "plating",
+            "nanites",
+            "gun_velocity",
+            "gun_mag",
+            "gun_damage"
+          ],
+          "dealt": {
+            "gun": 2200,
+            "laser": 3763
+          }
+        },
+        {
+          "place": 7,
+          "name": "red",
+          "class": "probe_red_best",
+          "kills": 0,
+          "roofPct": 13.1,
+          "firstWeapon": null,
+          "firstWeaponT": null,
+          "firstRoofT": 40.0,
+          "firstCubeT": null,
+          "firstMechHit": 28.6,
+          "medRange": 85.68,
+          "multi": 0.0,
+          "boostPct": 29.0,
+          "droneHits": 3,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "gun": 180
+          }
+        }
+      ]
+    },
+    {
+      "match": "pub-0",
+      "source": "public_live_room_2",
+      "bots": [
+        "human",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest"
+      ],
+      "frames": 1247,
+      "events": 3527,
+      "top": [
+        {
+          "place": 1,
+          "name": "expert",
+          "class": "expert",
+          "kills": 2,
+          "roofPct": 68.7,
+          "firstWeapon": "laser",
+          "firstWeaponT": 2.6,
+          "firstRoofT": 47.0,
+          "firstCubeT": 20.5,
+          "firstMechHit": 5.1,
+          "medRange": 61.48,
+          "multi": 23.1,
+          "boostPct": 21.9,
+          "droneHits": 0,
+          "cubes30": 2,
+          "ups": [
+            "plating",
+            "plating",
+            "reactor",
+            "plating",
+            "capacitor",
+            "armor",
+            "capacitor",
+            "jets",
+            "laser_damage"
+          ],
+          "dealt": {
+            "gun": 1185,
+            "laser": 2053
+          }
+        },
+        {
+          "place": 3,
+          "name": "red",
+          "class": "probe_red_best",
+          "kills": 0,
+          "roofPct": 49.5,
+          "firstWeapon": "laser",
+          "firstWeaponT": 88.8,
+          "firstRoofT": 27.5,
+          "firstCubeT": 89.0,
+          "firstMechHit": 115.0,
+          "medRange": 130.08,
+          "multi": 0.0,
+          "boostPct": 24.0,
+          "droneHits": 25,
+          "cubes30": 0,
+          "ups": [
+            "armor"
+          ],
+          "dealt": {
+            "gun": 172,
+            "laser": 603
+          }
+        },
+        {
+          "place": 4,
+          "name": "skirmish",
+          "class": "probe_astra_skirmish",
+          "kills": 7,
+          "roofPct": 100.0,
+          "firstWeapon": "lightning",
+          "firstWeaponT": 4.6,
+          "firstRoofT": 0.0,
+          "firstCubeT": 4.5,
+          "firstMechHit": 5.6,
+          "medRange": 39.03,
+          "multi": 22.4,
+          "boostPct": 17.6,
+          "droneHits": 0,
+          "cubes30": 5,
+          "ups": [
+            "plating",
+            "armor",
+            "gun_mag",
+            "plating",
+            "gun_damage",
+            "gun_rate",
+            "laser_damage",
+            "plating"
+          ],
+          "dealt": {
+            "lightning": 2022,
+            "gun": 4679,
+            "laser": 2778
+          }
+        },
+        {
+          "place": 5,
+          "name": "crimson",
+          "class": "probe_red_honest",
+          "kills": 0,
+          "roofPct": 40.9,
+          "firstWeapon": "laser",
+          "firstWeaponT": 87.3,
+          "firstRoofT": 46.0,
+          "firstCubeT": 89.0,
+          "firstMechHit": 48.7,
+          "medRange": 63.23,
+          "multi": 2.3,
+          "boostPct": 19.2,
+          "droneHits": 0,
+          "cubes30": 0,
+          "ups": [
+            "gun_rate",
+            "servos",
+            "plating",
+            "gun_damage"
+          ],
+          "dealt": {
+            "gun": 1246,
+            "laser": 1215
+          }
+        },
+        {
+          "place": 6,
+          "name": "red",
+          "class": "probe_red_best",
+          "kills": 0,
+          "roofPct": 15.2,
+          "firstWeapon": null,
+          "firstWeaponT": null,
+          "firstRoofT": 20.5,
+          "firstCubeT": 45.0,
+          "firstMechHit": 89.3,
+          "medRange": 30.06,
+          "multi": 59.9,
+          "boostPct": 23.9,
+          "droneHits": 8,
+          "cubes30": 0,
+          "ups": [
+            "gun_damage"
+          ],
+          "dealt": {
+            "gun": 159
+          }
+        },
+        {
+          "place": 7,
+          "name": "astra",
+          "class": "probe_astra_finalist",
+          "kills": 1,
+          "roofPct": 18.2,
+          "firstWeapon": "lightning",
+          "firstWeaponT": 9.8,
+          "firstRoofT": 0.0,
+          "firstCubeT": 10.0,
+          "firstMechHit": 41.3,
+          "medRange": 69.83,
+          "multi": 0.0,
+          "boostPct": 27.3,
+          "droneHits": 0,
+          "cubes30": 5,
+          "ups": [
+            "gun_velocity",
+            "plating",
+            "gun_mag"
+          ],
+          "dealt": {
+            "gun": 2341,
+            "laser": 1807
+          }
+        },
+        {
+          "place": 8,
+          "name": "skirmish",
+          "class": "probe_astra_skirmish",
+          "kills": 2,
+          "roofPct": 59.5,
+          "firstWeapon": "mortar",
+          "firstWeaponT": 4.7,
+          "firstRoofT": 7.0,
+          "firstCubeT": 16.0,
+          "firstMechHit": 7.8,
+          "medRange": 52.76,
+          "multi": 34.0,
+          "boostPct": 22.3,
+          "droneHits": 0,
+          "cubes30": 1,
+          "ups": [
+            "gun_damage",
+            "gun_damage",
+            "sensors"
+          ],
+          "dealt": {
+            "mortar": 658,
+            "gun": 1901,
+            "laser": 416
+          }
+        }
+      ]
+    },
+    {
+      "match": "pub-1",
+      "source": "public_live_room_3",
+      "bots": [
+        "human",
+        "human",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish"
+      ],
+      "frames": 363,
+      "events": 1492,
+      "top": [
+        {
+          "place": 3,
+          "name": "expert",
+          "class": "expert",
+          "kills": 0,
+          "roofPct": 6.5,
+          "firstWeapon": "laser",
+          "firstWeaponT": 3.3,
+          "firstRoofT": 23.5,
+          "firstCubeT": null,
+          "firstMechHit": null,
+          "medRange": null,
+          "multi": 0.0,
+          "boostPct": 24.7,
+          "droneHits": 8,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {}
+        },
+        {
+          "place": 4,
+          "name": "skirmish",
+          "class": "probe_astra_skirmish",
+          "kills": 0,
+          "roofPct": 0.0,
+          "firstWeapon": null,
+          "firstWeaponT": null,
+          "firstRoofT": null,
+          "firstCubeT": null,
+          "firstMechHit": 5.6,
+          "medRange": 62.02,
+          "multi": 58.3,
+          "boostPct": 10.4,
+          "droneHits": 1,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "gun": 338
+          }
+        },
+        {
+          "place": 5,
+          "name": "astra",
+          "class": "probe_astra_finalist",
+          "kills": 0,
+          "roofPct": 79.2,
+          "firstWeapon": "mortar",
+          "firstWeaponT": 3.4,
+          "firstRoofT": 1.0,
+          "firstCubeT": 3.5,
+          "firstMechHit": 7.6,
+          "medRange": 54.95,
+          "multi": 0.0,
+          "boostPct": 5.2,
+          "droneHits": 1,
+          "cubes30": 1,
+          "ups": [
+            "reactor"
+          ],
+          "dealt": {
+            "gun": 772,
+            "mortar": 624
+          }
+        },
+        {
+          "place": 6,
+          "name": "red",
+          "class": "probe_red_best",
+          "kills": 0,
+          "roofPct": 71.4,
+          "firstWeapon": "laser",
+          "firstWeaponT": 5.0,
+          "firstRoofT": 0.0,
+          "firstCubeT": null,
+          "firstMechHit": 7.5,
+          "medRange": 114.41,
+          "multi": 0.0,
+          "boostPct": 37.7,
+          "droneHits": 0,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "laser": 1260,
+            "gun": 45
+          }
+        },
+        {
+          "place": 7,
+          "name": "expert",
+          "class": "expert",
+          "kills": 0,
+          "roofPct": 9.1,
+          "firstWeapon": null,
+          "firstWeaponT": null,
+          "firstRoofT": 10.0,
+          "firstCubeT": null,
+          "firstMechHit": 7.5,
+          "medRange": 61.79,
+          "multi": 35.7,
+          "boostPct": 32.5,
+          "droneHits": 0,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "gun": 652
+          }
+        },
+        {
+          "place": 8,
+          "name": "crimson",
+          "class": "probe_red_honest",
+          "kills": 0,
+          "roofPct": 0.0,
+          "firstWeapon": "mortar",
+          "firstWeaponT": 1.5,
+          "firstRoofT": null,
+          "firstCubeT": 19.5,
+          "firstMechHit": 18.6,
+          "medRange": 44.85,
+          "multi": 0.0,
+          "boostPct": 28.6,
+          "droneHits": 0,
+          "cubes30": 1,
+          "ups": [
+            "armor"
+          ],
+          "dealt": {
+            "gun": 230,
+            "laser": 328
+          }
+        }
+      ]
+    },
+    {
+      "match": "pub-2",
+      "source": "watch",
+      "bots": [
+        "human",
+        "human",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest",
+        "house:probe-astra-skirmish",
+        "house:probe-astra-finalist",
+        "house:probe-red-best",
+        "house:expert",
+        "house:probe-red-honest"
+      ],
+      "frames": 1251,
+      "events": 3979,
+      "top": [
+        {
+          "place": 1,
+          "name": "Skirmish",
+          "class": "probe_astra_skirmish",
+          "kills": 8,
+          "roofPct": 13.0,
+          "firstWeapon": "mortar",
+          "firstWeaponT": 3.3,
+          "firstRoofT": 12.5,
+          "firstCubeT": 15.0,
+          "firstMechHit": 2.7,
+          "medRange": 62.01,
+          "multi": 33.5,
+          "boostPct": 25.6,
+          "droneHits": 8,
+          "cubes30": 3,
+          "ups": [
+            "gun_mag",
+            "laser_damage",
+            "laser_damage",
+            "armor",
+            "laser_charge",
+            "gun_mag",
+            "gun_rate"
+          ],
+          "dealt": {
+            "gun": 2015,
+            "laser": 5244
+          }
+        },
+        {
+          "place": 2,
+          "name": "Expert 2",
+          "class": "expert",
+          "kills": 0,
+          "roofPct": 89.8,
+          "firstWeapon": "mortar",
+          "firstWeaponT": 10.7,
+          "firstRoofT": 0.0,
+          "firstCubeT": 21.0,
+          "firstMechHit": 67.1,
+          "medRange": 61.04,
+          "multi": 0.0,
+          "boostPct": 21.8,
+          "droneHits": 8,
+          "cubes30": 2,
+          "ups": [
+            "gun_damage"
+          ],
+          "dealt": {
+            "gun": 1958,
+            "mortar": 1751
+          }
+        },
+        {
+          "place": 5,
+          "name": "Astra",
+          "class": "probe_astra_finalist",
+          "kills": 2,
+          "roofPct": 37.4,
+          "firstWeapon": "lightning",
+          "firstWeaponT": 4.9,
+          "firstRoofT": 0.5,
+          "firstCubeT": 7.5,
+          "firstMechHit": 20.2,
+          "medRange": 56.94,
+          "multi": 59.4,
+          "boostPct": 19.6,
+          "droneHits": 0,
+          "cubes30": 3,
+          "ups": [
+            "gun_rate",
+            "gun_mag",
+            "gun_damage",
+            "gun_damage",
+            "armor",
+            "lightning_efficiency"
+          ],
+          "dealt": {
+            "gun": 3153,
+            "lightning": 649
+          }
+        },
+        {
+          "place": 6,
+          "name": "Crimson",
+          "class": "probe_red_honest",
+          "kills": 1,
+          "roofPct": 15.3,
+          "firstWeapon": "laser",
+          "firstWeaponT": 39.1,
+          "firstRoofT": 2.0,
+          "firstCubeT": 20.5,
+          "firstMechHit": 41.4,
+          "medRange": 63.45,
+          "multi": 20.8,
+          "boostPct": 24.5,
+          "droneHits": 0,
+          "cubes30": 1,
+          "ups": [
+            "gun_damage"
+          ],
+          "dealt": {
+            "gun": 974,
+            "laser": 1638
+          }
+        },
+        {
+          "place": 7,
+          "name": "Red 3",
+          "class": "probe_red_best",
+          "kills": 0,
+          "roofPct": 33.2,
+          "firstWeapon": "laser",
+          "firstWeaponT": 65.9,
+          "firstRoofT": 15.0,
+          "firstCubeT": null,
+          "firstMechHit": 7.6,
+          "medRange": 128.26,
+          "multi": 3.9,
+          "boostPct": 32.6,
+          "droneHits": 0,
+          "cubes30": 0,
+          "ups": [],
+          "dealt": {
+            "gun": 225,
+            "laser": 315
+          }
+        },
+        {
+          "place": 8,
+          "name": "Astra 3",
+          "class": "probe_astra_finalist",
+          "kills": 2,
+          "roofPct": 2.3,
+          "firstWeapon": "lightning",
+          "firstWeaponT": 62.7,
+          "firstRoofT": 36.0,
+          "firstCubeT": 17.5,
+          "firstMechHit": 41.4,
+          "medRange": 17.36,
+          "multi": 41.5,
+          "boostPct": 14.0,
+          "droneHits": 15,
+          "cubes30": 3,
+          "ups": [
+            "gun_damage",
+            "nanites"
+          ],
+          "dealt": {
+            "gun": 1862,
+            "lightning": 1782
+          }
+        }
+      ]
+    }
+  ],
+  "change_first": "Hard-prefer laser in ARM loot ranking; exit ARM immediately on laser take."
+}
