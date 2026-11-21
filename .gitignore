@@ -5,3 +5,4 @@ kit/
 .remember/
 *.egg-info/
 .venv/
+*.jsonl.gz
