@@ -152,7 +152,17 @@ class Combat:
             dx, dy, dz = tx - mx, ty - my, tz - mz
             horiz = math.hypot(dx, dy) or 1e-6
             return [math.atan2(dy, dx), math.atan2(dz, horiz)]
-        # laser / lightning / default: direct
+        # lead-laser-release: short lead so beam releases where the mech will be
+        # after the charge/hold handoff (laser was pure direct).
+        if kind == "laser":
+            lead_s = 0.22
+            px = tx + tv[0] * lead_s
+            py = ty + tv[1] * lead_s
+            pz = tz + tv[2] * lead_s
+            dx, dy, dz = px - mx, py - my, pz - mz
+            horiz = math.hypot(dx, dy) or 1e-6
+            return [math.atan2(dy, dx), math.atan2(dz, horiz)]
+        # lightning / default: direct
         dx, dy, dz = tx - mx, ty - my, tz - mz
         horiz = math.hypot(dx, dy) or 1e-6
         return [math.atan2(dy, dx), math.atan2(dz, horiz)]
