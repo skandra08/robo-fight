@@ -65,6 +65,9 @@ BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 USE_PLANNER = True
+FARM_FIGHT_S = 60.0  # before this, only fight mechs that hit us or come close
+ENGAGE_NEAR = 70.0
+REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
 SEARCH_NEXT = True
 
@@ -281,6 +284,11 @@ class Bot:
         mechs = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
         hit_by_mech = t - self._mech_hit_last_t < 1.5
         target = self._fight_target(me, mechs, t)
+        if target is not None and t < FARM_FIGHT_S and int(me.get("cubes") or 0) < 6:
+            # Farm first: the showdown winner farmed ~60 s before fighting a mech.
+            if t - self._mech_hit_last_t > 3.0 and _d2(target["pos"], me["pos"]) > ENGAGE_NEAR:
+                target = None
+                mechs = [m for m in mechs if _d2(m["pos"], me["pos"]) <= ENGAGE_NEAR]
 
         urgency = self._zone_urgency(me, zone, t)
         if urgency < 5.0:
@@ -304,9 +312,13 @@ class Bot:
                 return "FIGHT"
         else:
             # Nobody in view: rest when hurt (no shooting, so regen runs).
-            if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP:
-                return "HEAL"
-            if hp_frac < REST_HP and t - self.mem.last_took_weapon_damage_t > 1.0:
+            want_rest = (self.mode == "HEAL" and hp_frac < HEAL_DONE_HP) or (
+                hp_frac < REST_HP and t - self.mem.last_took_weapon_damage_t > 1.0
+            )
+            if want_rest:
+                # Healthy enough: keep farming (cubes are the lever); otherwise rest.
+                if hp_frac >= REST_SHOOT_HP and self._farm_goal(obs, mechs, t) is not None:
+                    return "FARM"
                 return "HEAL"
 
         if airborne_climb:
@@ -383,7 +395,7 @@ class Bot:
         zone = obs["zone"]
         zc, zr = zone["center"], float(zone["radius"])
         hp_frac = me["hp"] / max(1.0, me["max_hp"])
-        resting = self.mode == "HEAL"
+        resting = self.mode == "HEAL" and hp_frac < REST_SHOOT_HP
         enemy_d = min((_d2(m["pos"], me["pos"]) for m in mechs), default=1e9)
         cubes_n = int(me.get("cubes") or 0)
         second = _has_second(me)

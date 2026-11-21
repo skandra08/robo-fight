@@ -148,26 +148,28 @@ def test_farm(md: str) -> None:
 def test_fight(md: str) -> None:
     bot = fresh(md)
     e = _mech(5, WEST, aim=0.0)
-    check("mech in clear view at 80 m -> FIGHT", mode_of(bot, _obs(mechs=[e])) == "FIGHT")
+    check("early: far mech that isn't hitting us -> keep farming", mode_of(bot, _obs(mechs=[e])) != "FIGHT")
+    bot = fresh(md)
+    check("mech in clear view at 80 m -> FIGHT", mode_of(bot, _obs(mechs=[e], t=90.0, tick=1800)) == "FIGHT")
 
     bot = fresh(md)
     near, far = _mech(5, NORTH), _mech(6, WEST)
     far["pos"] = [-20.0, -60.0, 1.5]  # 50 m
-    bot.act(_obs(mechs=[near, far]))  # type: ignore[arg-type]
+    bot.act(_obs(mechs=[near, far], t=90.0, tick=1800))  # type: ignore[arg-type]
     check("targets the nearest mech", bot._target_id == 6)
 
     bot = fresh(md)
     e = _mech(5, WEST)
     e["pos"] = [10.0, -60.0, 1.6]  # 20 m: inside the band
-    a = bot.act(_obs(mechs=[e]))  # type: ignore[arg-type]
+    a = bot.act(_obs(mechs=[e], t=90.0, tick=1800))  # type: ignore[arg-type]
     check("backs off when inside the fight band", a["move"][0] > 0.2)
 
     bot = fresh(md)
     lowhp = {"hp": 400.0}
-    check("low HP with mech in view -> HEAL", mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST)])) == "HEAL")
+    check("low HP with mech in view -> HEAL", mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST)], t=90.0, tick=1800)) == "HEAL")
     bot = fresh(md)
     check("low HP but target nearly dead -> FIGHT",
-          mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST, hp=150.0)])) == "FIGHT")
+          mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST, hp=150.0)], t=90.0, tick=1800)) == "FIGHT")
 
 
 def test_heal(md: str) -> None:
@@ -176,8 +178,10 @@ def test_heal(md: str) -> None:
     a = bot.act(_obs(self={"hp": 800.0}, tick=12, t=30.1))  # type: ignore[arg-type]
     check("resting holds fire", not any(a["fire"]))
     crate = {"id": 1001, "pos": [-50.0, -60.0, 1.5], "hp": 300}
-    m = mode_of(bot, _obs(self={"hp": 800.0}, crates=[crate], tick=14, t=30.2))
-    check("resting does not shoot crates", m == "HEAL")
+    m = mode_of(bot, _obs(self={"hp": 600.0}, crates=[crate], tick=14, t=30.2))
+    check("resting at low HP does not shoot crates", m == "HEAL")
+    m = mode_of(bot, _obs(self={"hp": 850.0}, crates=[crate], tick=15, t=30.25))
+    check("hurt but above half HP keeps farming crates", m == "FARM")
     m = mode_of(bot, _obs(self={"hp": 1300.0}, tick=16, t=30.3))
     check("healed -> leaves HEAL", m != "HEAL")
 
