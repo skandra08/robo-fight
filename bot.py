@@ -1328,6 +1328,28 @@ class Bot:
         chase = target or chase
         if chase is None and self.mem.last_threat_id in self.mem.enemies:
             chase = self.mem.enemies[self.mem.last_threat_id]
+        # sound-retarget: fresh combat sound steers prefer_id to nearest mech on that bearing.
+        for s in reversed(self.mem.sound_log[-6:]):
+            if s.get("kind") not in ("gun", "laser", "laser_charge", "lightning", "explosion"):
+                continue
+            if s.get("dist") not in ("near", "mid", "far"):
+                continue
+            if t - float(s.get("t", -1e9)) > 1.2:
+                continue
+            brg = s.get("bearing")
+            if brg is None or not enemies:
+                continue
+            best = min(
+                enemies,
+                key=lambda m: abs(_angdiff(brg, math.atan2(m["pos"][1]-me["pos"][1], m["pos"][0]-me["pos"][0]))),
+            )
+            ang = abs(_angdiff(brg, math.atan2(best["pos"][1]-me["pos"][1], best["pos"][0]-me["pos"][0])))
+            if ang < math.radians(35):
+                self.mem.last_threat_id = int(best["id"])
+                chase = best
+                if self.combat.clear_shot(me, best["pos"], int(best["id"]), best.get("cubes") if isinstance(best.get("cubes"), int) else None):
+                    target = best
+                break
         if chase is None and self.mem.enemies:
             chase = min(
                 self.mem.enemies.values(),
