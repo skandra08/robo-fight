@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tag try/<label> for the current commit. Bot.name must contain <label>.
+# Tag try/<label> for the current commit. levers.LABEL / Bot.name must match <label>.
 set -euo pipefail
 
 label="${1:-}"
@@ -12,12 +12,13 @@ fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-name_line="$(grep -E '^\s*name\s*=' bot.py | head -1 || true)"
-if [[ "$name_line" != *"$label"* ]]; then
-  echo "error: Bot.name must contain '$label'. Current: $name_line" >&2
+lev_label="$(python3 -c 'import levers; print(levers.LABEL)')"
+if [[ "$lev_label" != "$label" ]]; then
+  echo "error: levers.LABEL='$lev_label' != '$label'" >&2
   exit 1
 fi
-echo "Bot.name line: $name_line"
+name_line="$(grep -E '^\s*name\s*=' bot.py | head -1 || true)"
+echo "levers.LABEL=$lev_label  Bot.name line: $name_line"
 
 tag="try/${label}"
 subject="try/${label} — ${desc}"
