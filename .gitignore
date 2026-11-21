@@ -5,3 +5,4 @@ kit/
 .remember/
 *.egg-info/
 .venv/
+data/mechanics-v2-16.jsonl.gz

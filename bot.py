@@ -831,11 +831,24 @@ class Bot:
         if recent_dmg and visible:
             return "FIGHT"
 
-        # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
-        # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
-        # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
+        # CUBES (locked-proc): scoop / break whenever no hunter is close. Before RELOCATE / CAMP
+        # so roof logic cannot starve cubes (best-265). Sticky 2s so brief goal flicker cannot
+        # hand the tick back to RELOCATE mid-scoop.
         mid_climb = self.mem.mode == "RELOCATE" and not me.get("grounded")
-        if not recent_dmg and not mid_climb and self._cube_goal(obs, visible, enemy_d) is not None:
+        cube_goal = None if (recent_dmg or mid_climb) else self._cube_goal(obs, visible, enemy_d)
+        if cube_goal is not None:
+            self._cube_sticky_until = t + 2.0
+            self._cube_sticky_target = dict(cube_goal)
+            return "CUBE"
+        sticky = getattr(self, "_cube_sticky_target", None)
+        if (
+            not recent_dmg
+            and not mid_climb
+            and self.mem.mode == "CUBE"
+            and sticky is not None
+            and t < getattr(self, "_cube_sticky_until", -1e9)
+        ):
+            self._cube_target = dict(sticky)
             return "CUBE"
 
         # N3: after a kill, loot then heal to ≥90% when quiet.
@@ -1384,8 +1397,13 @@ class Bot:
         mx, my, mz = me["pos"]
         best = None
         best_d = 1e9
-        # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 100.0 if not visible else min(60.0, enemy_d * 0.4)
+        # Visible cubes on our level (or below us). Post-kill quiet: reach farther so drop
+        # cubes / kill-site walks win before roof RELOCATE (killreach lock).
+        fresh_kill = t - self.mem.post_kill_t < 25.0
+        if not visible:
+            reach = 130.0 if fresh_kill else 100.0
+        else:
+            reach = min(60.0, enemy_d * 0.4)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
@@ -1396,11 +1414,13 @@ class Bot:
             pk = self.mem.post_kill_pos
             d = math.dist(pk[:2], (mx, my))
             fresh = t - self.mem.post_kill_t < 30.0
-            if fresh and d > self.cube_r and d < 170.0 and pk[2] - mz < 3.0 and (not visible or enemy_d > d + 80.0):
+            site_ok = not visible or enemy_d > 90.0
+            if fresh and d > self.cube_r and d < 200.0 and pk[2] - mz < 3.0 and site_ok:
                 best = {"kind": "site", "pos": list(pk)}
             elif not fresh or d <= self.cube_r:
                 self.mem.post_kill_pos = None
-        if best is None and enemy_d > 130.0:
+        crate_ok_d = 100.0 if (fresh_kill and not visible) else 130.0
+        if best is None and enemy_d > crate_ok_d:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
                 if d > 150.0 or d < 1.0:
