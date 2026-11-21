@@ -499,6 +499,89 @@ def test_f1_detector(bot: Bot) -> None:
     check("F1 no FIGHT vs unaware 80m", mode != "FIGHT")
 
 
+
+def test_dmg_focus(bot: Bot) -> None:
+    """Damage-source targeting: prefer last hunter who damaged us over other clear LOS."""
+
+    def check(name: str, cond: bool) -> None:
+        print(f"  {'PASS' if cond else 'FAIL'} {name}")
+        if not cond:
+            raise AssertionError(name)
+
+    me = {
+        "id": 0,
+        "pos": [0.0, 0.0, 1.0],
+        "vel": [0.0, 0.0, 0.0],
+        "aim": [0.0, 0.0],
+        "hp": 1000.0,
+        "max_hp": 1000.0,
+        "energy": 100.0,
+        "max_energy": 100.0,
+        "cubes": 0,
+        "weapons": [{"kind": "gun", "ammo": 30, "cooldown": 0}, None],
+        "grounded": True,
+        "stats": {"eye_height": 8.0, "muzzle_height": 7.0},
+    }
+    # Damager: higher HP, farther, NO clear shot. Bait: low HP, closer, clear shot.
+    damager = {
+        "id": 5,
+        "kind": "mech",
+        "pos": [40.0, 10.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],
+        "hp": 1200,
+        "max_hp": 1400,
+        "cubes": 0,
+        "weapons": [],
+    }
+    bait = {
+        "id": 7,
+        "kind": "mech",
+        "pos": [25.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],
+        "hp": 200,
+        "max_hp": 1400,
+        "cubes": 0,
+        "weapons": [],
+    }
+    visible = [damager, bait]
+
+    # clear_shot: only bait has LOS (simulates damager behind cover).
+    real_clear = bot.combat.clear_shot
+
+    def fake_clear(me_, pos, eid=None, cubes=None):
+        if eid is not None and int(eid) == 5:
+            return False
+        if eid is not None and int(eid) == 7:
+            return True
+        return real_clear(me_, pos, eid, cubes)
+
+    bot.combat.clear_shot = fake_clear  # type: ignore[method-assign]
+    try:
+        target, chase = bot.combat.pick_fight_targets(me, visible, prefer_id=5)
+        check("dmg-focus chase is damager id=5", chase is not None and int(chase["id"]) == 5)
+        check("dmg-focus clear is None (damager no LOS)", target is None)
+        # bot.py: chase = target or chase → must still be damager
+        fight = target or chase
+        check("dmg-focus after target-or-chase still damager", fight is not None and int(fight["id"]) == 5)
+
+        # Baseline without prefer: would pick bait (clear + low HP)
+        target2, chase2 = bot.combat.pick_fight_targets(me, visible, prefer_id=None)
+        check("no-prefer clear is bait", target2 is not None and int(target2["id"]) == 7)
+
+        # Prefer with LOS: both clear and chase are damager
+        def fake_clear_both(me_, pos, eid=None, cubes=None):
+            return True
+
+        bot.combat.clear_shot = fake_clear_both  # type: ignore[method-assign]
+        t3, c3 = bot.combat.pick_fight_targets(me, visible, prefer_id=5)
+        check("dmg-focus with LOS clear=damager", t3 is not None and int(t3["id"]) == 5)
+        check("dmg-focus with LOS chase=damager", c3 is not None and int(c3["id"]) == 5)
+    finally:
+        bot.combat.clear_shot = real_clear  # type: ignore[method-assign]
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
@@ -515,6 +598,7 @@ def main() -> int:
         test_n5_farm,
         test_n6_drop1,
         test_f1_detector,
+        test_dmg_focus,
     ]
     failed = 0
     for fn in tests:

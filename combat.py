@@ -99,7 +99,13 @@ class Combat:
         visible: List[Dict[str, Any]],
         prefer_id: Optional[int],
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """One pass: (best_clear_los, best_any). Avoids double LOS scans."""
+        """One pass: (best_clear_los, best_any). Avoids double LOS scans.
+
+        Damage-source focus: when prefer_id (last hunter who damaged us) is
+        visible, always return them as chase. Clear-shot is that same hunter
+        only — never substitute a different clear-LOS mech (bot.py does
+        `chase = target or chase`, which would otherwise retarget).
+        """
         clear_cands: List[Dict[str, Any]] = []
         any_cands: List[Dict[str, Any]] = []
         for m in visible:
@@ -110,13 +116,17 @@ class Combat:
             if self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 clear_cands.append(m)
 
+        if prefer_id is not None:
+            prefer_vis = next((m for m in any_cands if int(m["id"]) == prefer_id), None)
+            if prefer_vis is not None:
+                prefer_clear = next(
+                    (m for m in clear_cands if int(m["id"]) == prefer_id), None
+                )
+                return prefer_clear, prefer_vis
+
         def choose(cands: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
             if not cands:
                 return None
-            if prefer_id is not None:
-                for m in cands:
-                    if int(m["id"]) == prefer_id:
-                        return m
             return min(
                 cands,
                 key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
