@@ -1403,6 +1403,18 @@ class Bot:
         aim = self.combat.aim_at(me, chase, kind)
         act["aim"] = aim
         fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem, aim_kind=aim_kind)
+        # reload-before-push: top off before a close commit so we don't enter dry.
+        gun = (me.get("weapons") or [None])[0]
+        ammo = (gun or {}).get("ammo") if gun and gun.get("kind") == "gun" else None
+        if (
+            ammo is not None
+            and ammo <= 4
+            and dist > 55.0
+            and (not clear or dist > 70.0)
+            and gun.get("reload", 0) == 0
+        ):
+            reload = True
+            fire = [False, False]
         act["fire"] = fire
         act["reload"] = reload
         mf.draw.line(
