@@ -75,6 +75,8 @@ STRAFE_PERIOD = 2.7
 LIGHTNING_DUAL = True  # gun keeps firing while lightning is in range
 MORTAR_IN_RELOAD = False  # lob mortar shells while the gun reloads
 LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
+UPG_LOOT_D = 60.0  # farthest better weapon (laser over mortar/lightning) we detour for
+UPG_LOOT_VAL = 1.2  # farm value of that swap
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
@@ -524,8 +526,8 @@ class Bot:
                 d = _d2(loot["pos"], me["pos"])
                 have = WEAPON_RANK.get(second or "", 0)
                 gain = WEAPON_RANK.get(loot["kind"], 0) - have
-                if gain > 0 and (second is None or d < 60.0) and (second is not None or not mechs or d + 15.0 < enemy_d or enemy_d > 90.0):
-                    val = LOOT_VAL_UNARMED if second is None else 1.2
+                if gain > 0 and (second is None or d < UPG_LOOT_D) and (second is not None or not mechs or d + 15.0 < enemy_d or enemy_d > 90.0):
+                    val = LOOT_VAL_UNARMED if second is None else UPG_LOOT_VAL
                     cands.append({"kind": "loot", "pos": list(loot["pos"]), "id": loot["id"], "key": ("loot", loot["id"]), "val": val, "d": d})
 
         # Shooting crates and drones deals damage, which stops regen: not while resting.
