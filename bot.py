@@ -1358,14 +1358,10 @@ class Bot:
             if bearing is None:
                 bearing = me["aim"][0]
             act["aim"] = [bearing, -0.05]
-            goal = [
-                me["pos"][0] + math.cos(bearing) * 30.0,
-                me["pos"][1] + math.sin(bearing) * 30.0,
-            ]
-            move, _ = self.nav.steer(me, goal, 0.9, t)
-            act["move"] = move
-            act["boost"] = me["energy"] / me["max_energy"] > 0.45
-            act["fire"] = [True, False]
+            # NO_CHASE: no target → hold, aim threat/scan, don't fire.
+            act["move"] = [0.0, 0.0]
+            act["boost"] = False
+            act["fire"] = [False, False]
             return
 
         clear = target is not None and int(target["id"]) == int(chase["id"])
@@ -1416,64 +1412,32 @@ class Bot:
         )
 
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
-        energy_ok = me["energy"] / me["max_energy"] > 0.35
 
-        # Laser on roof: hold firing edge for vision.
-        if second == "laser" and self.mem.world_on_roof:
+        # NO_CHASE: never steer toward the target. Hold roof or half-speed strafe; aim only.
+        side = bearing + (math.pi / 2) * self.mem.strafe_sign
+        half = [math.cos(side) * 0.5, math.sin(side) * 0.5]
+        if self.mem.world_on_roof:
             roof = self.cover.roof(self.mem.roof_id) if self.mem.roof_id is not None else None
             if roof is None:
                 rid = self.world.roof_at(me["pos"][0], me["pos"][1])
                 self.mem.roof_id = rid
                 roof = self.cover.roof(rid) if rid is not None else None
-            if roof:
+            if roof is not None and clear:
                 fp = self.cover.best_firing(roof, bearing)
-                if fp:
-                    move, _ = self.nav.steer(me, fp, 0.85, t)
+                if fp and math.dist(me["pos"][:2], fp[:2]) > 1.5:
+                    # Firing edge only — not toward the enemy.
+                    move, _ = self.nav.steer(me, fp, 0.5, t)
                     act["move"] = move
-                    return
-            act["move"] = [0.0, 0.0]
-            return
-
-        # Mortar: keep range, don't rush into gun range unless flanking hard.
-        if second == "mortar":
-            prefer = 110.0
-            if dist < prefer - 25 and not push_hard:
-                away = bearing + math.pi
-                act["move"] = [math.cos(away) * 0.85, math.sin(away) * 0.85]
-                act["boost"] = energy_ok and dist < 70
-            elif dist > prefer + 20 or (not clear and dist > 50):
-                move, _ = self.nav.steer(me, chase["pos"], 0.7, t)
-                act["move"] = move
+                else:
+                    act["move"] = [0.0, 0.0]
             else:
-                side = bearing + (math.pi / 2) * self.mem.strafe_sign
-                act["move"] = [math.cos(side) * 0.55, math.sin(side) * 0.55]
-            return
-
-        # Lightning: close corners — close gap, hug cover, burst.
-        if second == "lightning":
-            if dist > 35 or not clear:
-                move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
-                act["move"] = move
-                act["boost"] = energy_ok and (dist > 40 or push_hard)
-            else:
-                side = bearing + (math.pi / 2) * self.mem.strafe_sign
-                act["move"] = [math.cos(side) * 0.8, math.sin(side) * 0.8]
-            self.nav.update_stuck(me, t, True)
-            if self.mem.stuck_until > t:
-                act["jump"] = bool(me.get("grounded"))
-                act["boost"] = True
-            return
-
-        # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
-        if not clear or dist > close_at:
-            move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
-            act["move"] = move
-            act["boost"] = energy_ok and (dist > 50 or push_hard)
+                speed = math.hypot(me["vel"][0], me["vel"][1])
+                act["move"] = half if speed > 2.0 else [0.0, 0.0]
         else:
-            side = bearing + (math.pi / 2) * self.mem.strafe_sign
-            act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
-        self.nav.update_stuck(me, t, True)
+            act["move"] = half
+        act["boost"] = False
+        moving = math.hypot(act["move"][0], act["move"][1]) > 0.05
+        self.nav.update_stuck(me, t, moving)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
             act["boost"] = True
