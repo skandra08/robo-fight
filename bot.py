@@ -14,6 +14,16 @@ from memory import Memory
 from nav import Navigator
 from world import World
 
+import json as _json
+import os as _os
+# Tunables. The defaults are the submitted behaviour; the simulator overrides them with SIM_KNOBS.
+K = {"farm_t": 75.0, "engage": 75.0, "heal_hp": 0.65, "cube_reach": 160.0, "crate_clear": 90.0,
+     "kite": 0, "kite_n": 2, "allin_t": 1e9, "allin_kills": 99, "allin_hp": 0.5, "allin_close": 40.0,
+     "lowbreak_hp": 0.0, "upg": ""}
+try:
+    K.update(_json.loads(_os.environ.get("SIM_KNOBS") or "{}"))
+except Exception:
+    pass
 UPGRADE_PRIORITY = [
     "armor",
     "plating",
@@ -154,7 +164,7 @@ class Bot:
             for i, c in enumerate(choices):
                 cid = c.get("id", "")
                 try:
-                    rank = UPGRADE_PRIORITY.index(cid)
+                    rank = (K["upg"].split(",") if K["upg"] else UPGRADE_PRIORITY).index(cid)
                 except ValueError:
                     rank = 100 + i
                 if rank < best:
@@ -894,7 +904,7 @@ class Bot:
 
         # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
         # mechs that are not hurting us and farm cubes, crates and drones at any range.
-        if t < 75.0 and not recent_dmg:
+        if t < K["farm_t"] and not recent_dmg:
             if self._cube_goal(obs, [], 1e9) is not None:
                 return "CUBE"
             if not visible:
@@ -909,9 +919,31 @@ class Bot:
             if sg is not None and not (recent_dmg and visible and math.dist(sg["pos"][:2], me["pos"][:2]) > 60.0):
                 return "SUPPLY"
 
+        # BET lowbreak: below 30% HP with a hunter on us, break line of sight and heal.
+        if visible and hp_frac < K["lowbreak_hp"] and (t - getattr(self, "_lb_t", -99.0)) > 20.0:
+            self._lb_t = t
+            self.mem.disengage_until = t + 5.0
+            return "DISENGAGE"
+        for _e in obs.get("events") or []:
+            if _e.get("type") == "kill":
+                self._kc = getattr(self, "_kc", 0) + 1
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
+
+        # BET late-aggro: after 3 kills or 3:00, hunt every hunter while healthy.
+        if (getattr(self, "_kc", 0) >= K["allin_kills"] or t >= K["allin_t"]) and hp_frac > K["allin_hp"] and me.get("in_zone", True):
+            if visible or (self.mem.enemies and second is not None):
+                self._allin = True
+                return "FIGHT"
+        self._allin = False
+
+        # BET kite: two or more hunters in view -> back off from the group while shooting the nearest,
+        # so they reach us one at a time instead of together.
+        if K["kite"] and len(visible) >= K["kite_n"] and hp_frac > 0.2:
+            self._kite = True
+            return "FIGHT"
+        self._kite = False
 
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
@@ -991,7 +1023,7 @@ class Bot:
             if time_left < 25.0 or hp_frac < 0.90:
                 return "HEAL"
 
-        if safe_for_regen and hp_frac < 0.65:
+        if safe_for_regen and hp_frac < K["heal_hp"]:
             return "HEAL"
 
         if second is None:
@@ -1465,7 +1497,24 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
+        if getattr(self, "_kite", False) and len(enemies) >= 2:
+            cx = sum(e["pos"][0] for e in enemies) / len(enemies)
+            cy = sum(e["pos"][1] for e in enemies) / len(enemies)
+            away = math.atan2(me["pos"][1] - cy, me["pos"][0] - cx)
+            z = obs["zone"]
+            gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            if math.hypot(gx - z["center"][0], gy - z["center"][1]) > float(z["radius"]) - 15.0:
+                away += (math.pi / 2) * self.mem.strafe_sign
+                gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            move, _ = self.nav.steer(me, [gx, gy], 1.0, t)
+            act["move"] = move
+            act["boost"] = energy_ok
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
+                act["boost"] = True
+            return
+        close_at = K["allin_close"] if getattr(self, "_allin", False) else (55.0 if push_hard else K["engage"])
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
@@ -1489,7 +1538,7 @@ class Bot:
         best = None
         best_d = 1e9
         # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 160.0 if not visible else min(80.0, enemy_d * 0.5)
+        reach = K["cube_reach"] if not visible else min(80.0, enemy_d * 0.5)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
@@ -1504,10 +1553,10 @@ class Bot:
                 best = {"kind": "site", "pos": list(pk)}
             elif not fresh or d <= self.cube_r:
                 self.mem.post_kill_pos = None
-        if best is None and enemy_d > 90.0:
+        if best is None and enemy_d > K["crate_clear"]:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
-                if d > (220.0 if t < 75.0 else 150.0) or d < 1.0:
+                if d > (220.0 if t < K["farm_t"] else 150.0) or d < 1.0:
                     continue
                 center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
                 if self.world.blocked_segment(self.combat.muzzle(me), center, step=2.0):
