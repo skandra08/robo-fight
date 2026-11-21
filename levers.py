@@ -4,9 +4,10 @@ Each try/<label> commit sets LABEL + which LEVERS are True. Bot.name = lh-<LABEL
 """
 from __future__ import annotations
 
+import os
 from typing import Dict
 
-LABEL = "arm-det"
+LABEL = "tune"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -30,3 +31,26 @@ LEVERS: Dict[str, bool] = {
 
 def on(key: str) -> bool:
     return bool(LEVERS.get(key))
+
+
+# Tunables. Each can be overridden in the practice sim with env LH_<NAME> (sweeps without commits);
+# a submitted build uses the defaults written here.
+PARAMS: Dict[str, float] = {
+    "FARM_T": 75.0,     # early farm phase length (s)
+    "HEAL_FRAC": 0.65,  # HEAL when quiet and below this HP fraction
+    "N3_HEAL": 0.90,    # after a kill, heal to this fraction
+    "ARM_D": 60.0,      # G2: arm first when a known weapon is this close
+    "SUP_D": 450.0,     # max distance to go for a supply drop
+    "SUP_VIS": 0.0,     # skip supply if a visible enemy is closer than this (0 = never skip)
+    "DRONE_D": 150.0,   # max distance to farm a drone
+}
+
+
+def p(key: str) -> float:
+    v = os.environ.get("LH_" + key)
+    if v is not None:
+        try:
+            return float(v)
+        except ValueError:
+            pass
+    return float(PARAMS[key])
