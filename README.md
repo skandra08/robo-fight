@@ -1,17 +1,20 @@
 # loadout-hunter (robo-fight)
 
-Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loadout camp, take advantaged 1v1s; stay and fight (no DISENGAGE/THIRD in practice).
+Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up roof camp, take advantaged fights; stay and fight (no DISENGAGE/THIRD in practice). R3 strategy levers in `levers.py` / `try/*` tags.
 
 ## Stance
 
-- **Ambush**: if 1v1 and hunter has not locked you (or you flank), take the fight when armed / in contact.
-- **Mortar**: relocate to far ground inside the zone; hold range and lob on mid/far sounds.
-- **Laser**: climb a roof for vision; peek-shoot from the edge.
-- **Lightning**: hold tight corners, stay out of sight, burst when close.
-- **DISENGAGE / RESET / THIRD**: **disabled for practice** (R2) — latching DISENGAGE abandoned fights before the kill; THIRD crashed into shared-vision packs. Code kept for FFA (decision 6).
-- **ROTATE**: enter next circle (not loadout RELOCATE); edge-gatekeep late rotators when loadout/position allows.
-- **LOOT_SWAP**: nearby upgrades only; never mortar→lightning; laser threat → safe ground else drop mortar.
-- **FFA**: stubbed (decision 6) — practice mid-pack path only for now.
+- **Roof camp (S1):** every loadout climbs a roof after arming; mortar sound-lobs from the roof; lightning hides near climb points.
+- **Laser counter (N1):** any loadout breaks LOS when a mech charges aimed at us; return on beam / charge+hold.
+- **Edge-guard (N2):** with no target in view, hold 4–6 m inside the threat-edge and shoot climbers.
+- **Post-kill (N3):** loot the drop, then heal to ≥90% while quiet.
+- **No ambush (S2):** armed + undetected → set up first (no mid-range ambush FIGHT).
+- **Quiet ARM (S3):** no boost inside the zone while looting.
+- **Cube farm (N5):** `cubes_want = stat_cap`; farm drones from >45 m; scoop cubes to 25 m when quiet.
+- **Drop 1 (N6):** contest the first supply drop only (≤120 m, HP>60%, no hunter).
+- **ROTATE (S4):** next-circle time pressure only — gatekeep off in practice.
+- **DISENGAGE / RESET / THIRD**: disabled for practice (R2); F1 re-enables DISENGAGE with safeguards when `mem.ffa`.
+- **FFA (F1):** detector latches on unexplained alive drops / crossfire; survival = don't start fights, silent walk, full HP before shrinks, no contests.
 
 ## Version log
 
@@ -39,11 +42,23 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loado
 | v1.17 | Mortar low-arc + damped lead (#8) | Prefer low arc when lob clears; else high. Cap lead at 15 m. Drop pitch>0.25 fire gate (blocked low arc). Predicted: shells land on walking targets instead of 70 m ahead |
 | v1.18 | Body centre from config | Aim/LOS CoM = `mech.height/2` × cube scale (was hard-coded +4.5). Predicted: neutral at default height; correct vs tall cube mechs |
 | v1.19 | Firing-point yaw coverage (#10) | Precompute bins firing pts by 16 yaw sectors (≤3 each); hidden by hf. Regenerated `data/roofs.json`. Predicted: CAMP peeks toward any compass threat |
+| S1 | Every loadout camps on a roof | Mortar/lightning use roof path; `_loadout_positioned` = on roof. Predicted: +0.2 to +0.5 |
+| N1 | Laser counter all loadouts | Break LOS on charging aim≤8°; return on beam/hold; mortar drop only if no cover ~45 m. Predicted: +0.3 to +1.0 |
+| N2 | Edge-guard climb | Hold 4–6 m inside threat edge; shoot z>roof−2; mortar wall-base. Predicted: +0.4 to +1.0 |
+| N3 | Post-kill loot→heal≥90% | On `kill`, collect within 40 m then HEAL. Predicted: +0.3 to +0.7 |
+| S2 | Remove 1v1 ambush | Keep armed+undetected→setup-first. Predicted: 0 to +0.2 |
+| S3 | No ARM boost in zone | `boost = out_of_zone and efrac>0.55`. Predicted: 0 to +0.15 |
+| N4 | Pre-charged laser peeks | Charge hidden, walk-out half speed, release ≤3°. Predicted: +0.2 to +0.6 |
+| N5 | Cube snowball | `stat_cap` want; farm drones 45–80 m; cubes ≤25 m. Predicted: +0.2 to +0.6 |
+| N6 | Contest supply drop 1 | First drop ≤120 m, HP>60%, no hunter. Predicted: +0.1 to +0.3 |
+| S4 | ROTATE gatekeep off | Practice: time-into-next only. Predicted: ~0 |
+| F1 | FFA detector + survival | Latch on unexplained alive drops / crossfire; silent / no start-fights. Predicted: 0 on practice (±0.15) |
 
 ## Local check
 
 ```sh
 python3 tools/precompute.py   # once; needs numpy
+python3 tools/test_strategy.py
 python3 check/check.py -- python3 -u bot.py
 docker build -t my-bot .
 python3 check/check.py --map-dir /arena -- docker run --rm -i --network none --cpus 1 --memory 512m --read-only --tmpfs /tmp:rw,size=64m --user 65534:65534 -v "$PWD/arena:/arena:ro" my-bot
@@ -52,3 +67,28 @@ python3 check/check.py --map-dir /arena -- docker run --rm -i --network none --c
 ## Submit
 
 Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/buildathon.
+
+## Trying variants
+
+A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>`. Strategy levers live in `levers.py`. Base: `b6aa100` (v1.19).
+
+| # | label | Bot.name | tag | full hash | tweak | try this if… |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | v-safe | lh-v-safe | `try/v-safe` | _(see tag)_ | v1.19 main as-is (no R3 levers) | baseline / control |
+| 1 | roof-all | lh-roof-all | `try/roof-all` | _(fill on emit)_ | **S1** all loadouts on roof | first R3 submit; mortar/lightning die on ground |
+| 2 | laser-ctr | lh-laser-ctr | `try/laser-ctr` | _(fill on emit)_ | **N1** laser counter any loadout | eating laser cook-offs / 70%+ laser damage |
+| 3 | edge-guard | lh-edge-guard | `try/edge-guard` | _(fill on emit)_ | **N2** hold threat-edge vs climbers | dying to roof rushers one-by-one |
+| 4 | post-kill | lh-post-kill | `try/post-kill` | _(fill on emit)_ | **N3** loot then heal ≥90% | winning fights then dying under-healed |
+| 5 | no-ambush | lh-no-ambush | `try/no-ambush` | _(fill on emit)_ | **S2** no 1v1 ambush FIGHT | dying mid-setup to unaware hunters |
+| 6 | arm-quiet | lh-arm-quiet | `try/arm-quiet` | _(fill on emit)_ | **S3** no ARM boost in zone | hunted while looting / no climb energy |
+| 7 | laser-peek | lh-laser-peek | `try/laser-peek` | _(fill on emit)_ | **N4** pre-charged peeks | laser peeks whiff / charge in open |
+| 8 | cube-farm | lh-cube-farm | `try/cube-farm` | _(fill on emit)_ | **N5** drones + cube snowball | losing long HP races / thin cubes |
+| 9 | drop1 | lh-drop1 | `try/drop1` | _(fill on emit)_ | **N6** contest first supply drop | need early cubes/repair, drop lands near |
+| 10 | no-gate | lh-no-gate | `try/no-gate` | _(fill on emit)_ | **S4** ROTATE gatekeep off | gatekeep wastes time / dies on ring |
+| 11 | ffa | lh-ffa | `try/ffa` | _(fill on emit)_ | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
+| 12 | r3-core | lh-r3-core | `try/r3-core` | _(fill on emit)_ | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
+| 13 | r3-full | lh-r3-full | `try/r3-full` | _(fill on emit)_ | all S/N/F levers | full plan in one submit |
+
+Prior A/B (still on origin): `try/camp-hold`, `try/arm-first`, `try/fight-ready`, `try/third-armed`, `try/no-third`.
+
+Verify: `python3 tools/test_strategy.py` then `python3 check/check.py -- python3 -u bot.py`.

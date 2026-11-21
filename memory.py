@@ -60,6 +60,23 @@ class Memory:
         self.rotate_goal: Optional[List[float]] = None
         self.gatekeep = False
         self.contest_drop_id: Optional[int] = None
+        # Strategy plan (S/N/F) state
+        self.ffa = False
+        self.alive_prev: Optional[int] = None
+        self.unexplained_alive_drops = 0
+        self.had_our_kill_recent = False
+        self.laser_threat_id: Optional[int] = None
+        self.laser_threat_seen_t = -1e9
+        self.laser_beam_return_t = -1e9
+        self.threat_edge_bearing: Optional[float] = None
+        self.edge_guard_pt: Optional[List[float]] = None
+        self.post_kill_pos: Optional[List[float]] = None
+        self.post_kill_t = -1e9
+        self.post_kill_phase: Optional[str] = None  # "loot" | "heal"
+        self.farm_drone_id: Optional[int] = None
+        self.precharge_active = False
+        self.disengage_rearm_t = -1e9
+        self.last_our_kill_t = -1e9
 
     def seed(self, seed: int) -> None:
         self.rng_state = int(seed) & 0x7FFFFFFF or 1
@@ -137,6 +154,7 @@ class Memory:
             elif t - p["last_seen_t"] > 45.0:
                 del self.loot[pid]
 
+        our_kill_this_tick = False
         for e in obs.get("events") or []:
             et = e.get("type")
             if et == "damaged":
@@ -154,6 +172,20 @@ class Memory:
                 self.last_dealt_damage_t = t
             elif et == "took":
                 self.second_weapon = e.get("kind")
+            elif et == "kill":
+                our_kill_this_tick = True
+                self.last_our_kill_t = t
+                tid = e.get("target")
+                if tid is not None and int(tid) in self.enemies:
+                    self.post_kill_pos = list(self.enemies[int(tid)]["pos"])
+                    self.post_kill_t = t
+                    self.post_kill_phase = "loot"
+                elif tid is not None:
+                    # Victim already dropped from enemies — keep last known if any.
+                    self.post_kill_t = t
+                    if self.post_kill_pos is None:
+                        self.post_kill_phase = "heal"
+        self.had_our_kill_recent = our_kill_this_tick or (t - self.last_our_kill_t < 0.25)
 
         combat_kinds = ("gun", "laser", "laser_charge", "lightning", "mortar", "explosion")
         heard_combat = False
