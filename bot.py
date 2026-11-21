@@ -1,4 +1,4 @@
-"""Practice-aggressive loadout bot: arm fast, take advantaged 1v1s, camp by weapon."""
+"""Practice loadout bot: arm quietly, position, take advantaged fights, gated thirds."""
 from __future__ import annotations
 
 import math
@@ -296,30 +296,47 @@ class Bot:
         return False
 
     def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
-        """Armed only; wait for sustained combat sounds ~2–4s before crashing."""
+        """Practice-gated third: positioned + healthy + near sound only.
+
+        Shared-vision house hunters punish mid/far crash-ins — you arrive into a
+        pack that already sees you. Prefer loadout camp first; only tip near fights.
+        """
         if second is None:
             return False
         if visible:
             return False  # already in contact — FIGHT/DISENGAGE handle it
+        # Get second weapon + loadout position before seeking thirds.
+        if not self.mem.positioned:
+            self.mem.third_commit = False
+            return False
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        if hp_frac < 0.7:
+            self.mem.third_commit = False
+            return False
+        if t - self.mem.last_took_weapon_damage_t < 4.0:
+            self.mem.third_commit = False
+            return False
         if self.mem.combat_noise_since < 0:
             self.mem.third_commit = False
             return False
         age = t - self.mem.combat_noise_since
-        if age < 2.0:
-            return False  # wait — don't crash at first gunshot
-        if age > 4.5 and not self.mem.third_commit:
-            # Noise went stale without commit.
+        if age < 3.0:
+            return False  # wait longer than v1.9 — don't crash at first exchange
+        if age > 5.5 and not self.mem.third_commit:
             return False
-        # Prefer a mid/far combat bearing to approach.
+        # Near combat only (single-contact estimate). Mid/far → pack ambush.
+        combat_kinds = ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning")
         bearing = None
+        near_hits = 0
         for s in reversed(self.mem.sound_log):
-            if s.get("kind") in ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning"):
-                if s.get("bearing") is not None and s.get("dist") in ("mid", "far", "near", None):
+            if s.get("kind") not in combat_kinds:
+                continue
+            if s.get("dist") == "near":
+                near_hits += 1
+                if bearing is None and s.get("bearing") is not None:
                     bearing = float(s["bearing"])
-                    break
-        if bearing is None:
-            bearing = self.mem.last_threat_bearing
-        if bearing is None:
+        if near_hits < 1 or bearing is None:
+            self.mem.third_commit = False
             return False
         self.mem.third_bearing = bearing
         self.mem.third_commit = True
@@ -493,25 +510,39 @@ class Bot:
             ):
                 return "RELOCATE"
 
-        # Aggressive 1v1 ambush — keep.
+        # Ambush 1v1: armed OK; gun-only only when truly close + rear/undetected.
         ambush = self._ambush_target(me, visible)
-        if ambush is not None and (second is not None or enemy_d < 90):
-            if not (second is None and loot is not None and loot_d + 20 < enemy_d and loot_d < 70):
-                return "FIGHT"
+        if ambush is not None:
+            gun_only_close = second is None and enemy_d < 50 and _we_flank(ambush, me["pos"])
+            if second is not None or gun_only_close:
+                if not (second is None and loot is not None and loot_d + 20 < enemy_d and loot_d < 70):
+                    return "FIGHT"
 
+        # Damaged / multi-contact: don't duel packs gun-only at mid range.
         if recent_dmg or len(visible) >= 2:
-            if second is None and loot is not None and loot_d + 15 < enemy_d and loot_d < 110:
-                return "ARM"
+            if second is None:
+                if loot is not None and loot_d + 15 < enemy_d and loot_d < 110:
+                    return "ARM"
+                # Pack in view, not pressed close → keep arming instead of suicide push.
+                if len(visible) >= 2 and enemy_d > 45 and not recent_dmg:
+                    return "ARM"
             return "FIGHT"
 
         if visible and (second is not None or enemy_d < 120):
             aware = any(_enemy_aware(e, me["pos"]) for e in visible)
-            if aware or second is not None or recent_dmg:
-                if second is None and loot is not None and loot_d + 15 < enemy_d and loot_d < 90:
-                    return "ARM"
-                return "FIGHT"
+            if second is None:
+                # Gun-only: fight only close/aware contact; else finish ARM.
+                if enemy_d < 55 or (aware and enemy_d < 80) or recent_dmg:
+                    if loot is not None and loot_d + 15 < enemy_d and loot_d < 90:
+                        return "ARM"
+                    return "FIGHT"
+            else:
+                # Armed: fight if spotted/damaged/already camped; else set up first.
+                if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
+                    return "FIGHT"
+                # Unpositioned + undetected mid-range → fall through to RELOCATE/CAMP.
 
-        # THIRD: sound-driven crash after wait (armed only).
+        # THIRD: heavily gated for practice (see _want_third).
         if self._want_third(me, second, visible, t):
             return "THIRD"
 
@@ -982,10 +1013,10 @@ class Bot:
             act["aim"] = [math.atan2(best["pos"][1] - me["pos"][1], best["pos"][0] - me["pos"][0]), -0.05]
         else:
             act["aim"] = [self.mem.scan_yaw, -0.05]
-        # Aggressive loot grab: sprint/boost when energy allows (out of zone always boosts).
+        # Quieter early loot (v1.10): loud boosts pull shared-vision hunters onto ARM.
+        # Out of zone always; otherwise only high energy (was efrac>0.35 while chasing).
         efrac = me["energy"] / max(1.0, me["max_energy"])
-        chasing_loot = best is not None or cube is not None
-        act["boost"] = (not me.get("in_zone", True)) or (chasing_loot and efrac > 0.35) or efrac > 0.7
+        act["boost"] = (not me.get("in_zone", True)) or efrac > 0.65
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))

@@ -1,6 +1,6 @@
 # loadout-hunter (robo-fight)
 
-Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged 1v1s, then camp by loadout.
+Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loadout camp, take advantaged 1v1s; gated thirds vs shared-vision hunters.
 
 ## Stance
 
@@ -9,7 +9,7 @@ Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged
 - **Laser**: climb a roof for vision; peek-shoot from the edge.
 - **Lightning**: hold tight corners, stay out of sight, burst when close.
 - **DISENGAGE / RESET**: leave bad fights (2nd hunter, ~400 HP lost, ~12s no kill), break LOS, then sit for regen.
-- **THIRD**: armed only; wait ~2–4s of combat sounds, then crash; abort if a 2nd hunter shows.
+- **THIRD**: practice-gated — only after loadout position, HP>0.7, no recent damage, and **near** combat sounds (~3s); mid/far crash disabled (shared-vision packs).
 - **ROTATE**: enter next circle (not loadout RELOCATE); edge-gatekeep late rotators when loadout/position allows.
 - **LOOT_SWAP**: nearby upgrades only; never mortar→lightning; laser threat → safe ground else drop mortar.
 - **FFA**: stubbed (decision 6) — practice mid-pack path only for now.
@@ -30,6 +30,7 @@ Mech Royale practice bot: arm fast (laser > mortar > lightning), take advantaged
 | v1.7 | ARM ghost / roof loot | Drop remembered loot inside `vision.near_range` when missing from pickups; skip elevated roof loot unless on that roof; take within `loot_r - 0.3` |
 | v1.8 | Laser hold + gun aim | Keep laser trigger if charge mid-flight when target drops; don't fire gun on mortar aim; lead gun between laser shots via `aim_kind` |
 | v1.9 | Practice modes | DISENGAGE / RESET / THIRD / ROTATE / LOOT_SWAP wired into `_select_mode`; FFA detector stubbed; supply contest only when `alive`≤5 |
+| v1.10 | Practice survival hotfix | Gate THIRD (positioned + HP>0.7 + near-sound only); soften gun-only / unpositioned FIGHT; quieter ARM boost. Predicted: fewer place~14 early deaths vs shared-vision hunters; midpack practice score up from ~1.44 toward pre-aggression ~2.5 |
 
 ## Local check
 
