@@ -271,8 +271,9 @@ class Bot:
 
     def _do_escape(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
+        t = float(obs["t"])
         goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.65)
-        move, yaw = self.nav.steer(me, goal, 1.0)
+        move, yaw = self.nav.steer(me, goal, 1.0, t)
         act["move"] = move
         act["boost"] = True
         act["aim"] = [yaw, -0.05]
@@ -280,12 +281,13 @@ class Bot:
 
     def _do_counter_laser(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
+        t = float(obs["t"])
         slot = _slot_of(me, "mortar")
         if slot is not None:
             act["drop"] = slot
         # also break LOS
         if self.mem.camp_hidden:
-            move, yaw = self.nav.steer(me, self.mem.camp_hidden, 1.0)
+            move, yaw = self.nav.steer(me, self.mem.camp_hidden, 1.0, t)
             act["move"] = move
             act["aim"] = [yaw, 0.0]
         else:
@@ -325,7 +327,7 @@ class Bot:
                 me["pos"][0] + math.cos(bearing) * 30.0,
                 me["pos"][1] + math.sin(bearing) * 30.0,
             ]
-            move, _ = self.nav.steer(me, goal, 0.9)
+            move, _ = self.nav.steer(me, goal, 0.9, t)
             act["move"] = move
             act["boost"] = me["energy"] / me["max_energy"] > 0.45
             act["fire"] = [True, False]
@@ -375,7 +377,7 @@ class Bot:
             if roof:
                 fp = self.cover.best_firing(roof, bearing)
                 if fp:
-                    move, _ = self.nav.steer(me, fp, 0.85)
+                    move, _ = self.nav.steer(me, fp, 0.85, t)
                     act["move"] = move
                     return
             act["move"] = [0.0, 0.0]
@@ -389,7 +391,7 @@ class Bot:
                 act["move"] = [math.cos(away) * 0.85, math.sin(away) * 0.85]
                 act["boost"] = energy_ok and dist < 70
             elif dist > prefer + 20 or (not clear and dist > 50):
-                move, _ = self.nav.steer(me, chase["pos"], 0.7)
+                move, _ = self.nav.steer(me, chase["pos"], 0.7, t)
                 act["move"] = move
             else:
                 side = bearing + (math.pi / 2) * self.mem.strafe_sign
@@ -399,7 +401,7 @@ class Bot:
         # Lightning: close corners — close gap, hug cover, burst.
         if second == "lightning":
             if dist > 35 or not clear:
-                move, _ = self.nav.steer(me, chase["pos"], 1.0)
+                move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
                 act["move"] = move
                 act["boost"] = energy_ok and (dist > 40 or push_hard)
             else:
@@ -414,7 +416,7 @@ class Bot:
         # Gun / laser ground / generic: take the fight. Ambush → commit.
         close_at = 55.0 if push_hard else 75.0
         if not clear or dist > close_at:
-            move, _ = self.nav.steer(me, chase["pos"], 1.0)
+            move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
             act["boost"] = energy_ok and (dist > 50 or push_hard)
         else:
@@ -427,6 +429,7 @@ class Bot:
 
     def _do_heal(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
+        t = float(obs["t"])
         # don't fire (dealing damage resets regen)
         act["fire"] = [False, False]
         if self.mem.last_threat_bearing is not None:
@@ -440,7 +443,7 @@ class Bot:
             hid = self.cover.best_hidden(roof) if roof else None
             if hid:
                 self.mem.camp_hidden = hid
-                move, _ = self.nav.steer(me, hid, 0.6)
+                move, _ = self.nav.steer(me, hid, 0.6, t)
                 act["move"] = move
             else:
                 act["move"] = [0.0, 0.0]
@@ -457,7 +460,7 @@ class Bot:
                     ]
                 else:
                     spot = self.nav.zone_goal(obs["zone"], me["pos"], 0.5)
-            move, yaw = self.nav.steer(me, spot, 0.6)
+            move, yaw = self.nav.steer(me, spot, 0.6, t)
             act["move"] = move
             if "aim" not in act:
                 act["aim"] = [yaw, -0.05]
@@ -512,7 +515,7 @@ class Bot:
             goal = [zc[0] + math.cos(yaw) * 55.0, zc[1] + math.sin(yaw) * 55.0]
             self.mem.arm_goal = goal
 
-        move, yaw = self.nav.steer(me, goal, 1.0)
+        move, yaw = self.nav.steer(me, goal, 1.0, t)
         act["move"] = move
         # Face loot while moving; otherwise scan for pickups (FOV is yaw-based).
         if best is not None:
@@ -556,7 +559,7 @@ class Bot:
                     spot = self.nav.zone_goal(z, me["pos"], 0.55)
                 self.mem.loadout_goal = list(spot[:2])
                 self.mem.reset_camp_counters()
-            move, yaw = self.nav.steer(me, self.mem.loadout_goal, 0.85)
+            move, yaw = self.nav.steer(me, self.mem.loadout_goal, 0.85, t)
             act["move"] = move
             act["aim"] = [yaw, -0.05]
             act["boost"] = me["energy"] / me["max_energy"] > 0.4
@@ -576,7 +579,7 @@ class Bot:
                     spot = self.nav.zone_goal(z, me["pos"], 0.5)
                 self.mem.loadout_goal = list(spot[:2])
                 self.mem.reset_camp_counters()
-            move, yaw = self.nav.steer(me, self.mem.loadout_goal, 0.9)
+            move, yaw = self.nav.steer(me, self.mem.loadout_goal, 0.9, t)
             act["move"] = move
             act["aim"] = [yaw, -0.05]
             act["boost"] = me["energy"] / me["max_energy"] > 0.45
@@ -591,7 +594,7 @@ class Bot:
             spot = self.cover.ground_spot(me["pos"], z["center"], float(z["radius"]))
             goal = spot or self.nav.zone_goal(z, me["pos"], 0.5)
             self.mem.loadout_goal = list(goal[:2])
-            move, yaw = self.nav.steer(me, goal, 0.7)
+            move, yaw = self.nav.steer(me, goal, 0.7, t)
             act["move"] = move
             act["aim"] = [yaw, -0.05]
             act["boost"] = False
@@ -606,7 +609,7 @@ class Bot:
             self.mem.reset_camp_counters()
             self.mem.roofs_used.add(int(roof["id"]))
             if hid:
-                move, yaw = self.nav.steer(me, hid, 0.6)
+                move, yaw = self.nav.steer(me, hid, 0.6, t)
                 act["move"] = move
                 act["aim"] = [yaw, -0.05]
             return
@@ -618,7 +621,7 @@ class Bot:
             climb_act = self.nav.climb_action(me, roof, climb, t)
             act.update(climb_act)
         else:
-            move, yaw = self.nav.steer(me, roof["center"], 0.8)
+            move, yaw = self.nav.steer(me, roof["center"], 0.8, t)
             act["move"] = move
             act["aim"] = [yaw, 0.15]
             act["jump"] = bool(me.get("grounded"))
@@ -635,7 +638,7 @@ class Bot:
             if goal is None:
                 return self._do_relocate(obs, act, second)
             if math.dist(me["pos"][:2], goal[:2]) > 12.0:
-                move, yaw = self.nav.steer(me, goal, 0.55)
+                move, yaw = self.nav.steer(me, goal, 0.55, t)
                 act["move"] = move
             else:
                 act["move"] = [0.0, 0.0]
@@ -679,7 +682,7 @@ class Bot:
                 return self._do_relocate(obs, act, second)
             # Hold corner, stay low-profile (no boost/jump).
             if math.dist(me["pos"][:2], goal[:2]) > 8.0:
-                move, yaw = self.nav.steer(me, goal, 0.5)
+                move, yaw = self.nav.steer(me, goal, 0.5, t)
                 act["move"] = move
             else:
                 act["move"] = [0.0, 0.0]
@@ -726,7 +729,7 @@ class Bot:
 
         goal = fire_pt if self.mem.peek_phase == 1 and fire_pt else hid
         if goal:
-            move, yaw = self.nav.steer(me, goal, 0.4)
+            move, yaw = self.nav.steer(me, goal, 0.4, t)
             act["move"] = move
         else:
             act["move"] = [0.0, 0.0]
