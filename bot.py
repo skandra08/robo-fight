@@ -909,9 +909,26 @@ class Bot:
             if sg is not None and not (recent_dmg and visible and math.dist(sg["pos"][:2], me["pos"][:2]) > 60.0):
                 return "SUPPLY"
 
+        for _e in obs.get("events") or []:
+            if _e.get("type") == "kill":
+                self._kc = getattr(self, "_kc", 0) + 1
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
+
+        # BET late-aggro: after 3 kills or 3:00, hunt every hunter while healthy.
+        if (getattr(self, "_kc", 0) >= 3 or t >= 180.0) and hp_frac > 0.5 and me.get("in_zone", True):
+            if visible or (self.mem.enemies and second is not None):
+                self._allin = True
+                return "FIGHT"
+        self._allin = False
+
+        # BET kite: two or more hunters in view -> back off from the group while shooting the nearest,
+        # so they reach us one at a time instead of together.
+        if len(visible) >= 2 and hp_frac > 0.2:
+            self._kite = True
+            return "FIGHT"
+        self._kite = False
 
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
@@ -1465,7 +1482,24 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
+        if getattr(self, "_kite", False) and len(enemies) >= 2:
+            cx = sum(e["pos"][0] for e in enemies) / len(enemies)
+            cy = sum(e["pos"][1] for e in enemies) / len(enemies)
+            away = math.atan2(me["pos"][1] - cy, me["pos"][0] - cx)
+            z = obs["zone"]
+            gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            if math.hypot(gx - z["center"][0], gy - z["center"][1]) > float(z["radius"]) - 15.0:
+                away += (math.pi / 2) * self.mem.strafe_sign
+                gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            move, _ = self.nav.steer(me, [gx, gy], 1.0, t)
+            act["move"] = move
+            act["boost"] = energy_ok
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
+                act["boost"] = True
+            return
+        close_at = 40.0 if getattr(self, "_allin", False) else (55.0 if push_hard else 75.0)
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
@@ -2159,8 +2193,31 @@ class Bot:
             lands = float(d.get("lands_in") or 0.0)
             if lands > dist / max(1.0, speed) + 6.0:
                 continue  # leave when the walk there ends about when it lands
+            # FIX supply: skip drops outside the circle (or outside the next one once it is shrinking
+            # before we get there): walking out and escaping back loops for a minute.
+            z = obs["zone"]
+            eta = dist / max(1.0, speed)
+            t_now = float(obs["t"])
+            cx, cy = (z["next_center"] if float(z.get("shrink_start", 1e9)) < t_now + eta else z["center"])
+            rr = float(z["next_radius"] if float(z.get("shrink_start", 1e9)) < t_now + eta else z["radius"])
+            if math.hypot(d["pos"][0] - cx, d["pos"][1] - cy) > rr - 6.0:
+                continue
+            # FIX supply: give up on a drop we stop closing on (unreachable ledge / hill) for 40 s.
+            bl = self.__dict__.setdefault("_sup_bl", {})
+            if bl.get(int(d["id"]), -1e9) > t_now:
+                continue
             if dist <= 450.0 and dist < best_d:
                 best, best_d = d, dist
+        if best is not None:
+            pr = self.__dict__.setdefault("_sup_prog", {})
+            key = int(best["id"])
+            rec = pr.get(key)
+            if rec is None or best_d < rec[0] - 3.0 or self.mem.mode != "SUPPLY":
+                pr[key] = (best_d, float(obs["t"]))
+            elif float(obs["t"]) - rec[1] > 10.0 and best_d > self.drop_radius:
+                self._sup_bl[key] = float(obs["t"]) + 40.0
+                pr.pop(key, None)
+                best = None
         self.mem.supply_goal = best
         self.mem.contest_drop_id = int(best["id"]) if best is not None else None
         return best
