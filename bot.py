@@ -160,6 +160,10 @@ class Bot:
         self._farm_key: Any = None
         self._farm_since = 0.0
         self._farm_bl: Dict[Any, float] = {}
+        # Sticky: brief farm-goal flicker (LOS / blacklist edge) must not hand the tick to
+        # search/ROOF mid-scoop — same idea as try/bet-sticky CUBE 2s, on rewrite FARM.
+        self._farm_sticky: Optional[Dict[str, Any]] = None
+        self._farm_sticky_until = -1e9
         self._search_wp: Optional[List[float]] = None
         self._search_until = -1.0
         # fight target stickiness
@@ -531,6 +535,14 @@ class Bot:
         if cur is not None and cur[1] * 1.3 >= best_s:
             best = cur[0]
         if best is None:
+            sticky = self._farm_sticky
+            if (
+                sticky is not None
+                and t < self._farm_sticky_until
+                and self._farm_bl.get(sticky.get("key"), -1e9) <= t
+            ):
+                self._farm = sticky
+                return sticky
             self._farm = None
             self._farm_key = None
             return None
@@ -546,8 +558,11 @@ class Bot:
                 self.mem.post_kill_pos = None
             self._farm = None
             self._farm_key = None
+            self._farm_sticky = None
             return None
         self._farm = best
+        self._farm_sticky = dict(best)
+        self._farm_sticky_until = t + 2.0
         return best
 
     def _do_farm(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
