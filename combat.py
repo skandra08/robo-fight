@@ -64,6 +64,29 @@ class Combat:
             self._los_cache[eid] = ok
         return ok
 
+    def _prefer_low_hp(
+        self,
+        me: Dict[str, Any],
+        cands: List[Dict[str, Any]],
+        prefer_id: Optional[int],
+    ) -> Optional[Dict[str, Any]]:
+        """Lowest-HP visible hunter within sensible fight range (sticky only ties)."""
+        if not cands:
+            return None
+        # ~gun engage (75) + slack so peeks/chase still finish a dying hunter.
+        sense = 120.0
+        mx, my = me["pos"][0], me["pos"][1]
+        near = [m for m in cands if math.dist(m["pos"][:2], (mx, my)) <= sense]
+        pool = near if near else cands
+
+        def key(m: Dict[str, Any]):
+            hp = float(m.get("hp", 1400))
+            d = math.dist(m["pos"][:2], (mx, my))
+            sticky = 0 if (prefer_id is not None and int(m["id"]) == prefer_id) else 1
+            return (hp, sticky, d)
+
+        return min(pool, key=key)
+
     def pick_target(
         self,
         me: Dict[str, Any],
@@ -79,19 +102,7 @@ class Combat:
             if require_clear and not self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 continue
             cands.append(m)
-        if not cands:
-            return None
-        if prefer_id is not None:
-            for m in cands:
-                if int(m["id"]) == prefer_id:
-                    return m
-
-        def key(m):
-            hp = m.get("hp", 1400)
-            d = math.dist(m["pos"][:2], me["pos"][:2])
-            return (hp, d)
-
-        return min(cands, key=key)
+        return self._prefer_low_hp(me, cands, prefer_id)
 
     def pick_fight_targets(
         self,
@@ -110,19 +121,10 @@ class Combat:
             if self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 clear_cands.append(m)
 
-        def choose(cands: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-            if not cands:
-                return None
-            if prefer_id is not None:
-                for m in cands:
-                    if int(m["id"]) == prefer_id:
-                        return m
-            return min(
-                cands,
-                key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
-            )
-
-        return choose(clear_cands), choose(any_cands)
+        return (
+            self._prefer_low_hp(me, clear_cands, prefer_id),
+            self._prefer_low_hp(me, any_cands, prefer_id),
+        )
 
     def aim_at(self, me: Dict[str, Any], target: Dict[str, Any], kind: str = "gun") -> List[float]:
         mx, my, mz = self.muzzle(me)
