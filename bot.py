@@ -1465,11 +1465,12 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
+        # flank-commit: when we have flank/undetected, crash to 35 m with boost.
+        close_at = 35.0 if push_hard else 75.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
-            act["boost"] = energy_ok and (dist > 50 or push_hard)
+            act["boost"] = energy_ok and (dist > 40 or push_hard)
         else:
             side = bearing + (math.pi / 2) * self.mem.strafe_sign
             act["move"] = [math.cos(side) * 0.75, math.sin(side) * 0.75]
