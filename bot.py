@@ -909,9 +909,19 @@ class Bot:
             if sg is not None and not (recent_dmg and visible and math.dist(sg["pos"][:2], me["pos"][:2]) > 60.0):
                 return "SUPPLY"
 
+        for _e in obs.get("events") or []:
+            if _e.get("type") == "kill":
+                self._kc = getattr(self, "_kc", 0) + 1
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
+
+        # BET late-aggro: after 3 kills or 3:00, hunt every hunter while healthy.
+        if (getattr(self, "_kc", 0) >= 3 or t >= 180.0) and hp_frac > 0.5 and me.get("in_zone", True):
+            if visible or (self.mem.enemies and second is not None):
+                self._allin = True
+                return "FIGHT"
+        self._allin = False
 
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
@@ -1465,7 +1475,7 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
-        close_at = 55.0 if push_hard else 75.0
+        close_at = 40.0 if getattr(self, "_allin", False) else (55.0 if push_hard else 75.0)
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
