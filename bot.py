@@ -86,8 +86,8 @@ SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than th
 SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
 SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
-HEAL_FIGHTBACK = False  # while backing off to heal, shoot the nearest mech whenever the shot is clear
-HEAL_GIVEUP_S = 1e9  # backing off this long while still being hit: turn and fight instead
+HEAL_FIGHTBACK = True  # while backing off to heal, shoot the nearest mech whenever the shot is clear
+HEAL_GIVEUP_S = 4.0  # backing off this long while still being hit: turn and fight instead
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
