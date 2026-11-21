@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "early"
+LABEL = "early-hunt-ffs0"
 
 LEVERS: Dict[str, bool] = {
     "S1": True,  # every loadout camps on a roof

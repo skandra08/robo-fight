@@ -64,7 +64,7 @@ BAND_LO = 55.0  # fight band: back off inside this
 BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
-FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
+FARM_FIGHT_S = 0.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
 DUAL_FIRE = True  # gun fires while the laser charges
 TOPUP_RELOAD = False  # reload a partly empty gun whenever nothing is in our sights
@@ -113,7 +113,7 @@ REGEN_QUIET_S = 3.0
 # Snowball (Sameer): each cube is +4% HP and +4% damage up to 10, plus upgrades at 1/3/6/10.
 # At 10 cubes a duel is ~2.5x in our favour. Below SNOW_CUBES: farm, only fight what hits us,
 # never wake far mechs. At or above: go hunting, retreat only at SNOW_RETREAT.
-SNOW_CUBES = 0  # 0 = off
+SNOW_CUBES = 1  # 0 = off
 SNOW_RETREAT = 0.25
 SNOW_HUNT = True  # above the threshold, also chase remembered mechs (not just visible ones)  # "not under fire" = no weapon hit on us for this long
 
