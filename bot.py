@@ -765,6 +765,14 @@ class Bot:
 
         if not me.get("in_zone", True):
             return "ESCAPE_ZONE"
+        # Hysteresis: once escaping, keep going until 30 m inside the circle. Without it the
+        # bot stepped in by a metre, switched to CUBE/RELOCATE, drifted out and sat 0-5 m
+        # outside the edge for 20+ s at a time (sim seed 8: 219-228 s, 274-297 s).
+        if self.mem.mode == "ESCAPE_ZONE":
+            z = obs["zone"]
+            depth = float(z["radius"]) - math.hypot(me["pos"][0] - z["center"][0], me["pos"][1] - z["center"][1])
+            if depth < min(30.0, 0.3 * float(z["radius"])):
+                return "ESCAPE_ZONE"
 
         # F1 decision 4: never outside the zone from phase 3 on (radius≤240 / dps≥60).
         # Also rotate early into the next circle when late-phase FFA.
