@@ -71,7 +71,7 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 ## Trying variants
 
-A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>` via `levers.LABEL`. Base: `c1c90c6` (v1.20 / r3-full).
+A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>` via `levers.LABEL`. Base: `ef802b5` (v1.20 / r3-full).
 
 | # | label | Bot.name | tag | full hash | tweak | try this if… |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -88,7 +88,7 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 10 | no-gate | lh-no-gate | `try/no-gate` | `c11cfdeaf0195e2584a4b0e4ffac4e2a18b62c8e` | **S4** ROTATE gatekeep off | gatekeep wastes time / dies on ring |
 | 11 | ffa | lh-ffa | `try/ffa` | `450ebfc7de4762023ff99d4f6cb1c1a2d9bafb8f` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
 | 12 | r3-core | lh-r3-core | `try/r3-core` | `3737f2636dde5ec00e880ca0201142b1ed2c1f77` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
-| 13 | r3-full | lh-r3-full | `try/r3-full` | `c1c90c6685eb3e0ad3f16ed6999e8975e7facc74` | all S/N/F levers (= main) | full plan in one submit |
+| 13 | r3-full | lh-r3-full | `try/r3-full` | `ef802b5fed1894a3cef375b202eaabbc9e32a758` | all S/N/F levers (= main) | full plan in one submit |
 
 Prior A/B (still on origin): `try/camp-hold`, `try/arm-first`, `try/fight-ready`, `try/third-armed`, `try/no-third`.
 
