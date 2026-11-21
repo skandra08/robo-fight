@@ -66,6 +66,8 @@ CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 FARM_FIGHT_S = 75.0  # before this, only fight mechs that hit us (bet-farm 3.02)
 ENGAGE_NEAR = 0.0
+LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
+ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
 SEARCH_NEXT = True
@@ -470,14 +472,14 @@ class Bot:
                     cands.append({"kind": "site", "pos": list(pk), "key": ("site", round(pk[0]), round(pk[1])), "val": 3.0, "d": d})
 
         # Weapons: get a second weapon, or upgrade to a better one, when it's close.
-        if not mechs or enemy_d > 90.0:
+        if not mechs or enemy_d > 90.0 or (ARM_WITH_MECHS and second is None):
             loot = self.mem.best_loot(me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up)
             if loot is not None and inzone(loot["pos"]):
                 d = _d2(loot["pos"], me["pos"])
                 have = WEAPON_RANK.get(second or "", 0)
                 gain = WEAPON_RANK.get(loot["kind"], 0) - have
-                if gain > 0 and (second is None or d < 60.0):
-                    val = 3.0 if second is None else 1.2
+                if gain > 0 and (second is None or d < 60.0) and (second is not None or not mechs or d + 15.0 < enemy_d or enemy_d > 90.0):
+                    val = LOOT_VAL_UNARMED if second is None else 1.2
                     cands.append({"kind": "loot", "pos": list(loot["pos"]), "id": loot["id"], "key": ("loot", loot["id"]), "val": val, "d": d})
 
         # Shooting crates and drones deals damage, which stops regen: not while resting.
