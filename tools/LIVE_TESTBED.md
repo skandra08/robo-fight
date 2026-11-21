@@ -114,3 +114,29 @@ python3 check/check.py -- python3 -u bot.py
 ```
 
 - Push the branch, then pass its full hash to `H.batch`.
+
+## 8. Headless Python harness (no browser)
+
+When you cannot paste into a play-tab console (agents, SSH), use the same
+private-room protocol from Node-less Python:
+
+```sh
+# one match (loads bot sources from the given full commit via git archive)
+python3 tools/private_room_harness.py one \
+  --tag best --commit b7b5c38367dbf208f836f77d8f8a1ee4dd2658f4 \
+  --out results/live-smoke.json
+
+# parallel batch (keep rooms modest; back off on HTTP 429 / "busy")
+python3 tools/private_room_harness.py batch \
+  --commits best=b7b5c38367dbf208f836f77d8f8a1ee4dd2658f4,sticky=cc6052e5513b3c5b1eaec151ce127c57e871ed88 \
+  --per-tag 4 --rooms 4 --out results/live-batch.json
+```
+
+- Speaks `/mm/code/new` + `wss://…/r/<room>/play` + optional `/live` spectator,
+  same as `lobby_harness.js`.
+- Runs the real `bot.Bot` locally (not Pyodide); materializes each commit under
+  `.cache/bot-commits/<hash>/`.
+- Prints `H.cmp()`-compatible JSON (`score = 16 − place`, kills, cubes, modes,
+  killedBy). Respect `/mm/code/new` refusals (`429 slow`, `503 busy`) — do not
+  spam the public lobby (`/play`).
+
