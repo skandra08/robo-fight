@@ -499,6 +499,87 @@ def test_f1_detector(bot: Bot) -> None:
     check("F1 no FIGHT vs unaware 80m", mode != "FIGHT")
 
 
+def test_cookoff_bonus_timing(bot: Bot) -> None:
+    """protocol.md: cook-off +60% vs mortar carriers (full charge); splash lead within splash_radius."""
+    from combat import Combat  # noqa: WPS433
+
+    c: Combat = bot.combat  # type: ignore[attr-defined]
+
+    class _Mem:
+        last_mortar_t = -1e9
+        shots_here = 0
+        shots = 0
+        mortars_here = 0
+        mortars = 0
+
+    me = {
+        "pos": [0.0, 0.0, 1.0],
+        "aim": [0.0, 0.0],
+        "stats": {"turn_rate": 4.0, "pitch_rate": 4.0, "muzzle_height": 7.0, "height": 9.0},
+        "weapons": [None, {"kind": "laser", "charge": 0.5, "cooldown": 0}],
+    }
+    mortar_carrier = {
+        "id": 2,
+        "kind": "mech",
+        "pos": [60.0, 0.0, 1.0],
+        "vel": [0.0, 0.0, 0.0],
+        "hp": 900,
+        "weapons": ["gun", "mortar"],
+        "cubes": 0,
+    }
+    lightning_carrier = {
+        "id": 3,
+        "kind": "mech",
+        "pos": [50.0, 0.0, 1.0],
+        "vel": [0.0, 0.0, 0.0],
+        "hp": 700,
+        "weapons": ["gun", "lightning"],
+        "cubes": 0,
+    }
+    # Force clear LOS by stubbing clear_shot.
+    c.clear_shot = lambda *a, **k: True  # type: ignore[method-assign]
+    clear, _any = c.pick_fight_targets(me, [lightning_carrier, mortar_carrier], None)
+    check("cookoff prefers mortar carrier over nearer/lower-HP lightning", clear is not None and int(clear["id"]) == 2)
+
+    desired = c.aim_at(me, mortar_carrier, "laser")
+    me_mid = dict(me)
+    me_mid["aim"] = list(desired)
+    me_mid["weapons"] = [None, {"kind": "laser", "charge": 0.5, "cooldown": 0}]
+    fire_mid, _, _ = c.fire_slots(me_mid, desired, mortar_carrier, 1.0, _Mem(), aim_kind="laser")
+    check("cookoff holds laser until full charge vs mortar", fire_mid[1] is True)
+
+    me_full = dict(me)
+    me_full["aim"] = list(desired)
+    me_full["weapons"] = [None, {"kind": "laser", "charge": 0.75, "cooldown": 0}]
+    fire_full, _, _ = c.fire_slots(me_full, desired, mortar_carrier, 1.0, _Mem(), aim_kind="laser")
+    check("cookoff releases at full charge vs mortar", fire_full[1] is False)
+
+    # Splash predict: fast lateral mover at ~100 m — lead should exceed old 15 m hard cap
+    # but keep impact within splash_radius of predicted feet.
+    me_m = {
+        "pos": [0.0, 0.0, 1.0],
+        "aim": [0.0, 0.0],
+        "stats": {"height": 9.0, "muzzle_height": 7.0},
+        "weapons": [None, {"kind": "mortar", "cooldown": 0}],
+    }
+    feet = [100.0, 0.0, 1.0]
+    vel = [0.0, 18.0, 0.0]  # ~18 m/s lateral
+    aim = c.mortar_aim(me_m, feet, vel)
+    check("splash predict returns a mortar solution", aim is not None)
+    assert aim is not None
+    # Impact aim yaw should be ahead of static bearing (positive for +vy).
+    check("splash predict leads ahead of strafer", aim[0] > math.radians(5.0))
+    # Reconstruct impact XY from yaw + range via pitch/flight is heavy; check lead distance
+    # from aiming past the 15 m soft cap when splash covers the residual.
+    # With v=72, R~100, t_flight ~ R/(v*cosθ) ≈ 1.5–2 s → raw lead ~27–36 m.
+    # Soft cap 15 + splash 7 = 22 → aim lead should be > 15 m (old hard cap).
+    yaw = aim[0]
+    # Approximate impact offset from yaw relative to target bearing 0.
+    # At R≈100, yaw≈lead_y/R → lead_y ≈ 100*yaw.
+    lead_approx = abs(100.0 * yaw)
+    check("splash predict lead exceeds old 15 m hard cap", lead_approx > 15.0)
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
@@ -515,6 +596,7 @@ def main() -> int:
         test_n5_farm,
         test_n6_drop1,
         test_f1_detector,
+        test_cookoff_bonus_timing,
     ]
     failed = 0
     for fn in tests:

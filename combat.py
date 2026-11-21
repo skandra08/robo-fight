@@ -48,6 +48,19 @@ class Combat:
         """Min seconds between mortar shots; live weapon cooldown still gates fire."""
         return float((self.weapons.get("mortar") or {}).get("cooldown", 2.6))
 
+    @staticmethod
+    def carries_mortar(mech: Dict[str, Any]) -> bool:
+        """True if visible weapons list includes mortar (protocol: empty slots omitted)."""
+        ws = mech.get("weapons") or []
+        return isinstance(ws, list) and "mortar" in ws
+
+    @staticmethod
+    def we_have_laser(me: Dict[str, Any]) -> bool:
+        for w in me.get("weapons") or []:
+            if w and w.get("kind") == "laser":
+                return True
+        return False
+
     def clear_shot(
         self,
         me: Dict[str, Any],
@@ -110,6 +123,9 @@ class Combat:
             if self.clear_shot(me, m["pos"], int(m["id"]), cubes):
                 clear_cands.append(m)
 
+        # Cook-off: with a laser, prefer mortar carriers (+60% per protocol.md).
+        cookoff = self.we_have_laser(me)
+
         def choose(cands: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
             if not cands:
                 return None
@@ -117,8 +133,13 @@ class Combat:
                 for m in cands:
                     if int(m["id"]) == prefer_id:
                         return m
+            pool = cands
+            if cookoff:
+                mortars = [m for m in cands if self.carries_mortar(m)]
+                if mortars:
+                    pool = mortars
             return min(
-                cands,
+                pool,
                 key=lambda m: (m.get("hp", 1400), math.dist(m["pos"][:2], me["pos"][:2])),
             )
 
@@ -190,8 +211,10 @@ class Combat:
         tx, ty = float(target_feet[0]), float(target_feet[1])
         tz = float(target_feet[2]) + 1.0
         vx, vy = float(vel[0]), float(vel[1])
-        # iterate lead; damp long-flight lead so walking targets aren't aimed 70 m ahead
+        # Splash-aware lead (protocol.md: splash_radius 7 m). Soft-cap hard lead at 15 m,
+        # then allow up to +splash_radius so the blast still reaches the predicted feet.
         lead_cap = 15.0
+        splash_r = float(w.get("splash_radius", 7))
         px, py = tx, ty
         best: Optional[List[float]] = None
         for _ in range(3):
@@ -221,10 +244,13 @@ class Combat:
             if theta is None:
                 return None
             t_flight = R / (v * math.cos(theta))
+            # Predicted feet at impact. Soft-cap at lead_cap + splash_r so the blast
+            # still reaches a strafer when pure intercept exceeds the old 15 m hard cap.
             lead_x, lead_y = vx * t_flight, vy * t_flight
             lead_d = math.hypot(lead_x, lead_y)
-            if lead_d > lead_cap:
-                s = lead_cap / lead_d
+            max_lead = lead_cap + splash_r
+            if lead_d > max_lead:
+                s = max_lead / lead_d
                 lead_x *= s
                 lead_y *= s
             px = tx + lead_x
@@ -288,10 +314,19 @@ class Combat:
                 # Charging while way off-target telegraphs + risks hold_s auto-fire the wrong way.
                 # Only pull the trigger when roughly aligned; if already charging, keep holding
                 # until we can release on-target (releasing early also fires along current aim).
+                # Cook-off timing (protocol.md): +60% vs mortar carriers multiplies charge-scaled
+                # damage — hold to full charge + tighter lock before release.
                 charge = float(w.get("charge") or 0)
                 need = float((self.weapons.get("laser") or {}).get("charge", 0.75))
                 charging = charge > 0.02
-                if charge >= need - 0.02 and laser_aimed:
+                cookoff = self.carries_mortar(target)
+                if cookoff:
+                    ready = charge >= need
+                    on_tgt = self.aligned(me, desired_aim, 3.0)
+                else:
+                    ready = charge >= need - 0.02
+                    on_tgt = laser_aimed
+                if ready and on_tgt:
                     fire[i] = False  # release on target
                 elif charging or laser_close:
                     fire[i] = True
