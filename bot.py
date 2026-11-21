@@ -20,7 +20,7 @@ What it carries over on purpose (all from real data):
   * roofs give a better exchange than the ground: camp roofs when idle, and fight from
     the roof instead of jumping down to chase;
   * zone was 18% of damage taken: keep the stuck-proof zone escape and move early;
-  * greedy upgrade order (armor first) beat sustain-first;
+  * upgsus upgrade order (nanites/plating/armor first);
   * no FFA detector, no disengage/third/gatekeep/ambush/laser-dodge modes.
 """
 from __future__ import annotations
@@ -39,14 +39,14 @@ from nav import Navigator
 from world import World
 
 UPGRADE_PRIORITY = [
-    "armor",
-    "plating",
     "nanites",
+    "plating",
+    "armor",
+    "gun_rate",
+    "gun_damage",
     "laser_damage",
     "laser_charge",
     "mortar_reload",
-    "gun_damage",
-    "gun_rate",
     "jets",
     "capacitor",
     "sensors",
