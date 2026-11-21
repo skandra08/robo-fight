@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "laser-peek"
+LABEL = "cube-farm"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
@@ -15,8 +15,8 @@ LEVERS: Dict[str, bool] = {
     "N3": False,  # after kill: loot then heal ≥90%
     "S2": False,  # remove 1v1 ambush
     "S3": False,  # no ARM boost inside the zone
-    "N4": True,  # pre-charged laser peeks
-    "N5": False,  # cube snowball (drones + kill cubes)
+    "N4": False,  # pre-charged laser peeks
+    "N5": True,  # cube snowball (drones + kill cubes)
     "N6": False,  # contest supply drop 1
     "S4": False,  # ROTATE gatekeep off in practice
     "F1": False,  # FFA detector + survival mode
