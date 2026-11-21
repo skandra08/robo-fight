@@ -83,6 +83,8 @@ class Bot:
         self.combat = Combat(self.world, self.cfg)
         self.loot_r = float(self.cfg["loot"]["pickup_radius"])
         self.cube_r = float(self.cfg["cubes"]["pickup_radius"])
+        self.near_range = float((self.cfg.get("vision") or {}).get("near_range", 45.0))
+        self.step_up = float((self.cfg.get("mech") or {}).get("step_up", 1.2))
         self.npc_avoid = 50.0
         self.drop_avoid = 40.0
         self.mem.strafe_sign = 1.0 if self.mem.rand() > 0.5 else -1.0
@@ -108,7 +110,7 @@ class Bot:
         self.mem.world_on_roof = self.world.on_roof(me["pos"])
         if self.mem.world_on_roof:
             self.mem.time_on_roof += 0.1
-        self.mem.update(obs)
+        self.mem.update(obs, near_range=self.near_range)
 
         act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
 
@@ -227,7 +229,9 @@ class Bot:
 
         recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
         visible = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
-        loot = self.mem.best_loot(me["pos"], t)
+        loot = self.mem.best_loot(
+            me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
+        )
         loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
         enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
 
@@ -492,7 +496,9 @@ class Bot:
         # Do NOT abandon arming when enemies appear — fight while we loot.
         # (Old 150 m flee left us gun-only forever against hunter squads.)
 
-        best = self.mem.best_loot(me["pos"], t)
+        best = self.mem.best_loot(
+            me["pos"], t, world=self.world, on_roof=self.mem.world_on_roof, step_up=self.step_up
+        )
         # Prefer currently visible ids for take
         visible = {int(p["id"]): p for p in (obs.get("pickups") or []) if p.get("kind") != "gun"}
         if best and int(best["id"]) in visible:
@@ -502,10 +508,14 @@ class Bot:
                 "pos": list(visible[int(best["id"])]["pos"]),
             }
         elif not best and visible:
-            # rank visible only
+            # rank visible only (still skip elevated roof loot from the ground)
             best = None
             best_score = -1e9
             for p in visible.values():
+                if self._loot_is_elevated_roof(p["pos"]) and not self.mem.world_on_roof:
+                    continue
+                if self.mem.world_on_roof and not self._loot_on_our_roof(me["pos"], p["pos"]):
+                    continue
                 d = math.dist(p["pos"][:2], me["pos"][:2])
                 kind = p["kind"]
                 score = {"laser": 300, "mortar": 200, "lightning": 100}.get(kind, 0) - d
@@ -523,7 +533,8 @@ class Bot:
         if best is not None:
             goal = best["pos"]
             self.mem.arm_goal = list(goal[:2])
-            if math.dist(best["pos"][:2], me["pos"][:2]) <= self.loot_r + 0.5:
+            # Server take limit is loot_r horizontally; stay slightly inside to avoid range spam.
+            if math.dist(best["pos"][:2], me["pos"][:2]) <= self.loot_r - 0.3:
                 if int(best["id"]) in visible:
                     act["take"] = best["id"]
         elif cube is not None:
@@ -842,6 +853,15 @@ class Bot:
         act["fire"] = fire
         if reload:
             act["reload"] = True
+
+    def _loot_is_elevated_roof(self, pos: List[float]) -> bool:
+        gz = self.world.ground(pos[0], pos[1])
+        return pos[2] - gz > self.step_up + 3.0
+
+    def _loot_on_our_roof(self, me_pos: List[float], loot_pos: List[float]) -> bool:
+        my_rid = self.world.roof_at(me_pos[0], me_pos[1])
+        loot_rid = self.world.roof_at(loot_pos[0], loot_pos[1])
+        return my_rid is not None and loot_rid is not None and int(my_rid) == int(loot_rid)
 
     def _avoid(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]

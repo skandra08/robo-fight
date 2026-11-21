@@ -57,10 +57,11 @@ class Memory:
         self.rng_state = (1103515245 * self.rng_state + 12345) & 0x7FFFFFFF
         return self.rng_state / 0x7FFFFFFF
 
-    def update(self, obs: Dict[str, Any]) -> None:
+    def update(self, obs: Dict[str, Any], near_range: float = 45.0) -> None:
         t = float(obs["t"])
         self.total_time = t
         me = obs["self"]
+        me_pos = me["pos"]
 
         for m in obs.get("mechs") or []:
             if m.get("kind") != "mech":
@@ -100,8 +101,16 @@ class Memory:
                 self.loot.pop(int(e["id"]), None)
             if e.get("type") == "take_failed" and e.get("reason") == "gone" and e.get("id") is not None:
                 self.loot.pop(int(e["id"]), None)
+        # Bug #5: near-range vision is all-around — if remembered loot is close
+        # and missing from this tick's pickups, it's gone (don't grind for 45 s).
         for pid in list(self.loot):
-            if pid not in seen_loot and t - self.loot[pid]["last_seen_t"] > 45.0:
+            if pid in seen_loot:
+                continue
+            p = self.loot[pid]
+            d_xy = ((p["pos"][0] - me_pos[0]) ** 2 + (p["pos"][1] - me_pos[1]) ** 2) ** 0.5
+            if d_xy <= near_range:
+                del self.loot[pid]
+            elif t - p["last_seen_t"] > 45.0:
                 del self.loot[pid]
 
         for e in obs.get("events") or []:
@@ -156,11 +165,30 @@ class Memory:
         self.peek_phase = 0
         self.peek_until = 0.0
 
-    def best_loot(self, pos: List[float], t: float) -> Optional[Dict[str, Any]]:
+    def best_loot(
+        self,
+        pos: List[float],
+        t: float,
+        world: Any = None,
+        on_roof: bool = False,
+        step_up: float = 1.2,
+    ) -> Optional[Dict[str, Any]]:
         best = None
         best_score = -1e9
+        my_rid = None
+        if world is not None and on_roof:
+            my_rid = world.roof_at(pos[0], pos[1])
         for p in self.loot.values():
             kind = p["kind"]
+            # Bug #5: skip elevated roof loot unless we're on that same roof.
+            if world is not None:
+                gz = world.ground(p["pos"][0], p["pos"][1])
+                if p["pos"][2] - gz > step_up + 3.0:
+                    if not on_roof:
+                        continue
+                    loot_rid = world.roof_at(p["pos"][0], p["pos"][1])
+                    if my_rid is None or loot_rid is None or int(my_rid) != int(loot_rid):
+                        continue
             d = ((p["pos"][0] - pos[0]) ** 2 + (p["pos"][1] - pos[1]) ** 2) ** 0.5
             age = t - p["last_seen_t"]
             if kind == "laser" and d <= 160:
