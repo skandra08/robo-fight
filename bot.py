@@ -72,7 +72,7 @@ LIGHTNING_CLOSE = True  # lightning loadouts fight at 20-40 m
 LOWHP_BONUS = 30.0  # metres of preference for a nearly dead target
 HP_WEIGHT = 0.0  # metres of preference per 100 HP the target is missing
 STRAFE_PERIOD = 2.7
-LIGHTNING_DUAL = False  # gun keeps firing while lightning is in range
+LIGHTNING_DUAL = True  # gun keeps firing while lightning is in range
 MORTAR_IN_RELOAD = False  # lob mortar shells while the gun reloads
 LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
