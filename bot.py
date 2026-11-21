@@ -210,7 +210,7 @@ class Bot:
         if levers.on("G1") and second is None and act.get("take") is None:
             best_k = None
             for p in obs.get("pickups") or []:
-                if p.get("kind") == "gun":
+                if p.get("kind") == "gun" or (levers.on("G3") and p.get("kind") == "lightning"):
                     continue
                 if math.dist(p["pos"][:2], me["pos"][:2]) > self.loot_r - 0.3:
                     continue
@@ -887,6 +887,7 @@ class Bot:
             and second is None
             and loot is not None
             and loot_d < 60.0
+            and not (levers.on("G3") and loot.get("kind") == "lightning")
             and me.get("in_zone", True)
             and not (recent_dmg and visible and enemy_d < loot_d + 10.0)
         ):
