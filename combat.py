@@ -130,6 +130,14 @@ class Combat:
         tv = target.get("vel") or [0, 0, 0]
         cubes = target.get("cubes")
         tz = self.com_z(tz_feet, cubes if isinstance(cubes, int) else None)
+        # elevation-aim: when target is above us, bias toward upper torso; below → lower torso
+        # so roof/ground cross-shots don't center-mass into the floor/parapet.
+        if kind in ("gun", "laser", "lightning"):
+            dz_feet = float(tz_feet) - float(me["pos"][2])
+            if dz_feet > 3.0:
+                tz += min(2.5, dz_feet * 0.15)
+            elif dz_feet < -3.0:
+                tz += max(-2.0, dz_feet * 0.12)
         if kind == "gun":
             speed = float((self.weapons.get("gun") or {}).get("speed", 252))
             px, py, pz = tx, ty, tz
