@@ -264,10 +264,10 @@ class Combat:
                     reload = True
             return fire, reload, None
 
-        # Slightly wider than 2° so torso slew still sustains gun DPS.
-        aimed = self.aligned(me, desired_aim, 4.0)
+        # Hold fire until aim is tight (2°) — fewer wasted shots while torso is still slewing.
+        aimed = self.aligned(me, desired_aim, 2.0)
         laser_close = self.aligned(me, desired_aim, 15.0)  # start/keep charge only when roughly on target
-        laser_aimed = self.aligned(me, desired_aim, 4.0)
+        laser_aimed = self.aligned(me, desired_aim, 2.0)
 
         for i, w in enumerate(weapons):
             if not w:
