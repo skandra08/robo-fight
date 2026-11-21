@@ -291,7 +291,7 @@ class Bot:
             return "DRONE"
 
         # Back off to heal when low, unless the target is about to die.
-        if mechs or hit_by_mech:
+        if mechs or hit_by_mech or target is not None:
             finishing = target is not None and self._nearly_dead(target)
             if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP * 0.85 and not finishing:
                 return "HEAL"
@@ -347,6 +347,13 @@ class Bot:
                 best, best_d = m, d
         if prev is not None and prev[1] < best_d * 1.25 + 10.0:
             best = prev[0]
+        if best is None and me["hp"] > 0.5 * me["max_hp"]:
+            # A nearly dead mech that ducked out of view: chase it (kills are the points).
+            for e in self.mem.enemies.values():
+                if t - float(e.get("last_seen_t", -1e9)) < self.memory_s and self._nearly_dead(e):
+                    if _d2(e["pos"], me["pos"]) < 150.0:
+                        best = e
+                        break
         if best is None and hit_recent and self.mem.last_threat_id in self.mem.enemies:
             e = self.mem.enemies[self.mem.last_threat_id]
             if t - float(e.get("last_seen_t", -1e9)) < self.memory_s:
