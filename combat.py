@@ -265,7 +265,7 @@ class Combat:
             return fire, reload, None
 
         # Slightly wider than 2° so torso slew still sustains gun DPS.
-        aimed = self.aligned(me, desired_aim, 4.0)
+        aimed = self.aligned(me, desired_aim, 3.0)  # 381: tighter gun fire gate
         laser_close = self.aligned(me, desired_aim, 15.0)  # start/keep charge only when roughly on target
         laser_aimed = self.aligned(me, desired_aim, 4.0)
 
