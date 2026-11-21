@@ -499,14 +499,147 @@ def test_f1_detector(bot: Bot) -> None:
     check("F1 no FIGHT vs unaware 80m", mode != "FIGHT")
 
 
+def test_playbook_classic(bot: Bot) -> None:
+    if levers.playbook() != "classic-roof":
+        print("  SKIP classic-roof playbook")
+        return
+    check("classic Bot.name", Bot.name == "lh-classic-roof")
+    bot.mem.world_on_roof = False
+    bot.mem.positioned = False
+    bot.mem.loadout_goal = None
+    me = {"pos": [0.0, 0.0, 1.0], "hp": 1000, "max_hp": 1000}
+    check("classic mortar wants roof", bot._wants_roof("mortar"))
+    check("classic not positioned on ground", not bot._loadout_positioned(me, "mortar", _base_obs()["zone"]))
+    obs = _base_obs(
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "laser", "charge": 0, "cooldown": 0},
+            ],
+        }
+    )
+    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
+    check(f"classic armed ground → RELOCATE (got {mode})", mode == "RELOCATE")
+    # Aware mid-range 1v1 must NOT ambush-FIGHT before roof (classic has no ambush).
+    enemy = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [60.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],  # looking at us
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    obs2 = _base_obs(mechs=[enemy], self=obs["self"])
+    bot.mem.last_took_weapon_damage_t = -1e9
+    mode2 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check(f"classic no ambush vs aware 60m (got {mode2})", mode2 in ("RELOCATE", "CAMP", "HEAL"))
+
+
+def test_playbook_edge(bot: Bot) -> None:
+    if levers.playbook() != "edge-hunter":
+        print("  SKIP edge-hunter playbook")
+        return
+    check("edge Bot.name", Bot.name == "lh-edge-hunter")
+    check("edge no roof", not bot._wants_roof("laser"))
+    # Rear 1v1 → FIGHT
+    enemy = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [40.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [0.0, 0.0],  # facing away → we flank
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    obs = _base_obs(
+        mechs=[enemy],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "laser", "charge": 0, "cooldown": 0},
+            ],
+        },
+    )
+    bot.mem.positioned = True
+    bot.mem.world_on_roof = False
+    bot.mem.last_took_weapon_damage_t = -1e9
+    mode = bot._select_mode(obs, "laser")  # type: ignore[arg-type]
+    check(f"edge rear 1v1 → FIGHT (got {mode})", mode == "FIGHT")
+    # Aware frontal 1v1 → not FIGHT (rotate/camp/heal)
+    enemy2 = dict(enemy)
+    enemy2["aim"] = [math.pi, 0.0]
+    obs2 = _base_obs(mechs=[enemy2], self=obs["self"])
+    mode2 = bot._select_mode(obs2, "laser")  # type: ignore[arg-type]
+    check(f"edge frontal aware → not FIGHT (got {mode2})", mode2 != "FIGHT")
+
+
+def test_playbook_loot(bot: Bot) -> None:
+    if levers.playbook() != "loot-brawl":
+        print("  SKIP loot-brawl playbook")
+        return
+    check("loot Bot.name", Bot.name == "lh-loot-brawl")
+    check("loot no roof", not bot._wants_roof("laser"))
+    check("loot lightning-first", __import__("bot")._lightning_first())
+    e1 = {
+        "id": 4,
+        "kind": "mech",
+        "pos": [50.0, 0.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    e2 = {
+        "id": 5,
+        "kind": "mech",
+        "pos": [55.0, 10.0, 1.0],
+        "vel": [0, 0, 0],
+        "aim": [math.pi, 0.0],
+        "charging": False,
+        "hp": 900,
+        "weapons": [],
+    }
+    obs = _base_obs(
+        mechs=[e1, e2],
+        self={
+            "pos": [0.0, 0.0, 1.0],
+            "weapons": [
+                {"kind": "gun", "ammo": 30, "cooldown": 0},
+                {"kind": "lightning", "cooldown": 0},
+            ],
+        },
+    )
+    bot.mem.positioned = True
+    bot.mem.disengage_rearm_t = -1e9
+    mode = bot._select_mode(obs, "lightning")  # type: ignore[arg-type]
+    check(f"loot 2 hunters → DISENGAGE (got {mode})", mode == "DISENGAGE")
+    obs1 = _base_obs(mechs=[e1], self=obs["self"])
+    bot.mem.mode = "CAMP"
+    bot.mem.disengage_until = 0.0
+    mode1 = bot._select_mode(obs1, "lightning")  # type: ignore[arg-type]
+    check(f"loot mid-range 1v1 → FIGHT (got {mode1})", mode1 == "FIGHT")
+
+
 def main() -> int:
     map_dir = os.path.join(ROOT, "arena")
     if not os.path.isdir(os.path.join(map_dir, "v2")):
         print("FAIL: arena/v2 missing", file=sys.stderr)
         return 1
-    print(f"strategy unit checks variant={levers.LABEL} levers={ {k:v for k,v in levers.LEVERS.items() if v} }")
+    print(
+        f"strategy unit checks variant={levers.LABEL} playbook={levers.playbook()} "
+        f"levers={ {k:v for k,v in levers.LEVERS.items() if v} }"
+    )
     bot = _bot(map_dir)
     tests = [
+        test_playbook_classic,
+        test_playbook_edge,
+        test_playbook_loot,
         test_s1_roof,
         test_n1_counter,
         test_n2_edge,

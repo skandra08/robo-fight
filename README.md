@@ -1,6 +1,6 @@
 # loadout-hunter (robo-fight)
 
-Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up roof camp, take advantaged fights; stay and fight (no DISENGAGE/THIRD in practice). R3 strategy levers in `levers.py` / `try/*` tags.
+Mech Royale practice bot. **Pivot:** three playbooks in `levers.PLAYBOOK` (`classic-roof` / `edge-hunter` / `loot-brawl`) — see `STRATEGY_PIVOT.md`. Legacy R3 lever A/B tags remain on origin for history.
 
 ## Stance
 

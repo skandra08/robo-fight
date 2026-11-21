@@ -1,16 +1,20 @@
-"""Strategy-plan levers for try/* A/B builds (robo-fight-strategy-plan.md).
+"""Practice playbook selector for try/* builds (post A/B lever-loop pivot).
 
-Each try/<label> commit sets LABEL + which LEVERS are True. Bot.name = lh-<LABEL>.
+PLAYBOOK owns decisions. Legacy LEVERS stay False on pivot tags — bugfixes live
+in bot/combat/nav regardless. Bot.name = lh-<LABEL>.
 """
 from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "dual-fire"
+LABEL = "classic-roof"
+# classic-roof | edge-hunter | loot-brawl
+PLAYBOOK = "classic-roof"
 
+# Legacy S/N/F levers — off for pivot playbooks (kept for test_strategy skips).
 LEVERS: Dict[str, bool] = {
-    "S1": True,  # every loadout camps on a roof
-    "N1": True,  # laser counter for every loadout
+    "S1": False,  # every loadout camps on a roof
+    "N1": False,  # laser counter for every loadout
     "N2": False,  # edge-guard hunters climbing our roof
     "N3": False,  # after kill: loot then heal ≥90%
     "S2": False,  # remove 1v1 ambush
@@ -20,7 +24,7 @@ LEVERS: Dict[str, bool] = {
     "N6": False,  # contest supply drop 1
     "S4": False,  # ROTATE gatekeep off in practice
     "F1": False,  # FFA detector + survival mode
-    "DUAL_FIRE": True,  # gun keeps firing on lead while laser/lightning charge/fire
+    "DUAL_FIRE": False,  # gun keeps firing on lead while laser/lightning charge/fire
     "HOLD_FIGHT": False,  # no chase in fight; hold roof / half-strafe; idle aim no fire
     "GROUND_ANCHOR": False,  # choke/pocket hold phases 0-2; roof fallback late
     "LIGHTNING_FIRST": False,  # loot lightning > laser > mortar; prefer pocket anchors
@@ -29,3 +33,7 @@ LEVERS: Dict[str, bool] = {
 
 def on(key: str) -> bool:
     return bool(LEVERS.get(key))
+
+
+def playbook() -> str:
+    return PLAYBOOK
