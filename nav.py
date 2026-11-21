@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import math
+
+import levers
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -95,6 +97,15 @@ class Navigator:
             # any >1.2 m rise over 4-9 m a wall (gentle ramps), which made us jitter in pits.
             yaw = math.atan2(gy - y, gx - x)
             frac = max(0.0, min(1.0, speed_frac))
+            # S5: the grid misses walls thinner than a cell, and a rim probe already touching a
+            # wall blocks every step (sim seed 35: pinned 85 s). Slide: take the heading closest
+            # to the path whose next 1.5 m keeps the footprint clear.
+            if levers.on("S5") and not self.world.footprint_free(x + math.cos(yaw) * 1.5, y + math.sin(yaw) * 1.5, z):
+                for d in (30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180):
+                    ty = yaw + math.radians(d)
+                    if self.world.footprint_free(x + math.cos(ty) * 1.5, y + math.sin(ty) * 1.5, z):
+                        yaw = ty
+                        break
             return [math.cos(yaw) * frac, math.sin(yaw) * frac], yaw
         # If the direct line is walled, aim at a side waypoint first.
         want = math.atan2(gy - y, gx - x)
