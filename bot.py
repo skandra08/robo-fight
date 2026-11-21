@@ -1385,7 +1385,7 @@ class Bot:
         best = None
         best_d = 1e9
         # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 100.0 if not visible else min(60.0, enemy_d * 0.4)
+        reach = 160.0 if not visible else min(80.0, enemy_d * 0.5)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
@@ -1396,11 +1396,11 @@ class Bot:
             pk = self.mem.post_kill_pos
             d = math.dist(pk[:2], (mx, my))
             fresh = t - self.mem.post_kill_t < 30.0
-            if fresh and d > self.cube_r and d < 170.0 and pk[2] - mz < 3.0 and (not visible or enemy_d > d + 80.0):
+            if fresh and d > self.cube_r and d < 250.0 and pk[2] - mz < 3.0 and (not visible or enemy_d > d + 50.0):
                 best = {"kind": "site", "pos": list(pk)}
             elif not fresh or d <= self.cube_r:
                 self.mem.post_kill_pos = None
-        if best is None and enemy_d > 130.0:
+        if best is None and enemy_d > 90.0:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
                 if d > 150.0 or d < 1.0:
