@@ -2271,6 +2271,13 @@ class Bot:
                 # R5: no enemy near aim → release (don't half-speed hold to auto-fire).
                 fire[i] = False
                 changed = True
+                # laser-drop-underfire: if we're getting hit while misaligned mid-charge, drop it.
+                if (
+                    t - self.mem.last_took_weapon_damage_t < 1.0
+                    and charge >= self.laser_charge_s * 0.4
+                    and (best is None or best_ang > math.radians(12.0))
+                ):
+                    act["drop"] = i
         if changed or fire != list(act.get("fire") or [False, False]):
             act["fire"] = fire
 
