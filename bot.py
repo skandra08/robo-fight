@@ -86,6 +86,8 @@ SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than th
 SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
 SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
+HEAL_FIGHTBACK = False  # while backing off to heal, shoot the nearest mech whenever the shot is clear
+HEAL_GIVEUP_S = 1e9  # backing off this long while still being hit: turn and fight instead
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -336,9 +338,11 @@ class Bot:
         # Back off to heal when low, unless the target is about to die.
         if mechs or hit_by_mech or target is not None:
             finishing = target is not None and self._nearly_dead(target)
-            if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP * 0.85 and not finishing:
+            chased = (self.mode == "HEAL" and t - self.mode_t > HEAL_GIVEUP_S
+                      and t - self.mem.last_took_weapon_damage_t < 2.0)
+            if self.mode == "HEAL" and hp_frac < HEAL_DONE_HP * 0.85 and not finishing and not chased:
                 return "HEAL"
-            if hp_frac < RETREAT_HP and not finishing:
+            if hp_frac < RETREAT_HP and not finishing and not chased:
                 return "HEAL"
             if target is not None:
                 return "FIGHT"
@@ -779,7 +783,7 @@ class Bot:
             act["aim"] = [tb, -0.05]
 
         # Still being hit and they're in our sights: shoot back while we move.
-        if threat is not None and t - self.mem.last_took_weapon_damage_t < 1.5:
+        if threat is not None and (HEAL_FIGHTBACK or t - self.mem.last_took_weapon_damage_t < 1.5):
             cubes = threat.get("cubes") if isinstance(threat.get("cubes"), int) else None
             if self.combat.clear_shot(me, threat["pos"], int(threat["id"]), cubes):
                 kind = "laser" if _slot_of(me, "laser") is not None else "gun"
