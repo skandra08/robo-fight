@@ -169,6 +169,9 @@ class Bot:
         if mode == "FIGHT" and prev != "FIGHT":
             self.mem.fight_start_t = t
             self.mem.fight_start_hp = float(me["hp"])
+            self.mem.fight_burst_base = int(self.mem.shots)
+            self.mem.fight_peek_t = t
+            self.mem.fight_break_until = 0.0
         if mode != "DISENGAGE" and prev == "DISENGAGE":
             self.mem.disengage_goal = None
         tag = second or "gun"
@@ -1417,6 +1420,46 @@ class Bot:
 
         bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         energy_ok = me["energy"] / me["max_energy"] > 0.35
+
+        # Burst-break: after a short burst of fire, break LOS / strafe before re-peek
+        # so we trade less HP in open exchanges (gun ~4 shots or ~0.7 s clear peek).
+        if self.mem.fight_break_until > 0 and t >= self.mem.fight_break_until:
+            self.mem.fight_burst_base = int(self.mem.shots)
+            self.mem.fight_peek_t = t
+            self.mem.fight_break_until = 0.0
+        in_break = t < self.mem.fight_break_until
+        if clear and not in_break:
+            if self.mem.fight_peek_t < 0:
+                self.mem.fight_peek_t = t
+            burst_shots = int(self.mem.shots) - int(self.mem.fight_burst_base)
+            burst_done = burst_shots >= 4 or (t - self.mem.fight_peek_t) >= 0.7
+            if burst_done:
+                self.mem.fight_break_until = t + 1.0
+                self.mem.strafe_sign *= -1.0
+                in_break = True
+        if in_break:
+            act["fire"] = [False, False]
+            cover = self._side_step_cover(me, bearing)
+            if cover is not None:
+                move, _ = self.nav.steer(me, cover, 1.0, t)
+                act["move"] = move
+            else:
+                side = bearing + (math.pi / 2) * self.mem.strafe_sign
+                away = bearing + math.pi
+                act["move"] = [
+                    math.cos(side) * 0.55 + math.cos(away) * 0.45,
+                    math.sin(side) * 0.55 + math.sin(away) * 0.45,
+                ]
+            act["boost"] = energy_ok
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
+                act["boost"] = True
+            return
+        if not clear:
+            # Closing / no LOS: don't accumulate peek time toward a break.
+            self.mem.fight_peek_t = t
+            self.mem.fight_burst_base = int(self.mem.shots)
 
         # Laser on roof: hold firing edge for vision.
         if second == "laser" and self.mem.world_on_roof:

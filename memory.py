@@ -52,6 +52,10 @@ class Memory:
         self.fight_start_t = -1e9
         self.fight_start_hp = 0.0
         self.fight_target_id: Optional[int] = None
+        # Burst-break peek: fire a short burst, then break LOS before re-peek.
+        self.fight_burst_base = 0
+        self.fight_peek_t = -1e9
+        self.fight_break_until = 0.0
         self.disengage_goal: Optional[List[float]] = None
         self.disengage_until = 0.0
         self.combat_noise_since = -1e9
