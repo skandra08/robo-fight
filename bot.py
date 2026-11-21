@@ -88,7 +88,7 @@ class Bot:
         self.step_up = float((self.cfg.get("mech") or {}).get("step_up", 1.2))
         self.regen_delay = float((self.cfg.get("mech") or {}).get("regen_delay", 5.0))
         self.walk_speed = float((self.cfg.get("mech") or {}).get("walk_speed", 10.0))
-        self.npc_avoid = 50.0
+        self.npc_avoid = 0.0  # never steer away from drones: 350 HP, 2 cubes each
         self.drop_avoid = 40.0
         self.laser_cfg = (self.cfg.get("weapons") or {}).get("laser") or {}
         self.laser_hold_s = float(self.laser_cfg.get("hold_s", 2.0))
@@ -662,8 +662,8 @@ class Bot:
             if m.get("kind") != "npc":
                 continue
             d = math.dist(m["pos"][:2], me["pos"][:2])
-            if d < 45.0 or d > 80.0:
-                continue
+            if d > 150.0:
+                continue  # any range: aggro just means they come to us (2 cubes each)
             if (m["pos"][0] - zc[0]) ** 2 + (m["pos"][1] - zc[1]) ** 2 > (0.9 * zr) ** 2:
                 continue
             if d < best_d:
