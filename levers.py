@@ -12,9 +12,9 @@ from __future__ import annotations
 from typing import Dict
 
 
-LABEL = "zone-sheep"
+LABEL = "cube-snowball"
 # classic-roof | edge-hunter | loot-brawl | zone-sheep | cube-snowball
-PLAYBOOK = "zone-sheep"
+PLAYBOOK = "cube-snowball"
 
 # Legacy S/N/F levers — off for pivot playbooks (kept for test_strategy skips).
 LEVERS: Dict[str, bool] = {
