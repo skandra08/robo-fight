@@ -75,7 +75,7 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 | # | label | Bot.name | tag | full hash | try this if… |
 | --- | --- | --- | --- | --- | --- |
-| 0 | precise | lh-precise | `try/precise` | _(fill after push)_ | **mechanics-first** — thin ARM→zone→fight, low-level exploits |
+| 0 | precise | lh-precise | `try/precise` | `f32106a26b4747f2f497162fa2105ecd274e7871` | **mechanics-first** — thin ARM→zone→fight, low-level exploits |
 | 1 | zone-sheep | lh-zone-sheep | `try/zone-sheep` | `156b8d8e1a1720ab80d0272d147faea65fa8aae6` | quiet deep next-zone, heal, never start fights |
 | 2 | cube-snowball | lh-cube-snowball | `try/cube-snowball` | `5ac89093adc1f8af8cf0eeecbf8a3c5dc3c234ab` | farm cubes → tanky free fights |
 
