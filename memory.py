@@ -69,7 +69,7 @@ class Memory:
         self.rng_state = (1103515245 * self.rng_state + 12345) & 0x7FFFFFFF
         return self.rng_state / 0x7FFFFFFF
 
-    def update(self, obs: Dict[str, Any], near_range: float = 45.0) -> None:
+    def update(self, obs: Dict[str, Any], near_range: float = 45.0, world: Any = None) -> None:
         t = float(obs["t"])
         self.total_time = t
         me = obs["self"]
@@ -113,15 +113,27 @@ class Memory:
                 self.loot.pop(int(e["id"]), None)
             if e.get("type") == "take_failed" and e.get("reason") == "gone" and e.get("id") is not None:
                 self.loot.pop(int(e["id"]), None)
-        # Bug #5: near-range vision is all-around — if remembered loot is close
-        # and missing from this tick's pickups, it's gone (don't grind for 45 s).
+        # Bug #5 / R4: near-range vision is all-around, but buildings still block.
+        # Only delete when we have eye LOS to the pickup (cap checks per tick).
+        los_budget = 4
+        stats = me.get("stats") or {}
+        eh = float(stats.get("eye_height", 8.0))
+        eye = [me_pos[0], me_pos[1], me_pos[2] + eh]
         for pid in list(self.loot):
             if pid in seen_loot:
                 continue
             p = self.loot[pid]
             d_xy = ((p["pos"][0] - me_pos[0]) ** 2 + (p["pos"][1] - me_pos[1]) ** 2) ** 0.5
             if d_xy <= near_range:
-                del self.loot[pid]
+                if world is None:
+                    del self.loot[pid]
+                    continue
+                if los_budget <= 0:
+                    continue  # defer; stale age still clears eventually
+                los_budget -= 1
+                px, py, pz = p["pos"]
+                if not world.blocked_segment(eye, [px, py, pz + 0.5]):
+                    del self.loot[pid]
             elif t - p["last_seen_t"] > 45.0:
                 del self.loot[pid]
 

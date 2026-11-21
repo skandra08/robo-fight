@@ -112,7 +112,7 @@ class Bot:
         self.mem.world_on_roof = self.world.on_roof(me["pos"])
         if self.mem.world_on_roof:
             self.mem.time_on_roof += 0.1
-        self.mem.update(obs, near_range=self.near_range)
+        self.mem.update(obs, near_range=self.near_range, world=self.world)
 
         act: Dict[str, Any] = {"move": [0.0, 0.0], "boost": False, "jump": False, "fire": [False, False]}
 
