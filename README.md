@@ -45,6 +45,43 @@ docker build -t my-bot .
 python3 check/check.py --map-dir /arena -- docker run --rm -i --network none --cpus 1 --memory 512m --read-only --tmpfs /tmp:rw,size=64m --user 65534:65534 -v "$PWD/arena:/arena:ro" my-bot
 ```
 
+## Trying variants
+
+When unsure about a lever (THIRD, ARM aggression, early FIGHT), ship a named experiment instead of debating it. Each try is a **git tag** `try/<label>` whose tree has `Bot.name` containing that label so practice scores are identifiable.
+
+**Naming**
+
+- Tag: `try/<short-label>` (e.g. `try/v110-safe`, `try/no-third`)
+- `Bot.name`: `lh-<short-label>` (must contain the label; check reads it at ready)
+- Commit subject: starts with `try/<label> — …`
+
+**Submit a variant**
+
+```sh
+git fetch --tags
+git checkout try/v110-safe   # or any try/<label>
+python3 check/check.py -- python3 -u bot.py
+# submit that commit/tag to the tracker (Dockerfile at repo root)
+```
+
+Or push a new one:
+
+```sh
+tools/push_variant.sh <label> "<one-line desc>"
+```
+
+**Live try/\* tags** (base `26ba187` / v1.15 regression fixes)
+
+| Tag | Bot.name | What differs |
+| --- | --- | --- |
+| `try/v110-safe` | `lh-v110-safe` | Re-enable v1.10 gated THIRD (positioned+HP+near); quiet ARM + soft early FIGHT; DISENGAGE/RESET stay off (R2) |
+| `try/third-armed` | `lh-third-armed` | Sameer's original THIRD: armed + ~2–4s combat sounds (less gated) |
+| `try/no-third` | `lh-no-third` | THIRD stays completely disabled (R2 default on main) |
+| `try/arm-first` | `lh-arm-first` | Prioritize ARM/position over FIGHT until second weapon + positioned; THIRD still off |
+
+
 ## Submit
+
+Checkout a `try/<label>` tag (or its commit hash) when submitting an A/B experiment.
 
 Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/buildathon.

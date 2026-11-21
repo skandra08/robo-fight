@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-v110-safe"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
@@ -300,14 +300,10 @@ class Bot:
         return False
 
     def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
-        """THIRD disabled for practice (R2). Body kept for FFA (decision 6).
+        """try/v110-safe: practice-gated THIRD (v1.10) — positioned + healthy + near only.
 
-        Was practice-gated (v1.10): positioned + healthy + near sound only.
-        Shared-vision house hunters punish mid/far crash-ins.
+        DISENGAGE/RESET stay disabled (R2). Shared-vision packs punish mid/far crash-ins.
         """
-        if True:  # practice: never crash into sound fights
-            self.mem.third_commit = False
-            return False
         if second is None:
             return False
         if visible:
