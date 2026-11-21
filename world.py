@@ -180,6 +180,21 @@ class World:
                     return True
         return False
 
+    def footprint_free(self, x: float, y: float, z: float, r: float = 2.6, h: float = 9.0) -> bool:
+        """No prism occupies [z + step_up, z + h] at the centre or the 4 rim points (server-style
+        collision probe). Used to slide along walls when the grid path pushes us into one."""
+        for ox, oy in ((0.0, 0.0), (r, 0.0), (-r, 0.0), (0.0, r), (0.0, -r)):
+            px, py = x + ox, y + oy
+            for idx in self._candidates(px, py):
+                p = self.prisms[idx]
+                if p["top"] <= z + self.max_step or p["base"] >= z + h:
+                    continue
+                if px < p["minx"] or px > p["maxx"] or py < p["miny"] or py > p["maxy"]:
+                    continue
+                if _point_in_prism_xy(px, py, p):
+                    return False
+        return True
+
     def walkable_step(self, x: float, y: float, z: float, nx: float, ny: float, radius: float = 2.5) -> bool:
         """Can we move from (x,y) toward (nx,ny) on foot (rough)."""
         g0 = self.ground(x, y)
