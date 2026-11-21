@@ -1465,8 +1465,13 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # gun-sprint-close: with clear gun shot inside 55 m, boost-close instead of strafe.
         close_at = 55.0 if push_hard else 75.0
-        if not clear or dist > close_at:
+        if clear and second in (None, "gun") and 25.0 < dist < 55.0 and energy_ok:
+            move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
+            act["move"] = move
+            act["boost"] = True
+        elif not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
             act["boost"] = energy_ok and (dist > 50 or push_hard)
