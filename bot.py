@@ -226,6 +226,22 @@ class Bot:
         loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
         enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
 
+        # Bug #2: keep RELOCATE through contact so mid-climb sightings don't drop us,
+        # and so laser can still approach a climb when the nearest hunter is farther.
+        if second is not None and not self.mem.world_on_roof:
+            ct = self.mem.climb_target
+            climb_d = math.dist(me["pos"][:2], ct[:2]) if ct is not None else 1e9
+            near_climb = climb_d <= 10.0
+            airborne = not me.get("grounded")
+            if airborne and (self.mem.mode == "RELOCATE" or near_climb):
+                return "RELOCATE"
+            if self.mem.mode == "RELOCATE" and near_climb:
+                return "RELOCATE"
+            if second == "laser" and not recent_dmg and (
+                climb_d + 8.0 < enemy_d or (not self.mem.positioned and enemy_d > 70.0)
+            ):
+                return "RELOCATE"
+
         # Aggressive 1v1: armed (or gun with contact) + hunter hasn't spotted us / flank.
         ambush = self._ambush_target(me, visible)
         if ambush is not None and (second is not None or enemy_d < 90):
