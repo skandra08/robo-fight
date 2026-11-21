@@ -835,7 +835,21 @@ class Bot:
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
         mid_climb = self.mem.mode == "RELOCATE" and not me.get("grounded")
-        if not recent_dmg and not mid_climb and self._cube_goal(obs, visible, enemy_d) is not None:
+        cube_goal = None if (recent_dmg or mid_climb) else self._cube_goal(obs, visible, enemy_d)
+        if cube_goal is not None:
+            self._cube_sticky_until = t + 2.0
+            self._cube_sticky_target = dict(cube_goal)
+            return "CUBE"
+        # Sticky: brief goal flicker must not hand the tick to RELOCATE mid-scoop.
+        sticky = getattr(self, "_cube_sticky_target", None)
+        if (
+            not recent_dmg
+            and not mid_climb
+            and self.mem.mode == "CUBE"
+            and sticky is not None
+            and t < getattr(self, "_cube_sticky_until", -1e9)
+        ):
+            self._cube_target = dict(sticky)
             return "CUBE"
 
         # N3: after a kill, loot then heal to ≥90% when quiet.
@@ -1385,7 +1399,11 @@ class Bot:
         best = None
         best_d = 1e9
         # Visible cubes on our level (or below us): worth a walk unless a hunter is near.
-        reach = 160.0 if not visible else min(80.0, enemy_d * 0.5)
+        fresh_kill = t - self.mem.post_kill_t < 25.0
+        if not visible:
+            reach = 190.0 if fresh_kill else 160.0
+        else:
+            reach = min(80.0, enemy_d * 0.5)
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], (mx, my))
             if c["pos"][2] - mz > 3.0 or d > reach:
