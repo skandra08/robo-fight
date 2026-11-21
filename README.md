@@ -89,7 +89,7 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 11 | ffa | lh-ffa | `try/ffa` | `` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
 | 12 | r3-core | lh-r3-core | `try/r3-core` | `` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
 | 13 | r3-full | lh-r3-full | `try/r3-full` | `` | all S/N/F levers (= main) | full plan in one submit |
-| 14 | locked-proc | lh-locked-proc | `try/locked-proc` | `f8a5e4f4d8187c5852d833e486528edcc9cd7afb` | **S1+N1** + locked ARM→CUBE→DRONE→ROOF→FIGHT (sticky+killreach off best-265) | submit after best-265; see `docs/LOCKED_PROC.md` |
+| 14 | locked-proc | lh-locked-proc | `try/locked-proc` | `ab233a8a7f52617a2ba4984e975d268833d6d424` | **S1+N1** + locked ARM→CUBE→DRONE→ROOF→FIGHT (sticky+killreach off best-265) | submit after best-265; see `docs/LOCKED_PROC.md` |
 
 
 Offline proxy / careful play WS: `python3 tools/offline_proxy.py`; `python3 tools/play_ws_harness.py` (max 1–3; do not spam the shared lobby).
