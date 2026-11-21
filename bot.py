@@ -15,17 +15,25 @@ from nav import Navigator
 from world import World
 
 UPGRADE_PRIORITY = [
-    "armor",
+    # Per-pick value for a duel-by-duel practice game (time-to-kill ratio):
+    # plating x1.15 HP, gun_rate x1.15 dps, gun_damage x1.15 dps, laser_damage x1.18 burst,
+    # nanites (heal between hunters), armor only ~x1.09 per stack, gun_velocity (hit rate at range).
     "plating",
-    "nanites",
-    "laser_damage",
-    "laser_charge",
-    "mortar_reload",
-    "gun_damage",
     "gun_rate",
+    "gun_damage",
+    "laser_damage",
+    "nanites",
+    "armor",
+    "gun_velocity",
+    "laser_charge",
+    "gun_mag",
+    "mortar_reload",
     "jets",
     "capacitor",
+    "reactor",
     "sensors",
+    "gyros",
+    "servos",
 ]
 
 
