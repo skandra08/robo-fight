@@ -417,8 +417,63 @@ class Bot:
             return True
         return False
 
+    def _multi_attacker_pressure(self, visible: List[Dict[str, Any]], t: float) -> bool:
+        """≥2 mech attackers / multi-source damage within ~2.5s (hard DISENGAGE trigger)."""
+        sources: set = set()
+        dmg_2s = 0.0
+        for d in self.mem.damage_log:
+            age = t - float(d["t"])
+            if age > 2.5:
+                continue
+            w = d.get("weapon")
+            if w in (None, "zone", "npc"):
+                continue
+            if d.get("by") is not None:
+                sources.add(int(d["by"]))
+            if age <= 2.0:
+                dmg_2s += float(d.get("amount") or 0)
+        # Visible pack while recently hit counts as multi-attacker pressure.
+        pack = len(visible) >= 2 and (t - self.mem.last_took_weapon_damage_t < 2.5)
+        multi = len(sources) >= 2 or dmg_2s > 250.0 or pack
+        if multi:
+            self.mem.multi = True
+            self.mem.multi_until = t + 2.5
+        elif t <= self.mem.multi_until:
+            self.mem.multi = True
+        else:
+            self.mem.multi = False
+        return bool(self.mem.multi)
+
+    def _multi_clear_to_reenter(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
+        """Re-enter FIGHT only if ≤1 aggressor and HP≥45%."""
+        if self._multi_attacker_pressure(visible, t):
+            return False
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        if hp_frac < 0.45:
+            return False
+        recent_ids = {
+            int(d["by"])
+            for d in self.mem.damage_log
+            if t - float(d["t"]) <= 2.5
+            and d.get("by") is not None
+            and d.get("weapon") not in (None, "zone", "npc")
+        }
+        return len(recent_ids) <= 1 and len(visible) <= 1
+
     def _should_disengage(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
-        # R2 (practice): DISENGAGE off. F1 re-enables with R2 safeguards when mem.ffa.
+        # Hard multi-attacker DISENGAGE (practice-on): peel when ≥2 sources hit within ~2.5s.
+        multi = self._multi_attacker_pressure(visible, t)
+        if multi or (self.mem.multi_disengage and self.mem.mode == "DISENGAGE"):
+            if multi:
+                self.mem.multi_disengage = True
+            if self.mem.multi_disengage and not self._multi_clear_to_reenter(me, visible, t):
+                return True
+            # Cleared: drop multi latch and allow other mode selection.
+            self.mem.multi_disengage = False
+            self.mem.multi = False
+            return False
+
+        # R2 (practice): other DISENGAGE off. F1 re-enables with R2 safeguards when mem.ffa.
         if not (levers.on("F1") and self.mem.ffa):
             return False
         if t < self.mem.disengage_rearm_t:
@@ -451,6 +506,10 @@ class Bot:
         Was practice-gated (v1.10): positioned + healthy + near sound only.
         Shared-vision house hunters punish mid/far crash-ins.
         """
+        # Forbid third-party while multi-attacker pressure is latched.
+        if self._multi_attacker_pressure(visible, t) or self.mem.multi or self.mem.multi_disengage:
+            self.mem.third_commit = False
+            return False
         if True:  # practice: never crash into sound fights
             self.mem.third_commit = False
             return False
@@ -851,12 +910,18 @@ class Bot:
         loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
         enemy_d = min((math.dist(m["pos"][:2], me["pos"][:2]) for m in visible), default=1e9)
 
-        # Stay in DISENGAGE until cover / timer.
-        if self.mem.mode == "DISENGAGE" and t < self.mem.disengage_until:
+        # Stay in DISENGAGE until cover / timer (multi: until ≤1 aggressor + HP≥45%).
+        if self.mem.mode == "DISENGAGE" and (
+            t < self.mem.disengage_until or self.mem.multi_disengage
+        ):
+            if self.mem.multi_disengage and not self._multi_clear_to_reenter(me, visible, t):
+                return "DISENGAGE"
             if not visible or enemy_d > 55:
                 self.mem.fight_start_t = -1e9
                 self.mem.disengage_rearm_t = t + 3.0
                 self.mem.disengage_goal = None
+                self.mem.multi_disengage = False
+                self.mem.multi = False
             else:
                 return "DISENGAGE"
 
@@ -1035,16 +1100,21 @@ class Bot:
         act["boost"] = me["energy"] / max(1.0, me["max_energy"]) > 0.3
         act["aim"] = [away if away is not None else yaw, -0.05]
         # Stop shooting once LOS is broken / we put cover between us; peek-fire only if still pressed.
-        still_pressed = False
-        for e in visible:
-            if self.combat.clear_shot(me, e["pos"], int(e["id"])):
-                still_pressed = True
-                break
-        recent_hit = t - self.mem.last_took_weapon_damage_t < 1.0
-        if still_pressed and recent_hit:
-            self._try_fight_overlay(obs, act)
-        else:
+        # Multi peel: boost hard, break LOS, no greed laser finish.
+        if self.mem.multi or self.mem.multi_disengage:
+            act["boost"] = True
             act["fire"] = [False, False]
+        else:
+            still_pressed = False
+            for e in visible:
+                if self.combat.clear_shot(me, e["pos"], int(e["id"])):
+                    still_pressed = True
+                    break
+            recent_hit = t - self.mem.last_took_weapon_damage_t < 1.0
+            if still_pressed and recent_hit:
+                self._try_fight_overlay(obs, act)
+            else:
+                act["fire"] = [False, False]
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
