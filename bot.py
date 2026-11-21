@@ -71,6 +71,7 @@ LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
+SUPPLY_GIVEUP_S = 10.0  # rwm-supply: drop a supply goal we stop closing on for this long
 SEARCH_NEXT = True
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
@@ -413,8 +414,23 @@ class Bot:
             lands = float(d.get("lands_in") or 0.0)
             if lands > dist / max(1.0, speed) + 6.0:
                 continue  # leave when the walk there ends about when it lands
+            if self.__dict__.setdefault("_sup_ban", {}).get(int(d["id"]), -1e9) > float(obs["t"]):
+                continue
             if dist <= 450.0 and dist < best_d:
                 best, best_d = d, dist
+        if best is not None and SUPPLY_GIVEUP_S > 0:
+            # rwm-supply: a drop on a ledge we can't step onto held us 10-25 m away for 45 s
+            # (sim seed 44). Give up on a drop we haven't closed on for SUPPLY_GIVEUP_S.
+            t_now = float(obs["t"])
+            pr = self.__dict__.setdefault("_sup_prog", {})
+            key = int(best["id"])
+            rec = pr.get(key)
+            if rec is None or best_d < rec[0] - 3.0 or self.mode != "SUPPLY":
+                pr[key] = (best_d, t_now)
+            elif t_now - rec[1] > SUPPLY_GIVEUP_S and best_d > 0.5 * float((self.cfg.get("drops") or {}).get("radius", 8.0)):
+                self._sup_ban[key] = t_now + 45.0
+                pr.pop(key, None)
+                best = None
         if best is not None and self._zone_urgency(me, zone, float(obs["t"])) < 5.0:
             nc, nr = zone["next_center"], float(zone["next_radius"])
             if _d2(best["pos"], nc) > nr:
