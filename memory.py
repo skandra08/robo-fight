@@ -77,6 +77,10 @@ class Memory:
         self.precharge_active = False
         self.disengage_rearm_t = -1e9
         self.last_our_kill_t = -1e9
+        # Multi-attacker peel: ≥2 mech damage sources / multi-source spike → HEAL.
+        self.multi = False
+        self.multi_until = -1e9
+        self.multi_disengage = False
 
     def seed(self, seed: int) -> None:
         self.rng_state = int(seed) & 0x7FFFFFFF or 1

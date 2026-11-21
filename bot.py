@@ -277,6 +277,51 @@ class Bot:
         return pick
 
     # ---------------------------------------------------------------- deciding
+
+    def _multi_attacker_pressure(self, mechs: List[Dict[str, Any]], t: float) -> bool:
+        """≥2 mech attackers / multi-source damage within ~2.5s (hard peel → HEAL)."""
+        sources: set = set()
+        dmg_2s = 0.0
+        for d in self.mem.damage_log:
+            age = t - float(d["t"])
+            if age > 2.5:
+                continue
+            w = d.get("weapon")
+            if w in (None, "zone", "npc"):
+                continue
+            if d.get("by") is not None:
+                sources.add(int(d["by"]))
+            if age <= 2.0:
+                dmg_2s += float(d.get("amount") or 0)
+        pack = len(mechs) >= 2 and (t - self.mem.last_took_weapon_damage_t < 2.5)
+        multi = len(sources) >= 2 or dmg_2s > 250.0 or pack
+        if multi:
+            self.mem.multi = True
+            self.mem.multi_until = t + 2.5
+            self.mem.multi_disengage = True
+        elif t <= self.mem.multi_until:
+            self.mem.multi = True
+        else:
+            self.mem.multi = False
+            self.mem.multi_disengage = False
+        return bool(self.mem.multi or self.mem.multi_disengage)
+
+    def _multi_clear_to_reenter(self, me: Dict[str, Any], mechs: List[Dict[str, Any]], t: float) -> bool:
+        """Re-enter FIGHT only if ≤1 aggressor and HP≥45%."""
+        if self._multi_attacker_pressure(mechs, t):
+            return False
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        if hp_frac < 0.45:
+            return False
+        recent_ids = {
+            int(d["by"])
+            for d in self.mem.damage_log
+            if t - float(d["t"]) <= 2.5
+            and d.get("by") is not None
+            and d.get("weapon") not in (None, "zone", "npc")
+        }
+        return len(recent_ids) <= 1 and len(mechs) <= 1
+
     def _select_mode(self, obs: mf.Observation) -> str:
         me = obs["self"]
         t = float(obs["t"])
@@ -295,6 +340,14 @@ class Bot:
             if t - self._mech_hit_last_t > 3.0 and _d2(target["pos"], me["pos"]) > ENGAGE_NEAR:
                 target = None
                 mechs = [m for m in mechs if _d2(m["pos"], me["pos"]) <= ENGAGE_NEAR]
+
+        # Hard multi-attacker peel (practice-on): leave FIGHT for HEAL when ≥2 sources.
+        if self._multi_attacker_pressure(mechs, t) or self.mem.multi_disengage:
+            finishing = target is not None and self._nearly_dead(target)
+            if not finishing and not self._multi_clear_to_reenter(me, mechs, t):
+                return "HEAL"
+            self.mem.multi_disengage = False
+            self.mem.multi = False
 
         urgency = self._zone_urgency(me, zone, t)
         if urgency < 5.0:
@@ -731,7 +784,11 @@ class Bot:
             act["aim"] = [tb, -0.05]
 
         # Still being hit and they're in our sights: shoot back while we move.
-        if threat is not None and t - self.mem.last_took_weapon_damage_t < 1.5:
+        # Multi peel: boost hard, break LOS, no greed laser finish.
+        if self.mem.multi or self.mem.multi_disengage:
+            act["boost"] = True
+            act["fire"] = [False, False]
+        elif threat is not None and t - self.mem.last_took_weapon_damage_t < 1.5:
             cubes = threat.get("cubes") if isinstance(threat.get("cubes"), int) else None
             if self.combat.clear_shot(me, threat["pos"], int(threat["id"]), cubes):
                 kind = "laser" if _slot_of(me, "laser") is not None else "gun"
