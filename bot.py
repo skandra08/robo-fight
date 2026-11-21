@@ -65,6 +65,12 @@ BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 
+# Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
+if os.environ.get("RW_TUNE"):
+    import json as _json
+
+    globals().update(_json.loads(os.environ["RW_TUNE"]))
+
 
 def _angdiff(a: float, b: float) -> float:
     return (a - b + math.pi) % (2 * math.pi) - math.pi
