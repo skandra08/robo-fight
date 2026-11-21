@@ -4,28 +4,27 @@
 **BAR = 3.81** — `try/best-381` / `try/rewrite` = `f9eaf39685fec76442862288b13b1690eb6b3ce2` (`lh-rw-dual`)  
 **Superseded bar:** `try/best-356` / `try/na-arm` = `8d5109ff0d252add3f45f0436d028a1df32d5d53` (`lh-na-arm`, **3.56**) — historical only  
 **Aggregator branch:** `try/cursor-notes`  
-**Last scan:** 2026-11-21 03:46 EST
+**Last scan:** 2026-11-21 05:22 EST
 
-## STATUS — USAGE FREEZE
+## STATUS — USAGE GUARD 5AM ET (single task)
 
-**Fight-swarm interrupted by worker disconnect.** Most fight agents killed mid-run.
+Allowed one sim only: sticky vs 3.81 bar. **No fight swarm. No new branches.**
 
-- **Do NOT spawn more fight agents.**
-- **Do NOT relaunch fight variants / new experiments.**
-- Collect completed results only; official practice remains ground truth.
-- Incomplete panels (`no-chase`, in-flight sims) are **not ranked**.
+- Sticky panel complete (n=96). Verdict: **HOLD BAR → try upgsus next**.
+- Do NOT spawn sibling agents.
+- Official practice remains ground truth.
 
 ## Ranked top 5 (BEST FIRST) — Sameer action board
 
 | Rank | Full hash | Branch / label | Why |
 | --- | --- | --- | --- |
-| **1** | `f9eaf39685fec76442862288b13b1690eb6b3ce2` | `try/best-381` / `lh-rw-dual` | **BAR** — official practice **3.81** |
-| **2** | `dfb2931563b13d547b7ea042512f309dd2e05dc1` | `try/cursor-sticky` / `lh-cursor-sticky` | **Next submit** — best-381 + sticky FARM 2s |
-| **3** | `0c11bda127ebab92e89700b3e2776e46fc3d2178` | `try/cursor-upgsus` | Off 3.81 — nanites/plating/armor first |
-| **4** | `501c2653fa9f4e976a23b36ceef4d043e0077dcf` | `try/cursor-hp-gate` | Best completed fight sim vs old bar: **25W/20L/51T Δ+0.042 KEEP** (on `8d5109f`; rebuild on `f9eaf39` before new ranking) |
-| **5** | `9698130906d023b877ba572ebac06f8403d30303` | `try/cursor-multi-dis-381` | Off 3.81 — multi-attacker HEAL peel (unevaluated on new bar; alt: `a609959…` lead-gun-381) |
+| **1** | `f9eaf39685fec76442862288b13b1690eb6b3ce2` | `try/best-381` / `lh-rw-dual` | **BAR** — official practice **3.81** — **HOLD** |
+| **2** | `0c11bda127ebab92e89700b3e2776e46fc3d2178` | `try/cursor-upgsus` | **NEXT** — off 3.81 nanites/plating/armor; unevaluated vs `f9eaf39` |
+| **3** | `dfb2931563b13d547b7ea042512f309dd2e05dc1` | `try/cursor-sticky` | vs bar n=96: **23W/27L/46T**, mean Δ **+0.115** — seed losses → **do not submit** |
+| **4** | `501c2653fa9f4e976a23b36ceef4d043e0077dcf` | `try/cursor-hp-gate` | Best completed fight sim vs old bar: **25W/20L/51T Δ+0.042 KEEP** (on `8d5109f`) |
+| **5** | `9698130906d023b877ba572ebac06f8403d30303` | `try/cursor-multi-dis-381` | Off 3.81 — multi-attacker HEAL peel (unevaluated on new bar) |
 
-### Also off 3.81 (queue, no new sims)
+### Also off 3.81 (queue)
 
 | Full hash | Branch | Delta |
 | --- | --- | --- |
@@ -33,6 +32,29 @@
 | `a6099596b742d03306c485048ae1bf5d6cf16985` | `try/cursor-lead-gun-381` | quadratic gun intercept lead |
 
 check.py: sticky / upgsus / multi-dis-381 / lead-gun-381 **PASS**. Dual-fire already in 3.81 tip — do not rebuild.
+
+## vs `f9eaf39` / 3.81 — completed n=96
+
+| Rank | Full hash | Branch | vs `f9eaf39` | Verdict |
+| --- | --- | --- | --- | --- |
+| 1 | `dfb2931563b13d547b7ea042512f309dd2e05dc1` | `try/cursor-sticky` | **23W / 27L / 46T**, mean Δ **+0.115** (4.010 vs 3.896) | **HOLD BAR** (seed losses; do not submit) |
+
+**Recommendation (05:22 EST):** **hold bar / try upgsus next.** Sticky mean+ is real but ranking key is seed wins first — sticky loses majority.
+
+### Sticky panel detail (USAGE GUARD 5AM)
+
+| | base `f9eaf39` | cand `dfb2931` | Δ |
+| --- | --- | --- | --- |
+| mean score | 3.896 | 4.010 | **+0.114** |
+| kills | 3.896 | 4.010 | +0.114 |
+| cubes | 7.021 | 7.219 | +0.198 |
+| t alive | 146.5 | 156.5 | +10.1 |
+| zone dmg | 168.5 | 306.5 | +138.1 |
+| errors | 0 | 0 | — |
+
+- Sim: `try/sim` · `--seeds 96 --procs 8 --params '{"track":true}'` · 192 matches in 1296s
+- JSON: `/tmp/mech-sticky-vs-381.json` · result: `/tmp/mech-sticky-vs-381-result.md`
+- Load at start: 1m 6.04 / 15m 74.62 (under abort >80)
 
 ## Baseline (reference)
 
@@ -44,7 +66,7 @@ check.py: sticky / upgsus / multi-dis-381 / lead-gun-381 **PASS**. Dual-fire alr
 
 **Identity of 3.81:** rewrite plate on rw-path (3.5) + grab-in-reach + **dual fire** + det 1024-node path. Label-only tip `f9eaf39`.
 
-## Simulator (when freeze lifts — not now)
+## Simulator
 
 `try/sim` @ `5b3d022`. New work compares vs **`f9eaf39`**, not `8d5109f`:
 
@@ -75,20 +97,20 @@ Collected from `/tmp/mech-cursor-*-result.md`, `/tmp/*.json`, parent store, `res
 ### Explicit ditch list (Sameer / parent notes)
 
 vs `8d5109f`: **lead-gun / upg-armor / mortar-kite / burst-break → DITCH.**  
-hp-gate **501c2653 Δ+0.042 → KEEP** (only positive completed fight panel).
+hp-gate **501c2653 Δ+0.042 → KEEP** (only positive completed fight panel on old bar).
 
 ### Incomplete / interrupted (not ranked)
 
 | Branch | Hash | Status |
 | --- | --- | --- |
 | `try/cursor-no-chase` | `65102827572e0e8740499b0892bbf7da2812965b` | result file still **SIM RUNNING**; smoke n=2 only |
-| Many `try/cursor-*` / `try/cursor-381-*` | (pushed tips) | No completed n≥48 vs `f9eaf39`; swarm died on disconnect |
+| Many `try/cursor-*` / `try/cursor-381-*` | (pushed tips) | No completed n≥48 vs `f9eaf39` except sticky above |
 
 ## Sources scanned
 
+- `/tmp/mech-sticky-vs-381.json` + `/tmp/mech-sticky-vs-381-result.md` (5AM USAGE GUARD)
 - `/tmp/mech-cursor-*-result.md` (hp-gate, lead-gun, upg-armor, mortar-kite, burst-break, no-chase incomplete)
 - `/tmp/mech-cursor-*-vs-na-arm.json` + cookoff / lead-laser / lead-gun / upg-armor JSONs
-- `results/CURSOR_NOTES.md` (workspace)
 - Parent agent store: `bar-381-status.md`, `best-381-status.md`, prior `CURSOR_NOTES.md`
 - Known hashes from freeze handoff (3.81 bar, sticky submit, off-381 queue)
 
@@ -100,10 +122,11 @@ hp-gate **501c2653 Δ+0.042 → KEEP** (only positive completed fight panel).
 | 03:18–03:31 | Historical panels vs `8d5109f`: hp-gate KEEP; lead-gun / upg-armor / mortar-kite / multi-dis / burst-break |
 | 03:25 | BAR → **3.81** `f9eaf39`; sticky/upgsus/multi-dis/lead rebuilt off tip |
 | 03:46 | **USAGE FREEZE** — worker disconnect killed fight swarm; notes refreshed; no new agents |
+| 05:00–05:22 | **USAGE GUARD 5AM** — single sticky vs `f9eaf39` n=96 @8 procs; load OK (1m 6 / 15m 75); **23W/27L/46T Δ+0.115 → HOLD BAR / try upgsus next** |
 
 ## Protocol
 
 1. Never push `main`. Notes live on `try/cursor-notes` only.
-2. While freeze holds: **no new fight experiments / agents.**
-3. When freeze lifts: base new `try/cursor-*` on **`f9eaf39`**; drop `/tmp/mech-cursor-<label>.md` + JSON with W/L/T vs bar.
+2. USAGE GUARD: no fight swarm / no sibling agents unless explicitly authorized.
+3. Base candidates on **`f9eaf39`**; drop `/tmp/mech-cursor-<label>.md` + JSON with W/L/T vs bar.
 4. Aggregator ranks by seed wins vs bar, then mean Δ; pushes `try/cursor-notes`.
