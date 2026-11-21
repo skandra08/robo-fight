@@ -1,0 +1,67 @@
+{
+  "agent": "12/20",
+  "strategy": "try/dual-fire",
+  "hash": "473986d6aaaef3c798dd76eeea6aad44a8d02e03",
+  "Bot.name": "lh-dual-fire",
+  "levers": {
+    "S1": true,
+    "N1": true,
+    "DUAL_FIRE": true
+  },
+  "N": 51,
+  "mean": 2.002,
+  "mean_private_16place": 8.686,
+  "mean_place": 7.314,
+  "stdev_private": 4.532,
+  "mean_kills": 1.02,
+  "early_N10_cal": 1.936,
+  "early_N12_cal": 1.978,
+  "verdict": "DITCH",
+  "bar": 2.65,
+  "cut": 2.3,
+  "method": "private_room_house_bots mean(16-place); practice-calibrated via best-265 private\u224811.5\u21922.65",
+  "live_reactive_matches": 51,
+  "mm_fail": 1,
+  "place_hist": {
+    "1": 2,
+    "2": 6,
+    "3": 4,
+    "4": 9,
+    "5": 3,
+    "6": 2,
+    "7": 3,
+    "9": 3,
+    "10": 5,
+    "11": 3,
+    "12": 1,
+    "13": 5,
+    "14": 2,
+    "16": 3
+  },
+  "killedBy": {
+    "gun": 31,
+    "zone": 14,
+    "lightning": 4,
+    "unknown": 1,
+    "npc": 1
+  },
+  "why": [
+    "calibrated practice mean 2.00 \u226a cut 2.3 and bar 2.65",
+    "private mean(16-place)=8.69 vs best-265 private\u224811.5 (\u0394=-2.81)",
+    "S1+N1+DUAL_FIRE only \u2014 no CUBE-before-RELOCATE stack that won 2.65; not best-265 lineage",
+    "early@10 cal=1.94 already triggered Sameer ditch rule",
+    "gun deaths dominate; heavy RELOCATE/FIGHT without cube snowball"
+  ],
+  "check_py": "PASS",
+  "modes_top": {
+    "RELOCATE": 16526,
+    "FIGHT": 13208,
+    "ARM": 6299,
+    "ESCAPE_ZONE": 2819,
+    "CAMP": 2608,
+    "COUNTER_LASER": 1999,
+    "ROTATE": 630,
+    "LOOT_SWAP": 245,
+    "HEAL": 159
+  }
+}
