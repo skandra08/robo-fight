@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "roof-ctr"
+LABEL = "roof-hold"
 
 LEVERS: Dict[str, bool] = {
     "S1": True,  # every loadout camps on a roof
@@ -20,6 +20,7 @@ LEVERS: Dict[str, bool] = {
     "N6": False,  # contest supply drop 1
     "S4": False,  # ROTATE gatekeep off in practice
     "F1": False,  # FFA detector + survival mode
+    "HOLD_FIGHT": True,  # no chase in fight; hold roof / half-strafe; idle aim no fire
 }
 
 
