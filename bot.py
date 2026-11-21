@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-arm-first"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
@@ -518,37 +518,40 @@ class Bot:
             ):
                 return "RELOCATE"
 
-        # Ambush 1v1: armed OK; gun-only only when truly close + rear/undetected.
-        ambush = self._ambush_target(me, visible)
-        if ambush is not None:
-            gun_only_close = second is None and enemy_d < 50 and _we_flank(ambush, me["pos"])
-            if second is not None or gun_only_close:
-                if not (second is None and loot is not None and loot_d + 20 < enemy_d and loot_d < 70):
-                    return "FIGHT"
+        # try/arm-first: prioritize ARM/position over FIGHT until second + positioned.
+        # Still return-fire when already taking damage (decision 5).
+        armed_set = second is not None and self.mem.positioned
 
-        # Damaged / multi-contact: don't duel packs gun-only at mid range.
-        if recent_dmg or len(visible) >= 2:
-            if second is None:
-                if loot is not None and loot_d + 15 < enemy_d and loot_d < 110:
+        ambush = self._ambush_target(me, visible)
+        if ambush is not None and armed_set:
+            return "FIGHT"
+
+        if recent_dmg:
+            # Under fire: fight back, but gun-only still prefers nearby loot if far from foe.
+            if second is None and loot is not None and loot_d + 15 < enemy_d and loot_d < 110:
+                return "ARM"
+            return "FIGHT"
+
+        if len(visible) >= 2:
+            # Pack contact before loadout camp → keep arming / set up, don't push.
+            if not armed_set:
+                if second is None:
                     return "ARM"
-                # Pack in view, not pressed close → keep arming instead of suicide push.
-                if len(visible) >= 2 and enemy_d > 45 and not recent_dmg:
-                    return "ARM"
+                return "RELOCATE" if not self.mem.positioned else "CAMP"
             return "FIGHT"
 
         if visible and (second is not None or enemy_d < 120):
             aware = any(_enemy_aware(e, me["pos"]) for e in visible)
-            if second is None:
-                # Gun-only: fight only close/aware contact; else finish ARM.
-                if enemy_d < 55 or (aware and enemy_d < 80) or recent_dmg:
-                    if loot is not None and loot_d + 15 < enemy_d and loot_d < 90:
-                        return "ARM"
+            if not armed_set:
+                # Not set up yet: only fight point-blank press; else ARM/RELOCATE.
+                if enemy_d < 35 and (aware or recent_dmg):
                     return "FIGHT"
+                if second is None:
+                    return "ARM"
+                # Armed but unpositioned → fall through to RELOCATE/CAMP.
             else:
-                # Armed: fight if spotted/damaged/already camped; else set up first.
-                if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
+                if aware or recent_dmg or enemy_d < 70:
                     return "FIGHT"
-                # Unpositioned + undetected mid-range → fall through to RELOCATE/CAMP.
 
         # THIRD: disabled for practice via _want_third (R2); body kept for FFA.
         if self._want_third(me, second, visible, t):
