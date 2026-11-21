@@ -65,7 +65,7 @@ BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
 USE_PLANNER = True
-ZONE_FIGHT = True
+ZONE_FIGHT = False
 SEARCH_NEXT = True
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
