@@ -418,7 +418,8 @@ class Bot:
         return False
 
     def _multi_attacker_pressure(self, visible: List[Dict[str, Any]], t: float) -> bool:
-        """≥2 mech attackers / multi-source damage within ~2.5s (hard DISENGAGE trigger)."""
+        """≥2 mech damage sources within ~2.5s OR dmg spike >250/2s (hard DISENGAGE)."""
+        _ = visible  # aggressor count for re-enter only
         sources: set = set()
         dmg_2s = 0.0
         for d in self.mem.damage_log:
@@ -432,9 +433,7 @@ class Bot:
                 sources.add(int(d["by"]))
             if age <= 2.0:
                 dmg_2s += float(d.get("amount") or 0)
-        # Visible pack while recently hit counts as multi-attacker pressure.
-        pack = len(visible) >= 2 and (t - self.mem.last_took_weapon_damage_t < 2.5)
-        multi = len(sources) >= 2 or dmg_2s > 250.0 or pack
+        multi = len(sources) >= 2 or dmg_2s > 250.0
         if multi:
             self.mem.multi = True
             self.mem.multi_until = t + 2.5
