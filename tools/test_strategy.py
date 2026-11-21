@@ -202,6 +202,56 @@ def test_drone(md: str) -> None:
     check("drone shooting us -> DRONE", mode_of(bot, _obs(mechs=[drone], events=ev)) == "DRONE")
 
 
+def test_multi_disengage(md: str) -> None:
+    """Hard DISENGAGE when ≥2 mech attackers / multi-source damage within ~2.5s."""
+    bot = fresh(md)
+    a = _mech(5, WEST)
+    b = _mech(6, NORTH)
+    # Two distinct mech damage sources in one window → DISENGAGE.
+    ev = [
+        {"type": "damaged", "amount": 45, "weapon": "gun", "bearing": math.pi, "by": 5},
+        {"type": "damaged", "amount": 45, "weapon": "gun", "bearing": math.pi / 2, "by": 6},
+    ]
+    m = mode_of(bot, _obs(mechs=[a, b], events=ev, t=90.0, tick=1800))
+    check("two mech damage sources -> DISENGAGE", m == "DISENGAGE")
+    check("multi latch set", bot.mem.multi_disengage and bot.mem.multi)
+
+    # While latched with two visible aggressors, stay peeled (no fire, boost).
+    a2 = bot.act(_obs(mechs=[a, b], t=90.2, tick=1804, self={"hp": 900.0}))  # type: ignore[arg-type]
+    check("multi peel holds fire", not any(a2["fire"]))
+    check("multi peel boosts", bool(a2.get("boost")))
+
+    # Single attacker + healthy: no multi DISENGAGE.
+    bot = fresh(md)
+    one = [
+        {"type": "damaged", "amount": 45, "weapon": "gun", "bearing": math.pi, "by": 5},
+    ]
+    m = mode_of(bot, _obs(mechs=[a], events=one, t=90.0, tick=1800))
+    check("single attacker stays FIGHT", m == "FIGHT")
+    check("single attacker no multi latch", not bot.mem.multi_disengage)
+
+    # Damage spike >250/2s from one source also trips multi pressure.
+    bot = fresh(md)
+    spike = [
+        {"type": "damaged", "amount": 130, "weapon": "laser", "bearing": math.pi, "by": 5},
+        {"type": "damaged", "amount": 130, "weapon": "laser", "bearing": math.pi, "by": 5},
+    ]
+    check(
+        "dmg spike >250/2s -> DISENGAGE",
+        mode_of(bot, _obs(mechs=[a], events=spike, t=90.0, tick=1800)) == "DISENGAGE",
+    )
+
+    # Clear: ≤1 aggressor and HP≥45% → leave DISENGAGE.
+    bot = fresh(md)
+    mode_of(bot, _obs(mechs=[a, b], events=ev, t=90.0, tick=1800))
+    bot.mem.damage_log = []
+    bot.mem.multi_until = -1e9
+    bot.mem.last_took_weapon_damage_t = -1e9
+    m = mode_of(bot, _obs(mechs=[a], t=95.0, tick=1900, self={"hp": 900.0}))
+    check("cleared multi + HP≥45% leaves DISENGAGE", m != "DISENGAGE")
+    check("multi latch cleared", not bot.mem.multi_disengage)
+
+
 def test_timing(md: str) -> None:
     bot = fresh(md)
     rng = random.Random(3)
@@ -234,7 +284,17 @@ def main() -> int:
         print("FAIL: arena/v2 missing", file=sys.stderr)
         return 1
     print(f"strategy unit checks variant={levers.LABEL}")
-    tests = [test_upgrades, test_zone, test_farm, test_supply, test_fight, test_heal, test_drone, test_timing]
+    tests = [
+        test_upgrades,
+        test_zone,
+        test_farm,
+        test_supply,
+        test_fight,
+        test_heal,
+        test_drone,
+        test_multi_disengage,
+        test_timing,
+    ]
     failed = 0
     for fn in tests:
         try:

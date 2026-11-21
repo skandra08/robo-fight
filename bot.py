@@ -2,13 +2,14 @@
 
 One simple loop, in priority order each decision:
 
-  ESCAPE  out of the zone: get back in (jets over whatever traps us).
-  ZONE    the next circle will close on us: walk into it, shooting what we see.
-  DRONE   a drone is shooting us and no mech is: kill it (350 HP, 2 cubes).
-  HEAL    low HP: break line of sight, face the threat, stop shooting once safe, regen.
-  FIGHT   a mech we can shoot (or one hitting us): fight the nearest, from a roof if on one.
-  FARM    cubes, kill sites, drones, crates, weapons: the best value per metre.
-  ROOF    nothing to farm: climb a roof inside the next circle and hold it (peek camp).
+  ESCAPE     out of the zone: get back in (jets over whatever traps us).
+  DISENGAGE  ≥2 mech attackers / multi-source damage ~2.5s: boost, break LOS, hold fire.
+  ZONE       the next circle will close on us: walk into it, shooting what we see.
+  DRONE      a drone is shooting us and no mech is: kill it (350 HP, 2 cubes).
+  HEAL       low HP: break line of sight, face the threat, stop shooting once safe, regen.
+  FIGHT      a mech we can shoot (or one hitting us): fight the nearest, from a roof if on one.
+  FARM       cubes, kill sites, drones, crates, weapons: the best value per metre.
+  ROOF       nothing to farm: climb a roof inside the next circle and hold it (peek camp).
 
 What it carries over on purpose (all from real data):
   * cubes are the main lever (+4% HP and damage each, upgrades at 1/3/6/10/15/...);
@@ -21,7 +22,9 @@ What it carries over on purpose (all from real data):
     the roof instead of jumping down to chase;
   * zone was 18% of damage taken: keep the stuck-proof zone escape and move early;
   * greedy upgrade order (armor first) beat sustain-first;
-  * no FFA detector, no disengage/third/gatekeep/ambush/laser-dodge modes.
+  * hard multi-attacker DISENGAGE (practice-on): peel when ≥2 mech sources hit in ~2.5s
+    or damage spikes >250/2s; re-enter FIGHT only at ≤1 aggressor and HP≥45%;
+  * no FFA detector, no third/gatekeep/ambush/laser-dodge modes.
 """
 from __future__ import annotations
 
@@ -210,6 +213,8 @@ class Bot:
 
         if mode == "ESCAPE":
             self._do_escape(obs, act)
+        elif mode == "DISENGAGE":
+            self._do_disengage(obs, act)
         elif mode == "ZONE":
             self._do_zone(obs, act)
         elif mode == "DRONE":
@@ -277,6 +282,62 @@ class Bot:
         return pick
 
     # ---------------------------------------------------------------- deciding
+    def _multi_attacker_pressure(self, visible: List[Dict[str, Any]], t: float) -> bool:
+        """≥2 mech attackers / multi-source damage within ~2.5s (hard DISENGAGE trigger)."""
+        sources: set = set()
+        dmg_2s = 0.0
+        for d in self.mem.damage_log:
+            age = t - float(d["t"])
+            if age > 2.5:
+                continue
+            w = d.get("weapon")
+            if w in (None, "zone", "npc"):
+                continue
+            if d.get("by") is not None:
+                sources.add(int(d["by"]))
+            if age <= 2.0:
+                dmg_2s += float(d.get("amount") or 0)
+        # Visible pack while recently hit counts as multi-attacker pressure.
+        pack = len(visible) >= 2 and (t - self.mem.last_took_weapon_damage_t < 2.5)
+        multi = len(sources) >= 2 or dmg_2s > 250.0 or pack
+        if multi:
+            self.mem.multi = True
+            self.mem.multi_until = t + 2.5
+        elif t <= self.mem.multi_until:
+            self.mem.multi = True
+        else:
+            self.mem.multi = False
+        return bool(self.mem.multi)
+
+    def _multi_clear_to_reenter(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
+        """Re-enter FIGHT only if ≤1 aggressor and HP≥45%."""
+        if self._multi_attacker_pressure(visible, t):
+            return False
+        hp_frac = me["hp"] / max(1.0, me["max_hp"])
+        if hp_frac < 0.45:
+            return False
+        recent_ids = {
+            int(d["by"])
+            for d in self.mem.damage_log
+            if t - float(d["t"]) <= 2.5
+            and d.get("by") is not None
+            and d.get("weapon") not in (None, "zone", "npc")
+        }
+        return len(recent_ids) <= 1 and len(visible) <= 1
+
+    def _should_multi_disengage(self, me: Dict[str, Any], visible: List[Dict[str, Any]], t: float) -> bool:
+        """Hard multi-attacker DISENGAGE (practice-on)."""
+        multi = self._multi_attacker_pressure(visible, t)
+        if multi or (self.mem.multi_disengage and self.mode == "DISENGAGE"):
+            if multi:
+                self.mem.multi_disengage = True
+            if self.mem.multi_disengage and not self._multi_clear_to_reenter(me, visible, t):
+                return True
+            self.mem.multi_disengage = False
+            self.mem.multi = False
+            return False
+        return False
+
     def _select_mode(self, obs: mf.Observation) -> str:
         me = obs["self"]
         t = float(obs["t"])
@@ -288,6 +349,8 @@ class Bot:
         airborne_climb = self.mode == "ROOF" and not me.get("grounded") and not self.mem.world_on_roof
 
         mechs = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        if self._should_multi_disengage(me, mechs, t):
+            return "DISENGAGE"
         hit_by_mech = t - self._mech_hit_last_t < 1.5
         target = self._fight_target(me, mechs, t)
         if target is not None and t < FARM_FIGHT_S:
@@ -717,6 +780,33 @@ class Bot:
             act["move"] = move
         self._unstick(me, act, t)
 
+    # --------------------------------------------------------------- disengage
+    def _do_disengage(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
+        """Multi peel: boost perpendicular + break LOS, no greed laser finish."""
+        me = obs["self"]
+        t = float(obs["t"])
+        mechs = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
+        threat = min(mechs, key=lambda m: _d2(m["pos"], me["pos"])) if mechs else None
+        tb = _bearing_to(me["pos"], threat["pos"]) if threat else self.mem.last_threat_bearing
+        if tb is not None:
+            act["aim"] = [tb, -0.05]
+        act["fire"] = [False, False]
+        act["boost"] = True
+
+        if tb is None:
+            goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.55)
+            yaw = _bearing_to(me["pos"], goal)
+            act["move"] = [math.cos(yaw), math.sin(yaw)]
+            act["aim"] = [yaw, -0.05]
+            return
+
+        # Direct peel vector (no path search — keep act ≪ 50 ms under fire).
+        if self.mem.world_on_roof:
+            side = tb + (math.pi / 2) * self.mem.strafe_sign
+        else:
+            side = tb + math.pi + (math.pi / 2) * self.mem.strafe_sign
+        act["move"] = [math.cos(side), math.sin(side)]
+
     # ------------------------------------------------------------------ healing
     def _do_heal(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         """Break LOS, face the threat (front armor), fire back only while still being hit."""
@@ -1085,7 +1175,9 @@ class Bot:
 
     def _laser_charge_hold(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         """Final pass: keep / release a laser that was charging when the target vanished."""
-        if self.mode in ("ESCAPE",) or (self.mode == "ROOF" and (act.get("boost") or act.get("jump"))):
+        if self.mode in ("ESCAPE", "DISENGAGE") or (
+            self.mode == "ROOF" and (act.get("boost") or act.get("jump"))
+        ):
             return
         me = obs["self"]
         t = float(obs["t"])

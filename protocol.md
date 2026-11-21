@@ -198,7 +198,7 @@ Events:
 
 | `type` | Fields | Meaning |
 | --- | --- | --- |
-| `damaged` | `amount`, `weapon`, `bearing`, `by`, `rear?` | You took damage. `bearing` is the world-frame yaw (same convention as `aim[0]`, not relative to your facing) toward where it came from (null for zone). `by` is the attacker's id (null for zone). `rear: true` when it came from outside your front arc (rear armor, §7). |
+| `damaged` | `amount`, `weapon`, `bearing`, `by`, `rear?` | You took damage. `bearing` is the world-frame yaw (same convention as `aim[0]`, not relative to your facing) toward where it came from (null for zone). `by` is the attacker's id (null for zone). Distinct non-null `by` values across recent `damaged` events mark multi-attacker / crossfire pressure (mech ids 0–15; ignore `npc`/`zone`). `rear: true` when it came from outside your front arc (rear armor, §7). |
 | `hit` | `target`, `amount`, `weapon`, `effect?`, `rear?` | You damaged `target` (mech, NPC, or crate id; crate hits are reported since 2026-11-16). `effect` is set when the hit carried a signature effect (`cookoff`, `short`, `concuss`); `rear: true` when you hit a mech's back. |
 | `effect` | `effect`, `by` | A signature effect landed on you: `cookoff` (a laser set off the mortar you carry), `short` (lightning took your laser offline), `concuss` (a mortar blast threw you and drained energy). `by` is who did it. |
 | `drop` | `id`, `cubes` | You captured supply drop `id`; `cubes` is your new total. |
