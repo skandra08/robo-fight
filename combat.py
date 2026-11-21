@@ -246,11 +246,15 @@ class Combat:
         t: float,
         mem: Any,
         aim_kind: Optional[str] = None,
+        dual_fire: bool = False,
+        gun_aim: Optional[Sequence[float]] = None,
     ) -> Tuple[List[bool], bool, Optional[float]]:
         """Returns fire[2], reload, optional drop_slot for COUNTER_LASER caller.
 
         aim_kind: when set, only fire weapons compatible with that aim.
-        Gun requires gun lead aim (no skyfire on mortar lob / laser direct).
+        Gun requires gun lead aim (no skyfire on mortar lob).
+        dual_fire: also fire gun on its lead aim while primary is laser/lightning
+        (pre-v1.8 dual DPS); never while aiming mortar.
         Lightning may share laser/gun direct-ish aim.
         """
         fire = [False, False]
@@ -268,6 +272,17 @@ class Combat:
         aimed = self.aligned(me, desired_aim, 4.0)
         laser_close = self.aligned(me, desired_aim, 15.0)  # start/keep charge only when roughly on target
         laser_aimed = self.aligned(me, desired_aim, 4.0)
+        # Separate gun lead for dual-fire alongside laser/lightning (not mortar).
+        dual_gun = bool(
+            dual_fire and aim_kind in ("laser", "lightning") and any(
+                (w or {}).get("kind") == "gun" for w in weapons if w
+            )
+        )
+        if dual_gun:
+            gun_desired = gun_aim if gun_aim is not None else self.aim_at(me, target, "gun")
+            gun_aimed = self.aligned(me, gun_desired, 4.0)
+        else:
+            gun_aimed = aimed
 
         for i, w in enumerate(weapons):
             if not w:
@@ -275,8 +290,10 @@ class Combat:
             kind = w["kind"]
             if aim_kind is not None:
                 if kind == "gun" and aim_kind != "gun":
-                    # Bug #7: don't dump the mag on mortar lob / laser direct aim.
-                    continue
+                    # Bug #7: never dump the mag on mortar lob.
+                    # dual_fire restores gun+laser / gun+lightning (not gun+mortar).
+                    if not dual_gun:
+                        continue
                 if kind == "mortar" and aim_kind != "mortar":
                     continue
                 if kind == "laser" and aim_kind != "laser":
@@ -300,8 +317,9 @@ class Combat:
                 continue
             if kind == "gun":
                 # Hold the trigger whenever aimed: server fires at exact cooldown rate.
+                # dual_fire: align to gun lead even while body aims laser/lightning.
                 ammo = w.get("ammo", 1)
-                if aimed and (ammo is None or ammo > 0):
+                if gun_aimed and (ammo is None or ammo > 0):
                     fire[i] = True
                     # Count real shots via ammo drop / cooldown edge — not every hold tick.
                     prev_ammo = getattr(mem, "_gun_ammo_seen", None)
@@ -317,7 +335,7 @@ class Combat:
                     if ammo is not None:
                         mem._gun_ammo_seen = ammo
                     mem._gun_held_last = False
-                    if aimed and ammo is not None and ammo <= 0 and w.get("reload", 0) == 0:
+                    if gun_aimed and ammo is not None and ammo <= 0 and w.get("reload", 0) == 0:
                         reload = True
             if kind == "lightning" and aimed and cd <= 0:
                 rng = float((self.weapons.get("lightning") or {}).get("range", 45))

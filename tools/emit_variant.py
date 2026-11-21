@@ -16,7 +16,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ALL = ["S1", "N1", "N2", "N3", "S2", "S3", "N4", "N5", "N6", "S4", "F1"]
+ALL = ["S1", "N1", "N2", "N3", "S2", "S3", "N4", "N5", "N6", "S4", "F1", "DUAL_FIRE"]
 
 
 def main() -> int:
@@ -62,6 +62,7 @@ def main() -> int:
         "N6": "contest supply drop 1",
         "S4": "ROTATE gatekeep off in practice",
         "F1": "FFA detector + survival mode",
+        "DUAL_FIRE": "gun keeps firing on lead while laser/lightning charge/fire",
     }
     for k in ALL:
         lines.append(f'    "{k}": {"True" if k in on else "False"},  # {comments[k]}')

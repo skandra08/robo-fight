@@ -1222,10 +1222,15 @@ class Bot:
             if self.combat.mortar_aim(me, feet, chase.get("vel") or [0, 0, 0]) is None:
                 kind = "gun"
         # Bug #7: gun lead between laser shots; never fire gun on mortar lob aim.
+        # DUAL_FIRE: gun may still fire on its lead while laser/lightning own aim.
         kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, chase, kind)
         act["aim"] = aim
-        fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem, aim_kind=aim_kind)
+        dual = levers.on("DUAL_FIRE")
+        gun_aim = self.combat.aim_at(me, chase, "gun") if dual and aim_kind in ("laser", "lightning") else None
+        fire, reload, _ = self.combat.fire_slots(
+            me, aim, chase, t, self.mem, aim_kind=aim_kind, dual_fire=dual, gun_aim=gun_aim
+        )
         act["fire"] = fire
         act["reload"] = reload
         mf.draw.line(
@@ -1881,7 +1886,11 @@ class Bot:
         kind, aim_kind = self._fight_aim_kind(me, kind)
         aim = self.combat.aim_at(me, target, kind)
         act["aim"] = aim
-        fire, reload, _ = self.combat.fire_slots(me, aim, target, t, self.mem, aim_kind=aim_kind)
+        dual = levers.on("DUAL_FIRE")
+        gun_aim = self.combat.aim_at(me, target, "gun") if dual and aim_kind in ("laser", "lightning") else None
+        fire, reload, _ = self.combat.fire_slots(
+            me, aim, target, t, self.mem, aim_kind=aim_kind, dual_fire=dual, gun_aim=gun_aim
+        )
         act["fire"] = fire
         if reload:
             act["reload"] = True
