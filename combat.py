@@ -124,6 +124,40 @@ class Combat:
 
         return choose(clear_cands), choose(any_cands)
 
+    def _gun_intercept_t(
+        self,
+        dx: float,
+        dy: float,
+        dz: float,
+        vx: float,
+        vy: float,
+        vz: float,
+        speed: float,
+        spawn: float,
+    ) -> float:
+        """Smallest t>0 where |D + V t| = speed·t + spawn (shot leaves spawn m along aim)."""
+        s = max(1.0, speed)
+        a = vx * vx + vy * vy + vz * vz - s * s
+        b = 2.0 * (dx * vx + dy * vy + dz * vz - s * spawn)
+        c = dx * dx + dy * dy + dz * dz - spawn * spawn
+        t: Optional[float] = None
+        if abs(a) < 1e-8:
+            if abs(b) > 1e-8:
+                cand = -c / b
+                if cand > 1e-3:
+                    t = cand
+        else:
+            disc = b * b - 4.0 * a * c
+            if disc >= 0.0:
+                root = math.sqrt(disc)
+                for cand in ((-b - root) / (2.0 * a), (-b + root) / (2.0 * a)):
+                    if cand > 1e-3 and (t is None or cand < t):
+                        t = cand
+        if t is None:
+            dist = math.sqrt(max(0.0, dx * dx + dy * dy + dz * dz))
+            t = max(0.0, dist - spawn) / s
+        return t
+
     def aim_at(self, me: Dict[str, Any], target: Dict[str, Any], kind: str = "gun") -> List[float]:
         mx, my, mz = self.muzzle(me)
         tx, ty, tz_feet = target["pos"]
@@ -131,14 +165,27 @@ class Combat:
         cubes = target.get("cubes")
         tz = self.com_z(tz_feet, cubes if isinstance(cubes, int) else None)
         if kind == "gun":
-            speed = float((self.weapons.get("gun") or {}).get("speed", 252))
-            px, py, pz = tx, ty, tz
+            gun = self.weapons.get("gun") or {}
+            speed = float(gun.get("speed", 252))
+            rng = float(gun.get("range", 230))
+            mech = self.cfg.get("mech") or {}
+            # Protocol: shot leaves radius+0.5 along aim before free flight.
+            spawn = float(mech.get("radius", 2.5)) + 0.5
+            vx, vy, vz = float(tv[0]), float(tv[1]), float(tv[2])
+            dx, dy, dz = tx - mx, ty - my, tz - mz
+            t_max = rng / max(1.0, speed)
+            t = min(self._gun_intercept_t(dx, dy, dz, vx, vy, vz, speed, spawn), t_max)
+            px = tx + vx * t
+            py = ty + vy * t
+            pz = tz + vz * t
+            # Refine once with the predicted aim point (numeric slip / spawn geometry).
             for _ in range(2):
                 dist = math.dist([mx, my, mz], [px, py, pz])
-                t = dist / max(1.0, speed)
-                px = tx + tv[0] * t
-                py = ty + tv[1] * t
-                pz = tz + tv[2] * t
+                travel = max(0.5, dist - spawn)
+                t = min(travel / max(1.0, speed), t_max)
+                px = tx + vx * t
+                py = ty + vy * t
+                pz = tz + vz * t
             dx, dy, dz = px - mx, py - my, pz - mz
             horiz = math.hypot(dx, dy) or 1e-6
             yaw = math.atan2(dy, dx)
