@@ -1386,7 +1386,8 @@ class Bot:
             v = float(mw.get("speed", 72))
             g = float(mw.get("gravity", 22))
             mortar_max = (v * v / g) if g > 0 else 235.0
-            if not clear and 12.0 < dist < mortar_max:
+            # mortar-wallbang: lob earlier vs cover (from 8 m) so walls don't force a gun push.
+            if not clear and 8.0 < dist < mortar_max:
                 kind = "mortar"
             else:
                 kind = "gun"
