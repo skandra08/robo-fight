@@ -936,6 +936,12 @@ class Bot:
             ):
                 return "RELOCATE"
 
+        # Prefight heal: between waves, sit for nanite regen to high HP before
+        # re-engaging so the next fight starts healthier. Under-fire FIGHT above
+        # still wins; hunters already inside 55 m still get a fight.
+        if hp_frac < 0.90 and not recent_dmg and (not visible or enemy_d > 55.0):
+            return "HEAL"
+
         # S2: remove 1v1 ambush (keep armed+undetected → set up first gating below).
         if not levers.on("S2"):
             ambush = self._ambush_target(me, visible)
