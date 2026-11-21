@@ -913,6 +913,13 @@ class Bot:
         if recent_dmg and visible:
             return "FIGHT"
 
+        # BET kite: two or more hunters in view -> back off from the group while shooting the nearest,
+        # so they reach us one at a time instead of together.
+        if len(visible) >= 2 and hp_frac > 0.2:
+            self._kite = True
+            return "FIGHT"
+        self._kite = False
+
         # CUBES: every build left kill cubes and crates on the floor (0 cubes at death in 34/38
         # live matches). Scoop / break them whenever no hunter is close. Checked before RELOCATE /
         # CAMP so it isn't starved by the roof logic; mid-climb jumps are left alone.
@@ -1465,6 +1472,23 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        if getattr(self, "_kite", False) and len(enemies) >= 2:
+            cx = sum(e["pos"][0] for e in enemies) / len(enemies)
+            cy = sum(e["pos"][1] for e in enemies) / len(enemies)
+            away = math.atan2(me["pos"][1] - cy, me["pos"][0] - cx)
+            z = obs["zone"]
+            gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            if math.hypot(gx - z["center"][0], gy - z["center"][1]) > float(z["radius"]) - 15.0:
+                away += (math.pi / 2) * self.mem.strafe_sign
+                gx, gy = me["pos"][0] + math.cos(away) * 30.0, me["pos"][1] + math.sin(away) * 30.0
+            move, _ = self.nav.steer(me, [gx, gy], 1.0, t)
+            act["move"] = move
+            act["boost"] = energy_ok
+            self.nav.update_stuck(me, t, True)
+            if self.mem.stuck_until > t:
+                act["jump"] = bool(me.get("grounded"))
+                act["boost"] = True
+            return
         close_at = 55.0 if push_hard else 75.0
         if not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
