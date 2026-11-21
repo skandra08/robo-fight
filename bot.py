@@ -71,6 +71,9 @@ LOOT_VAL_UNARMED = 3.0  # farm value of a first second weapon (cube = 1)
 ARM_WITH_MECHS = False  # go for a first weapon even with a mech in view if it is closer than the mech
 REST_SHOOT_HP = 0.5  # resting above this still shoots crates/drones
 ZONE_FIGHT = False
+ZONE_IN = 0.85  # rwm: count as safely inside the next circle within this fraction of its radius
+ZONE_IN_HOLD = 0.75  # ...and while already heading in
+ZONE_SLACK_S = 20.0  # rwm: start heading in with this many seconds of slack
 SUPPLY_MAX_D = 450.0  # rwm: farthest supply drop we walk to
 SUPPLY_SKIP_VIS = 0.0  # rwm: skip supply while a mech is in view closer than this (0 = never)
 SUPPLY_MIN_HP = 2.0  # rwm: only go for supply below this HP fraction (2 = always)
@@ -304,7 +307,7 @@ class Bot:
         if urgency < 5.0:
             return "ZONE"
         busy = hit_by_mech or (target is not None and _d2(target["pos"], me["pos"]) < 90.0)
-        if urgency < 20.0 and (not busy or not ZONE_FIGHT):
+        if urgency < ZONE_SLACK_S and (not busy or not ZONE_FIGHT):
             return "ZONE"
 
         # Supply drops: full HP + energy + 3 cubes, 3 per match, and the practice squad hunts us
@@ -396,7 +399,7 @@ class Bot:
         """Seconds of slack before the next circle closes on us (1e9 when safely inside)."""
         nc, nr = zone["next_center"], float(zone["next_radius"])
         dist = math.hypot(me["pos"][0] - nc[0], me["pos"][1] - nc[1])
-        inside = 0.75 * nr if self.mode == "ZONE" else 0.85 * nr
+        inside = ZONE_IN_HOLD * nr if self.mode == "ZONE" else ZONE_IN * nr
         if dist <= inside:
             return 1e9
         walk = max(1.0, float((me.get("stats") or {}).get("walk_speed", self.walk_speed)))
