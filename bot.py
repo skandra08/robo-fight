@@ -1386,7 +1386,8 @@ class Bot:
             v = float(mw.get("speed", 72))
             g = float(mw.get("gravity", 22))
             mortar_max = (v * v / g) if g > 0 else 235.0
-            if not clear and 12.0 < dist < mortar_max:
+            # mortar-close-deny: refuse mortar under 40 m — splash self-risk / slow lob.
+            if not clear and 40.0 < dist < mortar_max:
                 kind = "mortar"
             else:
                 kind = "gun"

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "na-arm"
+LABEL = "cursor-mortar-close-deny"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
