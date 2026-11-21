@@ -96,7 +96,7 @@ class Bot:
         self.regen_delay = float((self.cfg.get("mech") or {}).get("regen_delay", 5.0))
         self.walk_speed = float((self.cfg.get("mech") or {}).get("walk_speed", 10.0))
         self.npc_avoid = 0.0  # never steer away from drones: 350 HP, 2 cubes each
-        self.drop_avoid = 40.0
+        self.drop_avoid = 0.0 if levers.on("N7") else 40.0
         self.laser_cfg = (self.cfg.get("weapons") or {}).get("laser") or {}
         self.laser_hold_s = float(self.laser_cfg.get("hold_s", 2.0))
         self.laser_charge_s = float(self.laser_cfg.get("charge", 0.75))
