@@ -6,15 +6,16 @@ One simple loop, in priority order each decision:
   ZONE    the next circle will close on us: walk into it, shooting what we see.
   DRONE   a drone is shooting us and no mech is: kill it (350 HP, 2 cubes).
   HEAL    low HP: break line of sight, face the threat, stop shooting once safe, regen.
-  FIGHT   a mech we can shoot (or one hitting us): fight the nearest, from a roof if on one.
+  FIGHT   a mech we can shoot (or one hitting us): fight the threat (laser charging /
+          damage source), else the nearest; from a roof if on one.
   FARM    cubes, kill sites, drones, crates, weapons: the best value per metre.
   ROOF    nothing to farm: climb a roof inside the next circle and hold it (peek camp).
 
 What it carries over on purpose (all from real data):
   * cubes are the main lever (+4% HP and damage each, upgrades at 1/3/6/10/15/...);
     farm greedily, drones included, and loot kill sites;
-  * house bots shoot the nearest mech and hit badly past ~80 m: fight the nearest target
-    and hold 55-125 m instead of closing to their 46 m median;
+  * house bots shoot the nearest mech and hit badly past ~80 m: hold 55-125 m instead of
+    closing to their 46 m median; retarget chargers / the hunter who just damaged us;
   * the winner healed ~7k HP a match vs our ~660: back off to heal when low, and rest
     (no shooting, which resets regen) when hurt and nobody is in view;
   * roofs give a better exchange than the ground: camp roofs when idle, and fight from
@@ -348,11 +349,13 @@ class Bot:
         return float(hp) <= 260.0 or float(hp) < 0.2 * float(m.get("max_hp") or 1400)
 
     def _fight_target(self, me: Dict[str, Any], mechs: List[Dict[str, Any]], t: float) -> Optional[Dict[str, Any]]:
-        """Nearest mech we can shoot; keep the current one unless another is much nearer.
+        """Threat-based retarget: laser charging > recent damage source > nearest shootable.
 
-        Also returns a no-LOS mech that is close (chase) or that is hitting us.
+        Keep the current target unless another is much nearer *within the same threat tier*
+        (a charger / hitter always beats sticky distance). Also returns a no-LOS mech that
+        is close (chase), charging, or hitting us.
         """
-        best, best_d = None, 1e9
+        best, best_key = None, None
         prev = None
         hit_recent = t - self._mech_hit_last_t < 1.5
         for m in mechs:
@@ -361,19 +364,32 @@ class Bot:
                 continue
             cubes = m.get("cubes") if isinstance(m.get("cubes"), int) else None
             clear = self.combat.clear_shot(me, m["pos"], int(m["id"]), cubes)
+            charging = bool(m.get("charging"))
+            hitter = hit_recent and self.mem.last_threat_id == int(m["id"])
             if not clear:
-                hitter = hit_recent and self.mem.last_threat_id == int(m["id"])
-                if not (d < CHASE_NO_LOS or hitter):
+                if not (d < CHASE_NO_LOS or hitter or charging):
                     continue
                 d += 40.0  # prefer something we can actually shoot
             if self._nearly_dead(m):
                 d -= 30.0
+            # Lower tier = more urgent. Charging laser beats the hunter who just hit us;
+            # both beat raw nearest-distance ranking (protocol: charging is public; damaged.by
+            # names the damage source).
+            if charging:
+                tier = 0
+            elif hitter:
+                tier = 1
+            else:
+                tier = 2
+            key = (tier, d)
             if self._target_id is not None and int(m["id"]) == self._target_id:
-                prev = (m, d)
-            if d < best_d:
-                best, best_d = m, d
-        if prev is not None and prev[1] < best_d * 1.25 + 10.0:
-            best = prev[0]
+                prev = (m, key)
+            if best_key is None or key < best_key:
+                best, best_key = m, key
+        if prev is not None and best_key is not None:
+            # Sticky only within the same threat tier (and not much farther).
+            if prev[1][0] == best_key[0] and prev[1][1] < best_key[1] * 1.25 + 10.0:
+                best = prev[0]
         if best is None and me["hp"] > 0.5 * me["max_hp"]:
             # A nearly dead mech that ducked out of view: chase it (kills are the points).
             for e in self.mem.enemies.values():

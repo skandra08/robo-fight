@@ -183,7 +183,7 @@ A real observation (trimmed only where marked):
 | `self.grounded` | On a surface. Jumping requires it. |
 | `self.weapons[i]` | Slot i, or `null` if the slot is empty (slot 1 is empty at spawn). `cooldown`: seconds until it can fire. Gun: `ammo`, `reload` (seconds left, 0 = not reloading). Laser: `charge` (seconds charged so far; 0 = not charging). `stats`: this weapon's numbers after your upgrades. |
 | `self.stats` | Your `[mech]` numbers after upgrades (speeds, turn rate, armor, bonuses). |
-| `mechs` | Everything you can **see** right now: other mechs (`kind: "mech"`) and NPC drones (`kind: "npc"`). `aim` is their torso aim; `charging` = their laser is charging (it fires along their aim when they let go). `weapons` lists what they hold (empty slots omitted). `hp` is shown while `vision.show_enemy_hp` is true. |
+| `mechs` | Everything you can **see** right now: other mechs (`kind: "mech"`) and NPC drones (`kind: "npc"`). `aim` is their torso aim; `charging` = their laser is charging (it fires along their aim when they let go) — a public telegraph other bots can see and retarget. `weapons` lists what they hold (empty slots omitted). `hp` is shown while `vision.show_enemy_hp` is true. |
 | `projectiles` | Visible enemy gun bullets, mortar shells, and NPC bullets with position and velocity. Shells fall at `weapons.mortar.gravity`. Your own are omitted. |
 | `crates`, `cubes` | Visible loot crates (with HP) and power cubes. |
 | `pickups` | Visible weapons lying on the ground: `id`, `kind`, `pos`. Same visibility rules as cubes. Take one with the `take` action. |
@@ -198,7 +198,7 @@ Events:
 
 | `type` | Fields | Meaning |
 | --- | --- | --- |
-| `damaged` | `amount`, `weapon`, `bearing`, `by`, `rear?` | You took damage. `bearing` is the world-frame yaw (same convention as `aim[0]`, not relative to your facing) toward where it came from (null for zone). `by` is the attacker's id (null for zone). `rear: true` when it came from outside your front arc (rear armor, §7). |
+| `damaged` | `amount`, `weapon`, `bearing`, `by`, `rear?` | You took damage. `bearing` is the world-frame yaw (same convention as `aim[0]`, not relative to your facing) toward where it came from (null for zone). `by` is the attacker's id (null for zone) — the damage source to stick on when retargeting under fire. `rear: true` when it came from outside your front arc (rear armor, §7). |
 | `hit` | `target`, `amount`, `weapon`, `effect?`, `rear?` | You damaged `target` (mech, NPC, or crate id; crate hits are reported since 2026-11-16). `effect` is set when the hit carried a signature effect (`cookoff`, `short`, `concuss`); `rear: true` when you hit a mech's back. |
 | `effect` | `effect`, `by` | A signature effect landed on you: `cookoff` (a laser set off the mortar you carry), `short` (lightning took your laser offline), `concuss` (a mortar blast threw you and drained energy). `by` is who did it. |
 | `drop` | `id`, `cubes` | You captured supply drop `id`; `cubes` is your new total. |

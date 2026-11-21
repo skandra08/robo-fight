@@ -181,6 +181,37 @@ def test_fight(md: str) -> None:
           mode_of(bot, _obs(self=lowhp, mechs=[_mech(5, WEST, hp=150.0)], t=90.0, tick=1800)) == "FIGHT")
 
 
+def test_threat_tgt(md: str) -> None:
+    """Threat retarget: laser charging > damage source > nearest."""
+    # Closer bait vs farther charger: must pick the charger.
+    bot = fresh(md)
+    bait = _mech(6, WEST)
+    bait["pos"] = [-20.0, -60.0, 1.5]  # 50 m, nearer
+    charger = _mech(5, NORTH)
+    charger["charging"] = True
+    bot.act(_obs(mechs=[bait, charger], t=90.0, tick=1800))  # type: ignore[arg-type]
+    check("prefers laser-charging over nearer mech", bot._target_id == 5)
+
+    # Recent damage source (farther) vs nearer non-hitter.
+    bot = fresh(md)
+    hitter = _mech(5, NORTH)  # 80 m
+    near = _mech(6, WEST)
+    near["pos"] = [-20.0, -60.0, 1.5]  # 50 m
+    ev = [{"type": "damaged", "amount": 45, "weapon": "gun", "bearing": math.pi / 2, "by": 5}]
+    bot.act(_obs(mechs=[hitter, near], events=ev, t=90.0, tick=1800))  # type: ignore[arg-type]
+    check("prefers recent damage source over nearer mech", bot._target_id == 5)
+
+    # Charging beats damage source when both visible.
+    bot = fresh(md)
+    hitter = _mech(5, WEST)
+    hitter["pos"] = [-20.0, -60.0, 1.5]
+    charger = _mech(7, NORTH)
+    charger["charging"] = True
+    ev = [{"type": "damaged", "amount": 90, "weapon": "gun", "bearing": math.pi, "by": 5}]
+    bot.act(_obs(mechs=[hitter, charger], events=ev, t=90.0, tick=1800))  # type: ignore[arg-type]
+    check("laser charging beats damage source", bot._target_id == 7)
+
+
 def test_heal(md: str) -> None:
     bot = fresh(md)
     check("hurt, nobody in view -> HEAL (rest)", mode_of(bot, _obs(self={"hp": 800.0})) == "HEAL")
@@ -234,7 +265,17 @@ def main() -> int:
         print("FAIL: arena/v2 missing", file=sys.stderr)
         return 1
     print(f"strategy unit checks variant={levers.LABEL}")
-    tests = [test_upgrades, test_zone, test_farm, test_supply, test_fight, test_heal, test_drone, test_timing]
+    tests = [
+        test_upgrades,
+        test_zone,
+        test_farm,
+        test_supply,
+        test_fight,
+        test_threat_tgt,
+        test_heal,
+        test_drone,
+        test_timing,
+    ]
     failed = 0
     for fn in tests:
         try:
