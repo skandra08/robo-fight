@@ -6,14 +6,14 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "post-kill"
+LABEL = "no-ambush"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
     "N1": False,  # laser counter for every loadout
     "N2": False,  # edge-guard hunters climbing our roof
-    "N3": True,  # after kill: loot then heal ≥90%
-    "S2": False,  # remove 1v1 ambush
+    "N3": False,  # after kill: loot then heal ≥90%
+    "S2": True,  # remove 1v1 ambush
     "S3": False,  # no ARM boost inside the zone
     "N4": False,  # pre-charged laser peeks
     "N5": False,  # cube snowball (drones + kill cubes)

@@ -12,7 +12,8 @@ fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-lev_label="$(python3 -c 'import levers; print(levers.LABEL)')"
+rm -f __pycache__/levers*.pyc 2>/dev/null || true
+lev_label="$(grep -E '^LABEL\s*=' levers.py | head -1 | sed -E 's/^LABEL[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/')"
 if [[ "$lev_label" != "$label" ]]; then
   echo "error: levers.LABEL='$lev_label' != '$label'" >&2
   exit 1
