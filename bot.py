@@ -1465,8 +1465,16 @@ class Bot:
             return
 
         # Gun / laser ground / generic: take the fight. Ambush → commit.
+        # chase-range-cap: don't sprint beyond 90 m unless they just hurt us.
         close_at = 55.0 if push_hard else 75.0
-        if not clear or dist > close_at:
+        hurt_by = (t - self.mem.last_took_weapon_damage_t < 2.5 and
+                   self.mem.last_threat_id is not None and
+                   int(chase.get("id", -1)) == int(self.mem.last_threat_id))
+        if dist > 90.0 and not hurt_by and not push_hard:
+            side = bearing + (math.pi / 2) * self.mem.strafe_sign
+            act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
+            act["boost"] = False
+        elif not clear or dist > close_at:
             move, _ = self.nav.steer(me, chase["pos"], 1.0, t)
             act["move"] = move
             act["boost"] = energy_ok and (dist > 50 or push_hard)
