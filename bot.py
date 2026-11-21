@@ -1366,13 +1366,15 @@ class Bot:
         """Final pass: keep / release a laser that was charging when the target vanished."""
         me = obs["self"]
         t = float(obs["t"])
+        mode = self.mem.mode
+        # R5: modes that deliberately set fire=False must not be overridden.
+        climbing = bool(act.get("boost") or act.get("jump")) and mode in ("RELOCATE", "ROTATE")
+        if mode in ("COUNTER_LASER", "ESCAPE_ZONE") or (mode == "RELOCATE" and climbing):
+            return
         weapons = me.get("weapons") or []
         fire = list(act.get("fire") or [False, False])
         while len(fire) < 2:
             fire.append(False)
-        laser_cfg = (self.cfg.get("weapons") or {}).get("laser") or {}
-        need = float(laser_cfg.get("charge", 0.75))
-        hold_s = float(laser_cfg.get("hold_s", 2.0))
         memory_s = float((self.cfg.get("vision") or {}).get("memory_s", 5.0))
         changed = False
         for i, w in enumerate(weapons):
@@ -1398,12 +1400,9 @@ class Bot:
                 fire[i] = True
                 act["aim"] = self.combat.aim_at(me, best, "laser")
                 changed = True
-            elif charge >= need + hold_s - 0.08:
-                # Near auto-fire end — release (beam fires either way).
-                fire[i] = False
             else:
-                # Don't drop the charge the tick the target disappears.
-                fire[i] = True
+                # R5: no enemy near aim → release (don't half-speed hold to auto-fire).
+                fire[i] = False
                 changed = True
         if changed or fire != list(act.get("fire") or [False, False]):
             act["fire"] = fire

@@ -33,6 +33,7 @@ Mech Royale practice bot: arm quietly (laser > mortar > lightning), set up loado
 | v1.11 | Gun primary on clear shot (R1) | Mortar only no-LOS in-range; lightning only clear ≤range; else gun. Drop pitch-0.6 mortar fallback (#8). Predicted: restore gun DPS for mortar/lightning loadouts (v1.3+v1.8 silence) |
 | v1.12 | Disable DISENGAGE/RESET/THIRD (R2) | Practice: stay in FIGHT (decision 5). Bodies kept for FFA. Predicted: finish 1v1s instead of looping DISENGAGE after ~400 HP lost |
 | v1.13 | Loot memory LOS gate (R4) | Near-range ghost delete only with eye LOS (buildings block proximity vision). Predicted: stop forgetting wall-hidden loot mid-approach |
+| v1.14 | Scope laser charge-hold (R5) | Skip hold in COUNTER_LASER / ESCAPE / climbing RELOCATE; release when no enemy within ~8° of aim. Predicted: stop half-speed charge while fleeing |
 
 ## Local check
 
