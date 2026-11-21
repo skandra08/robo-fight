@@ -831,6 +831,16 @@ class Bot:
             self.mem.positioned = False
             return "DISENGAGE"
 
+        # BET farm: the showdown winner farmed until ~60 s and only then fought. Until 75 s, ignore
+        # mechs that are not hurting us and farm cubes, crates and drones at any range.
+        if t < 75.0 and not recent_dmg:
+            if self._cube_goal(obs, [], 1e9) is not None:
+                return "CUBE"
+            if not visible:
+                drone = self._farmable_drone(obs)
+                if drone is not None:
+                    self.mem.farm_drone_id = int(drone["id"])
+                    return "FIGHT"
         # Decision 5: always fight back while under fire.
         if recent_dmg and visible:
             return "FIGHT"
@@ -1258,7 +1268,7 @@ class Bot:
                 key=lambda e: math.dist(e["pos"][:2], me["pos"][:2]),
             )
         # N5: farm drone when no hunter chase target.
-        if chase is None and levers.on("N5") and self.mem.farm_drone_id is not None:
+        if chase is None and self.mem.farm_drone_id is not None:
             for m in obs.get("mechs") or []:
                 if m.get("kind") == "npc" and int(m["id"]) == int(self.mem.farm_drone_id):
                     chase = m
@@ -1431,7 +1441,7 @@ class Bot:
         if best is None and enemy_d > 90.0:
             for c in obs.get("crates") or []:
                 d = math.dist(c["pos"][:2], (mx, my))
-                if d > 150.0 or d < 1.0:
+                if d > (220.0 if t < 75.0 else 150.0) or d < 1.0:
                     continue
                 center = [c["pos"][0], c["pos"][1], c["pos"][2] + 1.2]
                 if self.world.blocked_segment(self.combat.muzzle(me), center, step=2.0):
