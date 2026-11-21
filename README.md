@@ -71,13 +71,16 @@ Public GitHub repo with this `Dockerfile` at the top. Tracker: joinbuilders.org/
 
 ## Trying variants
 
-A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>` via `levers.LABEL`. Base: `b4d6e37` (v1.20 / r3-full).
+A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and submit that tree. `Bot.name` = `lh-<label>` via `levers.LABEL`. Tip: `bd8cf95` (v1.20 / r3-full + FFA own-shot fix). Session best: **roof-all** (2.29) — next submits stack one lever on S1 (`roof-ctr` / `roof-edge`); F1 stays off on practice tags.
 
 | # | label | Bot.name | tag | full hash | tweak | try this if… |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0 | r3-base | lh-r3-base | `try/r3-base` | `3cbee64dd940d2ab0a0789611443083edc0497b7` | R3 scaffolding, all levers off | new control / ≈v1.19 behavior on plan tip |
-| 1 | roof-all | lh-roof-all | `try/roof-all` | `9b820d14888fe6050429c98daff4871584cb3d9a` | **S1** all loadouts on roof | first R3 submit; mortar/lightning die on ground |
-| 2 | laser-ctr | lh-laser-ctr | `try/laser-ctr` | `73821ee9b5e88678ee742c3a3b9b71d640368d2a` | **N1** laser counter any loadout | eating laser cook-offs / 70%+ laser damage |
+| 1 | roof-all | lh-roof-all | `try/roof-all` | `9b820d14888fe6050429c98daff4871584cb3d9a` | **S1** all loadouts on roof | session best 2.29; mortar/lightning die on ground |
+| 1a | roof-ctr | lh-roof-ctr | `try/roof-ctr` | `55f5015e213a097c6a9695801d56efa7cc808798` | **S1+N1** roof + laser counter | chase >2.29; next practice submit |
+| 1b | roof-edge | lh-roof-edge | `try/roof-edge` | `c976de67542eea368f13b28b4d196ff037236fc4` | **S1+N2** roof + edge-guard | roof rushers after roof-ctr |
+| 1c | roof-noise | lh-roof-noise | `try/roof-noise` | `4c1a8547ca20e0b0da4312a1a4ff385cbf74e59a` | **S1** + seed xor (noise floor) | spare submit; |Δ| from 2.29 = noise |
+| 2 | laser-ctr | lh-laser-ctr | `try/laser-ctr` | `73821ee9b5e88678ee742c3a3b9b71d640368d2a` | **N1** alone (pre-roof stack) | eating laser cook-offs / 70%+ laser damage |
 | 3 | edge-guard | lh-edge-guard | `try/edge-guard` | `41b972ac54fb8c99eb45d5319a01e9996e08c693` | **N2** hold threat-edge vs climbers | dying to roof rushers one-by-one |
 | 4 | post-kill | lh-post-kill | `try/post-kill` | `52335de017527588762821d0d23716ecd4c866cc` | **N3** loot then heal ≥90% | winning fights then dying under-healed |
 | 5 | no-ambush | lh-no-ambush | `try/no-ambush` | `9065b8f3ded0ad85250479cfda439e938893a292` | **S2** no 1v1 ambush FIGHT | dying mid-setup to unaware hunters |
@@ -88,7 +91,7 @@ A/B tags on `origin` (`git fetch --tags --force`). Checkout `try/<label>` and su
 | 10 | no-gate | lh-no-gate | `try/no-gate` | `c11cfdeaf0195e2584a4b0e4ffac4e2a18b62c8e` | **S4** ROTATE gatekeep off | gatekeep wastes time / dies on ring |
 | 11 | ffa | lh-ffa | `try/ffa` | `450ebfc7de4762023ff99d4f6cb1c1a2d9bafb8f` | **F1** detector + survival only | qualifiers/final FFA; keep practice ±0.15 |
 | 12 | r3-core | lh-r3-core | `try/r3-core` | `3737f2636dde5ec00e880ca0201142b1ed2c1f77` | S1+N1+N2+N3+S2+S3+S4+F1 | stacked core (skip uncertain N4/N5/N6) |
-| 13 | r3-full | lh-r3-full | `try/r3-full` | `b4d6e37c727f7125bbf8c8087475b7a99fcaf910` | all S/N/F levers (= main) | full plan in one submit |
+| 13 | r3-full | lh-r3-full | `try/r3-full` | `bd8cf952ca55439d9e3d9475edee53520aefb982` | all S/N/F levers (= tip; FFA own-shot fix) | full plan in one submit |
 
 Prior A/B (still on origin): `try/camp-hold`, `try/arm-first`, `try/fight-ready`, `try/third-armed`, `try/no-third`.
 
