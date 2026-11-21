@@ -1434,15 +1434,20 @@ class Bot:
             act["move"] = [0.0, 0.0]
             return
 
-        # Mortar: keep range, don't rush into gun range unless flanking hard.
+        # Mortar kite: longer standoff (respect ~12 m min / self-splash); prefer
+        # backing off vs laser cook-off rather than closing into gun/laser range.
         if second == "mortar":
-            prefer = 110.0
-            if dist < prefer - 25 and not push_hard:
+            ew = chase.get("weapons") or []
+            cookoff = bool(chase.get("charging")) or (
+                isinstance(ew, list) and "laser" in ew
+            )
+            prefer = 150.0 if cookoff else 135.0
+            if dist <= 12.0 or (dist < prefer - 20 and not (push_hard and not cookoff)):
                 away = bearing + math.pi
-                act["move"] = [math.cos(away) * 0.85, math.sin(away) * 0.85]
-                act["boost"] = energy_ok and dist < 70
-            elif dist > prefer + 20 or (not clear and dist > 50):
-                move, _ = self.nav.steer(me, chase["pos"], 0.7, t)
+                act["move"] = [math.cos(away) * 0.9, math.sin(away) * 0.9]
+                act["boost"] = energy_ok and (dist < 90.0 or cookoff)
+            elif dist > prefer + 25 or (not clear and dist > 55):
+                move, _ = self.nav.steer(me, chase["pos"], 0.6, t)
                 act["move"] = move
             else:
                 side = bearing + (math.pi / 2) * self.mem.strafe_sign
