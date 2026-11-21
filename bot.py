@@ -64,6 +64,9 @@ BAND_LO = 55.0  # fight band: back off inside this
 BAND_HI = 125.0  # ...and close in beyond this
 CHASE_NO_LOS = 100.0  # chase a mech we can't shoot only this close
 ENGAGE_MAX = 230.0  # gun range
+USE_PLANNER = True
+ZONE_FIGHT = True
+SEARCH_NEXT = True
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -283,7 +286,7 @@ class Bot:
         if urgency < 5.0:
             return "ZONE"
         busy = hit_by_mech or (target is not None and _d2(target["pos"], me["pos"]) < 90.0)
-        if urgency < 20.0 and not busy:
+        if urgency < 20.0 and (not busy or not ZONE_FIGHT):
             return "ZONE"
 
         # A drone shooting us while no mech is: kill it.
@@ -490,7 +493,11 @@ class Bot:
             # Early search: walk to waypoints inside the next circle, scanning with the torso.
             z = obs["zone"]
             dest = self._search_wp
-            if dest is None or _d2(dest, me["pos"]) < 15.0 or t > self._search_until:
+            if not SEARCH_NEXT:
+                zc = self.nav.zone_goal(z, me["pos"], 0.55)
+                yaw = self.mem.scan_yaw
+                dest = [zc[0] + math.cos(yaw * 0.25) * 90.0, zc[1] + math.sin(yaw * 0.25) * 90.0]
+            elif dest is None or _d2(dest, me["pos"]) < 15.0 or t > self._search_until:
                 nc, nr = z["next_center"], float(z["next_radius"])
                 ang = self.mem.rand() * 2 * math.pi
                 rr = math.sqrt(self.mem.rand()) * 0.6 * nr
@@ -994,7 +1001,7 @@ class Bot:
         ):
             self._prog_goal, self._prog_t, self._prog_d = list(goal[:2]), t, d
         elif t - self._prog_t > 2.5:
-            if self._prog_d - d < 5.0 and d > 12.0 and me.get("grounded"):
+            if USE_PLANNER and self._prog_d - d < 5.0 and d > 12.0 and me.get("grounded"):
                 path = self.planner.plan(me["pos"], goal)
                 if path:
                     self._path, self._path_goal, self._path_until = path, list(goal[:2]), t + 30.0
