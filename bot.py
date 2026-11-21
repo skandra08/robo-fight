@@ -65,7 +65,7 @@ def _we_flank(enemy: Dict[str, Any], me_pos: List[float]) -> bool:
 
 
 class Bot:
-    name = "loadout-hunter"
+    name = "lh-third-armed"
 
     def __init__(self, hello: mf.Hello):
         t0 = time.perf_counter()
@@ -300,50 +300,33 @@ class Bot:
         return False
 
     def _want_third(self, me: Dict[str, Any], second: Optional[str], visible: List[Dict[str, Any]], t: float) -> bool:
-        """THIRD disabled for practice (R2). Body kept for FFA (decision 6).
+        """Armed only; wait for sustained combat sounds ~2–4s before crashing.
 
-        Was practice-gated (v1.10): positioned + healthy + near sound only.
-        Shared-vision house hunters punish mid/far crash-ins.
+        try/third-armed: Sameer's original (less gated than v1.10). Re-enabled on v1.19.
         """
-        if True:  # practice: never crash into sound fights
-            self.mem.third_commit = False
-            return False
         if second is None:
             return False
         if visible:
             return False  # already in contact — FIGHT/DISENGAGE handle it
-        # Get second weapon + loadout position before seeking thirds.
-        if not self.mem.positioned:
-            self.mem.third_commit = False
-            return False
-        hp_frac = me["hp"] / max(1.0, me["max_hp"])
-        if hp_frac < 0.7:
-            self.mem.third_commit = False
-            return False
-        if t - self.mem.last_took_weapon_damage_t < 4.0:
-            self.mem.third_commit = False
-            return False
         if self.mem.combat_noise_since < 0:
             self.mem.third_commit = False
             return False
         age = t - self.mem.combat_noise_since
-        if age < 3.0:
-            return False  # wait longer than v1.9 — don't crash at first exchange
-        if age > 5.5 and not self.mem.third_commit:
+        if age < 2.0:
+            return False  # wait — don't crash at first gunshot
+        if age > 4.5 and not self.mem.third_commit:
+            # Noise went stale without commit.
             return False
-        # Near combat only (single-contact estimate). Mid/far → pack ambush.
-        combat_kinds = ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning")
+        # Prefer a mid/far combat bearing to approach.
         bearing = None
-        near_hits = 0
         for s in reversed(self.mem.sound_log):
-            if s.get("kind") not in combat_kinds:
-                continue
-            if s.get("dist") == "near":
-                near_hits += 1
-                if bearing is None and s.get("bearing") is not None:
+            if s.get("kind") in ("gun", "laser", "laser_charge", "mortar", "explosion", "lightning"):
+                if s.get("bearing") is not None and s.get("dist") in ("mid", "far", "near", None):
                     bearing = float(s["bearing"])
-        if near_hits < 1 or bearing is None:
-            self.mem.third_commit = False
+                    break
+        if bearing is None:
+            bearing = self.mem.last_threat_bearing
+        if bearing is None:
             return False
         self.mem.third_bearing = bearing
         self.mem.third_commit = True
@@ -550,7 +533,7 @@ class Bot:
                     return "FIGHT"
                 # Unpositioned + undetected mid-range → fall through to RELOCATE/CAMP.
 
-        # THIRD: disabled for practice via _want_third (R2); body kept for FFA.
+        # THIRD: re-enabled (try/third-armed) — armed + ~2–4s sounds.
         if self._want_third(me, second, visible, t):
             return "THIRD"
 
