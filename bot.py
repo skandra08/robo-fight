@@ -2218,9 +2218,12 @@ class Bot:
                 w = (me.get("weapons") or [])[slot]
                 charge = float((w or {}).get("charge") or 0)
                 cd = float((w or {}).get("cooldown") or 0)
-                # Between laser shots (cooling, not charging): lead with the gun.
-                if charge <= 0.02 and cd > 0 and _slot_of(me, "gun") is not None:
-                    return "gun", "gun"
+                # dual-slot-prio: between laser shots prefer lightning if equipped, else gun.
+                if charge <= 0.02 and cd > 0:
+                    if _slot_of(me, "lightning") is not None:
+                        return "lightning", "lightning"
+                    if _slot_of(me, "gun") is not None:
+                        return "gun", "gun"
             return "laser", "laser"
         if kind == "lightning":
             return "lightning", "lightning"
