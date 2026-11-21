@@ -19,7 +19,7 @@ import os as _os
 # Tunables. The defaults are the submitted behaviour; the simulator overrides them with SIM_KNOBS.
 K = {"farm_t": 75.0, "engage": 75.0, "heal_hp": 0.65, "cube_reach": 160.0, "crate_clear": 90.0,
      "kite": 0, "kite_n": 2, "allin_t": 1e9, "allin_kills": 99, "allin_hp": 0.5, "allin_close": 40.0,
-     "lowbreak_hp": 0.0, "upg": ""}
+     "lowbreak_hp": 0.0, "upg": "", "gun_laser": 0}
 try:
     K.update(_json.loads(_os.environ.get("SIM_KNOBS") or "{}"))
 except Exception:
@@ -173,6 +173,8 @@ class Bot:
             act["pick"] = pick
 
         second = _has_second(me)
+        import combat as _cb
+        _cb.GUN_WITH_LASER[0] = bool(K["gun_laser"])
         mode = self._select_mode(obs, second)
         prev = self.mem.mode
         self.mem.set_mode(mode, t)

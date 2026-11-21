@@ -1,6 +1,9 @@
 """Targeting, lead aim, mortar ballistics, fire discipline."""
 from __future__ import annotations
 
+# Fire the gun while the laser charges (aim is the laser's direct aim). Toggled by bot.K["gun_laser"].
+GUN_WITH_LASER = [False]
+
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -274,7 +277,7 @@ class Combat:
                 continue
             kind = w["kind"]
             if aim_kind is not None:
-                if kind == "gun" and aim_kind != "gun":
+                if kind == "gun" and aim_kind != "gun" and not (aim_kind == "laser" and GUN_WITH_LASER[0]):
                     # Bug #7: don't dump the mag on mortar lob / laser direct aim.
                     continue
                 if kind == "mortar" and aim_kind != "mortar":
