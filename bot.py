@@ -101,6 +101,12 @@ WAKE_GUARD = False  # always-fire overlay: don't open fire on far mechs that are
 WAKE_GUARD_FIGHT = False  # ...and don't pick them as FIGHT targets either
 WAKE_D = 110.0
 WAKE_MEM = 15.0  # a mech that hit us within this many seconds counts as hunting
+# Regen only runs after 5 s without dealing OR taking damage (protocol section 7), so every
+# crate, drone or poke at a far mech while hurt keeps us from healing between hunters.
+HEAL_SILENT = False  # HEAL: the always-fire overlay only shoots back while we're being hit
+REGEN_FIRST = False  # below REGEN_HP and not under fire: heal (silent, out of sight) before anything else
+REGEN_HP = 0.85
+REGEN_QUIET_S = 3.0  # "not under fire" = no weapon hit on us for this long
 
 # Local experiments only: RW_TUNE='{"RETREAT_HP": 0.3}' overrides the tunables above.
 if os.environ.get("RW_TUNE"):
@@ -355,6 +361,11 @@ class Bot:
         # A drone shooting us while no mech is: kill it.
         if t - self._npc_hit_last_t < 2.5 and t - self._mech_hit_last_t > 2.0:
             return "DRONE"
+
+        if (REGEN_FIRST and hp_frac < (REGEN_HP if self.mode != "HEAL" else HEAL_DONE_HP)
+                and t - self._mech_hit_last_t > REGEN_QUIET_S
+                and not (target is not None and self._nearly_dead(target))):
+            return "HEAL"
 
         # Back off to heal when low, unless the target is about to die.
         if mechs or hit_by_mech or target is not None:
@@ -1154,6 +1165,8 @@ class Bot:
         me = obs["self"]
         fire = list(act.get("fire") or [False, False])
         if any(fire) or act.get("reload") or act.get("take") is not None:
+            return
+        if (HEAL_SILENT or REGEN_FIRST) and self.mode == "HEAL" and t - self._mech_hit_last_t > 1.5:
             return
         weapons = me.get("weapons") or [None, None]
         g = weapons[0]
