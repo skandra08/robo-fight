@@ -778,6 +778,16 @@ class Bot:
             self.mem.threat_edge_bearing = bearing
             self.mem.edge_guard_pt = self._edge_guard_point(roof, me, bearing)
 
+    def _offensive_fight(self, t: float, hp_frac: float) -> str:
+        """Commit to offensive FIGHT only above the HP gate; else heal/cover.
+
+        Clear threshold (50%): starting fights while hurt burns HP we need for
+        placement. Return-fire under Decision 5 stays a bare FIGHT.
+        """
+        if hp_frac < 0.50:
+            return "HEAL"
+        return "FIGHT"
+
     def _select_mode(self, obs: mf.Observation, second: Optional[str]) -> str:
         """Practice mid-pack path. Priority vs ARM/FIGHT/CAMP/RELOCATE/HEAL/ESCAPE/COUNTER_LASER.
 
@@ -943,21 +953,21 @@ class Bot:
                 gun_only_close = second is None and enemy_d < 50 and _we_flank(ambush, me["pos"])
                 if second is not None or gun_only_close:
                     if not (second is None and loot is not None and loot_d + 20 < enemy_d and loot_d < 70):
-                        return "FIGHT"
+                        return self._offensive_fight(t, hp_frac)
 
         # F1 survival: don't start fights — only when attacked, low-HP target, or rear shot.
         if ffa and visible and not recent_dmg:
             weak = any((e.get("hp") is not None and e["hp"] < 300) for e in visible)
             rear = any(_we_flank(e, me["pos"]) for e in visible)
             if weak or rear:
-                return "FIGHT"
+                return self._offensive_fight(t, hp_frac)
         elif recent_dmg or len(visible) >= 2:
             if second is None:
                 if loot is not None and loot_d + 15 < enemy_d and loot_d < 110:
                     return "ARM"
                 if len(visible) >= 2 and enemy_d > 45 and not recent_dmg:
                     return "ARM"
-            return "FIGHT"
+            return self._offensive_fight(t, hp_frac)
 
         if visible and (second is not None or enemy_d < 120):
             aware = any(_enemy_aware(e, me["pos"]) for e in visible)
@@ -967,10 +977,10 @@ class Bot:
                 if enemy_d < 55 or (aware and enemy_d < 80) or recent_dmg:
                     if loot is not None and loot_d + 15 < enemy_d and loot_d < 90:
                         return "ARM"
-                    return "FIGHT"
+                    return self._offensive_fight(t, hp_frac)
             else:
                 if aware or recent_dmg or self.mem.positioned or enemy_d < 70:
-                    return "FIGHT"
+                    return self._offensive_fight(t, hp_frac)
 
         if self._want_third(me, second, visible, t):
             return "THIRD"
