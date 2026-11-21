@@ -1377,10 +1377,12 @@ class Bot:
         push_hard = aggressive and (flank or undetected) and len(enemies) <= 1
 
         dist = math.dist(chase["pos"][:2], me["pos"][:2])
-        # R1: gun is primary whenever it has a clear shot. Specials only when useful.
+        # Hard-prefer laser when available/in range; gun as filler; lightning only close.
+        # (_fight_aim_kind leads with the gun between laser shots / on cooldown.)
         kind = "gun"
+        lz_rng = float((self.combat.weapons.get("laser") or {}).get("range", 280.0))
         if second == "laser":
-            kind = "laser" if clear else "gun"
+            kind = "laser" if dist <= lz_rng else "gun"
         elif second == "mortar":
             mw = self.combat.weapons.get("mortar") or {}
             v = float(mw.get("speed", 72))
@@ -1392,7 +1394,8 @@ class Bot:
                 kind = "gun"
         elif second == "lightning":
             lr = float((self.combat.weapons.get("lightning") or {}).get("range", 45))
-            kind = "lightning" if clear and dist <= lr else "gun"
+            # Only close — inside the soft cone edge so arcs actually land.
+            kind = "lightning" if clear and dist <= min(lr, 28.0) else "gun"
         # Bug #8: invalid mortar lob → gun (never pitch-0.6 skyfire).
         if kind == "mortar":
             feet = [chase["pos"][0], chase["pos"][1], chase["pos"][2]]
@@ -2209,7 +2212,7 @@ class Bot:
             act["reload"] = True
 
     def _fight_aim_kind(self, me: Dict[str, Any], kind: str) -> tuple[str, str]:
-        """Pick aim weapon + fire_slots aim_kind (bug #7)."""
+        """Pick aim weapon + fire_slots aim_kind (bug #7). Gun is filler between laser shots."""
         if kind == "mortar":
             return "mortar", "mortar"
         if kind == "laser":
@@ -2218,7 +2221,7 @@ class Bot:
                 w = (me.get("weapons") or [])[slot]
                 charge = float((w or {}).get("charge") or 0)
                 cd = float((w or {}).get("cooldown") or 0)
-                # Between laser shots (cooling, not charging): lead with the gun.
+                # Gun filler: lead between laser shots while the beam cools.
                 if charge <= 0.02 and cd > 0 and _slot_of(me, "gun") is not None:
                     return "gun", "gun"
             return "laser", "laser"
