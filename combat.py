@@ -39,12 +39,13 @@ class Combat:
         me: Dict[str, Any],
         visible: List[Dict[str, Any]],
         prefer_id: Optional[int],
+        require_clear: bool = True,
     ) -> Optional[Dict[str, Any]]:
         cands = []
         for m in visible:
             if m.get("kind") != "mech":
                 continue
-            if not self.clear_shot(me, m["pos"]):
+            if require_clear and not self.clear_shot(me, m["pos"]):
                 continue
             cands.append(m)
         if not cands:
@@ -53,10 +54,12 @@ class Combat:
             for m in cands:
                 if int(m["id"]) == prefer_id:
                     return m
+
         def key(m):
             hp = m.get("hp", 1400)
             d = math.dist(m["pos"][:2], me["pos"][:2])
             return (hp, d)
+
         return min(cands, key=key)
 
     def aim_at(self, me: Dict[str, Any], target: Dict[str, Any], kind: str = "gun") -> List[float]:
@@ -149,8 +152,10 @@ class Combat:
                     reload = True
             return fire, reload, None
 
-        aimed = self.aligned(me, desired_aim, 2.0)
-        laser_aimed = self.aligned(me, desired_aim, 3.0)
+        # Slightly wider than 2° so torso slew still sustains gun DPS.
+        aimed = self.aligned(me, desired_aim, 4.0)
+        laser_close = self.aligned(me, desired_aim, 15.0)  # start/keep charge only when roughly on target
+        laser_aimed = self.aligned(me, desired_aim, 4.0)
 
         for i, w in enumerate(weapons):
             if not w:
@@ -158,25 +163,40 @@ class Combat:
             kind = w["kind"]
             cd = float(w.get("cooldown") or 0)
             if kind == "laser":
-                # Hold through the whole charge even if aim drifts — releasing early
-                # fires along the current torso aim at the wrong target.
+                # Charging while way off-target telegraphs + risks hold_s auto-fire the wrong way.
+                # Only pull the trigger when roughly aligned; if already charging, keep holding
+                # until we can release on-target (releasing early also fires along current aim).
                 charge = float(w.get("charge") or 0)
                 need = float((self.weapons.get("laser") or {}).get("charge", 0.75))
+                charging = charge > 0.02
                 if charge >= need - 0.02 and laser_aimed:
-                    fire[i] = False  # release only when full and on target
+                    fire[i] = False  # release on target
+                elif charging or laser_close:
+                    fire[i] = True
                 else:
-                    fire[i] = True  # keep charging / wait for alignment
+                    fire[i] = False
                 continue
             if kind == "gun":
                 # Hold the trigger whenever aimed: server fires at exact cooldown rate.
-                # Gating on cooldown==0 only shoots every ~0.3s instead of 0.24s.
                 ammo = w.get("ammo", 1)
                 if aimed and (ammo is None or ammo > 0):
                     fire[i] = True
-                    mem.shots_here += 1
-                    mem.shots += 1
-                elif aimed and ammo is not None and ammo <= 0 and w.get("reload", 0) == 0:
-                    reload = True
+                    # Count real shots via ammo drop / cooldown edge — not every hold tick.
+                    prev_ammo = getattr(mem, "_gun_ammo_seen", None)
+                    if ammo is not None and prev_ammo is not None and ammo < prev_ammo:
+                        mem.shots_here += int(prev_ammo - ammo)
+                        mem.shots += int(prev_ammo - ammo)
+                    elif ammo is None and cd <= 0 and not getattr(mem, "_gun_held_last", False):
+                        mem.shots_here += 1
+                        mem.shots += 1
+                    mem._gun_ammo_seen = ammo
+                    mem._gun_held_last = True
+                else:
+                    if ammo is not None:
+                        mem._gun_ammo_seen = ammo
+                    mem._gun_held_last = False
+                    if aimed and ammo is not None and ammo <= 0 and w.get("reload", 0) == 0:
+                        reload = True
             if kind == "lightning" and aimed and cd <= 0:
                 rng = float((self.weapons.get("lightning") or {}).get("range", 45))
                 cone = math.radians(float((self.weapons.get("lightning") or {}).get("cone_deg", 30)) / 2)

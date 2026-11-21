@@ -1,4 +1,4 @@
-"""Short-term memory: enemies, damage, sounds, camp counters."""
+"""Short-term memory: enemies, loot, damage, sounds, camp counters."""
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 class Memory:
     def __init__(self) -> None:
         self.enemies: Dict[int, Dict[str, Any]] = {}
+        self.loot: Dict[int, Dict[str, Any]] = {}  # pickup id -> last known
         self.damage_log: List[Dict[str, Any]] = []
         self.sound_log: List[Dict[str, Any]] = []
         self.shots_here = 0
@@ -40,12 +41,16 @@ class Memory:
         self.second_weapon = None
         self.cubes_want = 4
         self.rng_state = 1
+        self.scan_yaw = 0.0
+        self.arm_goal: Optional[List[float]] = None
+        self._gun_ammo_seen: Optional[float] = None
+        self._gun_held_last = False
 
     def seed(self, seed: int) -> None:
         self.rng_state = int(seed) & 0x7FFFFFFF or 1
+        self.scan_yaw = (seed % 360) * 0.017453292519943295
 
     def rand(self) -> float:
-        # LCG
         self.rng_state = (1103515245 * self.rng_state + 12345) & 0x7FFFFFFF
         return self.rng_state / 0x7FFFFFFF
 
@@ -53,18 +58,14 @@ class Memory:
         t = float(obs["t"])
         self.total_time = t
         me = obs["self"]
-        if self.world_on_roof:
-            self.time_on_roof += 0.1  # approx decide period; refined by caller
 
-        # enemies
-        seen = set()
         for m in obs.get("mechs") or []:
             if m.get("kind") != "mech":
                 continue
             eid = int(m["id"])
-            seen.add(eid)
             self.enemies[eid] = {
                 "id": eid,
+                "kind": "mech",
                 "pos": list(m["pos"]),
                 "vel": list(m.get("vel") or [0, 0, 0]),
                 "hp": m.get("hp"),
@@ -74,12 +75,32 @@ class Memory:
                 "charging": bool(m.get("charging")),
                 "last_seen_t": t,
             }
-        # prune old
         for eid in list(self.enemies):
             if t - self.enemies[eid]["last_seen_t"] > 8.0:
                 del self.enemies[eid]
 
-        # events
+        # Remember weapon pickups while visible; drop if we took them or they're stale.
+        seen_loot = set()
+        for p in obs.get("pickups") or []:
+            if p.get("kind") == "gun":
+                continue
+            pid = int(p["id"])
+            seen_loot.add(pid)
+            self.loot[pid] = {
+                "id": pid,
+                "kind": p["kind"],
+                "pos": list(p["pos"]),
+                "last_seen_t": t,
+            }
+        for e in obs.get("events") or []:
+            if e.get("type") == "took" and e.get("id") is not None:
+                self.loot.pop(int(e["id"]), None)
+            if e.get("type") == "take_failed" and e.get("reason") == "gone" and e.get("id") is not None:
+                self.loot.pop(int(e["id"]), None)
+        for pid in list(self.loot):
+            if pid not in seen_loot and t - self.loot[pid]["last_seen_t"] > 45.0:
+                del self.loot[pid]
+
         for e in obs.get("events") or []:
             et = e.get("type")
             if et == "damaged":
@@ -98,20 +119,24 @@ class Memory:
             elif et == "took":
                 self.second_weapon = e.get("kind")
 
-        # sounds
         for s in obs.get("sounds") or []:
             self.sound_log.append({"t": t, **s})
+            # sound bearings are useful hunt cues when we have no visual
+            if s.get("kind") in ("gun", "laser", "laser_charge", "lightning", "mortar", "explosion"):
+                if s.get("bearing") is not None and self.last_threat_bearing is None:
+                    self.last_threat_bearing = float(s["bearing"])
 
         cutoff = t - 3.0
         self.damage_log = [d for d in self.damage_log if d["t"] >= cutoff]
         self.sound_log = [s for s in self.sound_log if s["t"] >= cutoff]
 
-        weapons = me.get("weapons") or []
-        for w in weapons:
+        for w in me.get("weapons") or []:
             if w and w.get("kind") != "gun":
                 self.second_weapon = w["kind"]
 
-    # set by bot each tick
+        # slow scan for loot search
+        self.scan_yaw = (self.scan_yaw + 0.35) % (2 * 3.141592653589793)
+
     world_on_roof: bool = False
 
     def set_mode(self, mode: str, t: float) -> None:
@@ -122,3 +147,23 @@ class Memory:
     def reset_camp_counters(self) -> None:
         self.shots_here = 0
         self.mortars_here = 0
+
+    def best_loot(self, pos: List[float], t: float) -> Optional[Dict[str, Any]]:
+        best = None
+        best_score = -1e9
+        for p in self.loot.values():
+            kind = p["kind"]
+            d = ((p["pos"][0] - pos[0]) ** 2 + (p["pos"][1] - pos[1]) ** 2) ** 0.5
+            age = t - p["last_seen_t"]
+            if kind == "laser" and d <= 160:
+                score = 400 - d - age
+            elif kind == "mortar" and d <= 120:
+                score = 280 - d - age
+            elif kind == "lightning" and d <= 60:
+                score = 140 - d - age
+            else:
+                continue
+            if score > best_score:
+                best_score = score
+                best = p
+        return best

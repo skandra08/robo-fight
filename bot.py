@@ -157,14 +157,21 @@ class Bot:
 
         recent_dmg = t - self.mem.last_took_weapon_damage_t < 1.5
         visible_enemies = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
-        clear = any(self.combat.clear_shot(me, m["pos"]) for m in visible_enemies)
-        under_fire = recent_dmg or (bool(visible_enemies) and clear)
-        # Never HEAL while being shot or while we have a shootable target — regen
-        # can't start under damage, and practice score needs kills.
-        if under_fire:
+        loot = self.mem.best_loot(me["pos"], t)
+        loot_d = math.dist(loot["pos"][:2], me["pos"][:2]) if loot else 1e9
+        enemy_d = min(
+            (math.dist(m["pos"][:2], me["pos"][:2]) for m in visible_enemies),
+            default=1e9,
+        )
+
+        # Practice needs kills AND a second weapon. If loot is closer than the
+        # nearest hunter, finish the grab; otherwise fight.
+        if recent_dmg or visible_enemies:
+            if second is None and loot is not None and loot_d + 15 < enemy_d and loot_d < 110:
+                return "ARM"
             return "FIGHT"
 
-        # Heal only when safe (no recent weapon hits / no clear fight).
+        # Heal only when safe (no recent weapon hits / no enemies in view).
         safe_for_regen = (
             t - self.mem.last_took_weapon_damage_t >= 5.0
             and t - self.mem.last_dealt_damage_t >= 5.0
@@ -173,7 +180,8 @@ class Bot:
             if self.mem.world_on_roof or hp_frac < 0.55:
                 return "HEAL"
 
-        if second is None and t <= 50.0:
+        # Keep arming until we have a second weapon (don't hard-stop at 50s).
+        if second is None:
             return "ARM"
 
         # relocate triggers
@@ -232,49 +240,94 @@ class Bot:
         me = obs["self"]
         t = float(obs["t"])
         enemies = [m for m in (obs.get("mechs") or []) if m.get("kind") == "mech"]
-        target = self.combat.pick_target(me, enemies, self.mem.last_threat_id)
-        if target is None and self.mem.last_threat_bearing is not None:
-            act["aim"] = [self.mem.last_threat_bearing, -0.05]
-            act["move"] = [0.0, 0.0]
-            return
-        if target is None:
-            act["move"] = [0.0, 0.0]
+        # Prefer clear LOS; else chase any visible / remembered hunter.
+        target = self.combat.pick_target(me, enemies, self.mem.last_threat_id, require_clear=True)
+        chase = target or self.combat.pick_target(
+            me, enemies, self.mem.last_threat_id, require_clear=False
+        )
+        if chase is None and self.mem.last_threat_id in self.mem.enemies:
+            chase = self.mem.enemies[self.mem.last_threat_id]
+        if chase is None and self.mem.enemies:
+            chase = min(
+                self.mem.enemies.values(),
+                key=lambda e: math.dist(e["pos"][:2], me["pos"][:2]),
+            )
+
+        if chase is None:
+            # Move while scanning — never freeze under fire with no contact.
+            bearing = self.mem.last_threat_bearing
+            if bearing is None:
+                for s in reversed(self.mem.sound_log):
+                    if s.get("bearing") is not None:
+                        bearing = float(s["bearing"])
+                        break
+            if bearing is None:
+                bearing = me["aim"][0]
+            act["aim"] = [bearing, -0.05]
+            goal = [
+                me["pos"][0] + math.cos(bearing) * 30.0,
+                me["pos"][1] + math.sin(bearing) * 30.0,
+            ]
+            move, _ = self.nav.steer(me, goal, 0.9)
+            act["move"] = move
+            act["boost"] = me["energy"] / me["max_energy"] > 0.5
+            act["fire"] = [True, False]  # suppress while closing if gun aimed enough
             return
 
-        # weapon preference for aim
+        clear = self.combat.clear_shot(me, chase["pos"])
         kind = "gun"
-        if _slot_of(me, "laser") is not None:
+        if _slot_of(me, "laser") is not None and clear:
             kind = "laser"
-        elif _slot_of(me, "mortar") is not None and not self.combat.clear_shot(me, target["pos"]):
+        elif _slot_of(me, "mortar") is not None and not clear:
             kind = "mortar"
-        aim = self.combat.aim_at(me, target, kind)
+        elif _slot_of(me, "laser") is not None:
+            kind = "laser"
+        aim = self.combat.aim_at(me, chase, kind)
         act["aim"] = aim
-        fire, reload, _ = self.combat.fire_slots(me, aim, target, t, self.mem)
-        act["fire"] = fire
-        act["reload"] = reload
-        mf.draw.line(self.combat.muzzle(me), [target["pos"][0], target["pos"][1], target["pos"][2] + 4.5], "#ff5040")
+        if clear or kind == "mortar":
+            fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem)
+            act["fire"] = fire
+            act["reload"] = reload
+        else:
+            # Closing the gap: keep gun ready if roughly aimed.
+            fire, reload, _ = self.combat.fire_slots(me, aim, chase, t, self.mem)
+            act["fire"] = fire
+            act["reload"] = reload
+        mf.draw.line(
+            self.combat.muzzle(me),
+            [chase["pos"][0], chase["pos"][1], chase["pos"][2] + 4.5],
+            "#ff5040",
+        )
 
+        bearing = math.atan2(chase["pos"][1] - me["pos"][1], chase["pos"][0] - me["pos"][0])
         if self.mem.world_on_roof:
-            # stand at firing point
             roof = self.cover.roof(self.mem.roof_id) if self.mem.roof_id is not None else None
             if roof is None:
-                # discover current roof
                 rid = self.world.roof_at(me["pos"][0], me["pos"][1])
                 self.mem.roof_id = rid
                 roof = self.cover.roof(rid) if rid is not None else None
-            bearing = math.atan2(target["pos"][1] - me["pos"][1], target["pos"][0] - me["pos"][0])
             if roof:
                 fp = self.cover.best_firing(roof, bearing)
                 if fp:
-                    move, _ = self.nav.steer(me, fp, 0.7)
+                    move, _ = self.nav.steer(me, fp, 0.8)
                     act["move"] = move
-            else:
-                act["move"] = [0.0, 0.0]
+                    return
+            act["move"] = [0.0, 0.0]
+            return
+
+        # Ground: close distance if far / no LOS; strafe if trading at mid range.
+        dist = math.dist(chase["pos"][:2], me["pos"][:2])
+        if not clear or dist > 90:
+            move, _ = self.nav.steer(me, chase["pos"], 1.0)
+            act["move"] = move
+            act["boost"] = dist > 60 and me["energy"] / me["max_energy"] > 0.4
         else:
-            # strafe slightly
-            bearing = math.atan2(target["pos"][1] - me["pos"][1], target["pos"][0] - me["pos"][0])
-            side = bearing + math.pi / 2
-            act["move"] = [math.cos(side) * 0.5, math.sin(side) * 0.5]
+            side = bearing + (math.pi / 2 if self.mem.rand() > 0.5 else -math.pi / 2)
+            act["move"] = [math.cos(side) * 0.7, math.sin(side) * 0.7]
+        self.nav.update_stuck(me, t, True)
+        if self.mem.stuck_until > t:
+            act["jump"] = bool(me.get("grounded"))
+            act["boost"] = True
 
     def _do_heal(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
@@ -316,38 +369,30 @@ class Bot:
     def _do_arm(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
         t = float(obs["t"])
-        # abandon if enemy close without second weapon
-        for m in obs.get("mechs") or []:
-            if m.get("kind") != "mech":
-                continue
-            if math.dist(m["pos"][:2], me["pos"][:2]) < 150:
-                # go to cover / relocate toward zone center slowly
-                goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.5)
-                move, yaw = self.nav.steer(me, goal, 0.8)
-                act["move"] = move
-                act["aim"] = [yaw, -0.05]
-                act["boost"] = True
-                return
+        # Do NOT abandon arming when enemies appear — fight while we loot.
+        # (Old 150 m flee left us gun-only forever against hunter squads.)
 
-        pickups = list(obs.get("pickups") or [])
-        best = None
-        best_score = -1e9
-        for p in pickups:
-            kind = p["kind"]
-            d = math.dist(p["pos"][:2], me["pos"][:2])
-            if kind == "laser" and d <= 120:
-                score = 300 - d
-            elif kind == "mortar" and d <= 80:
-                score = 200 - d
-            elif kind == "lightning" and d <= 40:
-                score = 100 - d
-            else:
-                continue
-            if score > best_score:
-                best_score = score
-                best = p
+        best = self.mem.best_loot(me["pos"], t)
+        # Prefer currently visible ids for take
+        visible = {int(p["id"]): p for p in (obs.get("pickups") or []) if p.get("kind") != "gun"}
+        if best and int(best["id"]) in visible:
+            best = {
+                "id": best["id"],
+                "kind": visible[int(best["id"])]["kind"],
+                "pos": list(visible[int(best["id"])]["pos"]),
+            }
+        elif not best and visible:
+            # rank visible only
+            best = None
+            best_score = -1e9
+            for p in visible.values():
+                d = math.dist(p["pos"][:2], me["pos"][:2])
+                kind = p["kind"]
+                score = {"laser": 300, "mortar": 200, "lightning": 100}.get(kind, 0) - d
+                if score > best_score:
+                    best_score = score
+                    best = {"id": p["id"], "kind": kind, "pos": list(p["pos"])}
 
-        # cubes detour
         cube = None
         for c in obs.get("cubes") or []:
             d = math.dist(c["pos"][:2], me["pos"][:2])
@@ -355,24 +400,38 @@ class Bot:
                 cube = c
                 break
 
-        goal = None
         if best is not None:
             goal = best["pos"]
+            self.mem.arm_goal = list(goal[:2])
             if math.dist(best["pos"][:2], me["pos"][:2]) <= self.loot_r + 0.5:
-                act["take"] = best["id"]
+                if int(best["id"]) in visible:
+                    act["take"] = best["id"]
         elif cube is not None:
             goal = cube["pos"]
+            self.mem.arm_goal = list(goal[:2])
         else:
-            goal = self.nav.zone_goal(obs["zone"], me["pos"], 0.55)
+            # Search: weave around zone center while scanning with torso FOV.
+            zc = self.nav.zone_goal(obs["zone"], me["pos"], 0.55)
+            yaw = self.mem.scan_yaw
+            goal = [zc[0] + math.cos(yaw) * 55.0, zc[1] + math.sin(yaw) * 55.0]
+            self.mem.arm_goal = goal
 
-        move, yaw = self.nav.steer(me, goal, 0.9)
+        move, yaw = self.nav.steer(me, goal, 1.0)
         act["move"] = move
-        act["aim"] = [yaw, -0.05]
-        act["boost"] = me["energy"] / me["max_energy"] > 0.7 and not me.get("in_zone", True)
+        # Face loot while moving; otherwise scan for pickups (FOV is yaw-based).
+        if best is not None:
+            act["aim"] = [math.atan2(best["pos"][1] - me["pos"][1], best["pos"][0] - me["pos"][0]), -0.05]
+        else:
+            act["aim"] = [self.mem.scan_yaw, -0.05]
+        # Silent when possible — boost only outside zone.
+        act["boost"] = not me.get("in_zone", True) and me["energy"] / me["max_energy"] > 0.55
         self.nav.update_stuck(me, t, True)
         if self.mem.stuck_until > t:
             act["jump"] = bool(me.get("grounded"))
             act["boost"] = True
+
+        # Return fire while arming
+        self._try_fight_overlay(obs, act)
 
     def _do_relocate(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]
@@ -486,9 +545,8 @@ class Bot:
                             self.mem.mortars += 1
                     break
 
-        # shoot if we see someone during peek
-        if self.mem.peek_phase == 1:
-            self._try_fight_overlay(obs, act)
+        # Always take fights from the roof when we can see someone.
+        self._try_fight_overlay(obs, act)
 
     def _try_fight_overlay(self, obs: mf.Observation, act: Dict[str, Any]) -> None:
         me = obs["self"]

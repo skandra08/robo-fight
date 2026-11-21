@@ -28,12 +28,32 @@ class Navigator:
         """Return (move_xy clamped, desired_yaw)."""
         x, y, z = me["pos"]
         gx, gy = float(goal[0]), float(goal[1])
+        # If the direct line is walled, aim at a side waypoint first.
         want = math.atan2(gy - y, gx - x)
+        mid = (x + math.cos(want) * 10.0, y + math.sin(want) * 10.0)
+        if not self.world.walkable_step(x, y, z, mid[0], mid[1]):
+            left = want + math.pi / 2
+            right = want - math.pi / 2
+            candidates = []
+            for ang in (left, right, want + 2.4, want - 2.4):
+                wx = x + math.cos(ang) * 18.0
+                wy = y + math.sin(ang) * 18.0
+                if self.world.walkable_step(x, y, z, x + math.cos(ang) * 6, y + math.sin(ang) * 6):
+                    # prefer waypoint that still progresses toward goal
+                    progress = math.cos(ang) * (gx - x) + math.sin(ang) * (gy - y)
+                    candidates.append((progress, ang, wx, wy))
+            if candidates:
+                candidates.sort(reverse=True)
+                want = candidates[0][1]
+                gx, gy = candidates[0][2], candidates[0][3]
+                want = math.atan2(gy - y, gx - x)
+
         if self.mem.stuck_until > float(me.get("_t", 0)):
             if self.mem.stuck_heading is not None:
                 want = self.mem.stuck_heading
         best_yaw = want
         best_score = -1e9
+        any_ok = False
         for deg in FEELER_DEG:
             yaw = want + math.radians(deg)
             c, s = math.cos(yaw), math.sin(yaw)
@@ -45,10 +65,14 @@ class Navigator:
                     break
             if not ok:
                 continue
-            score = -abs(deg)  # prefer closer to goal
+            any_ok = True
+            score = -abs(deg)
             if score > best_score:
                 best_score = score
                 best_yaw = yaw
+        if not any_ok:
+            # all feelers blocked — still push goal heading; stuck recovery will jump
+            best_yaw = want
         frac = max(0.0, min(1.0, speed_frac))
         move = [math.cos(best_yaw) * frac, math.sin(best_yaw) * frac]
         return move, best_yaw
@@ -90,12 +114,27 @@ class Navigator:
             act["jump"] = False
             return act
 
+        dist = math.hypot(climb_pt[0] - x, climb_pt[1] - y)
+        yaw_in = math.atan2(roof["center"][1] - y, roof["center"][0] - x)
+
+        # Low energy: do NOT stand still (free kill). Strafe near the wall while regen,
+        # or walk to climb point without jetting until we have enough for the ascent.
         if energy / max_e < 0.6 and z < top - 1.0 and me.get("grounded"):
-            # wait to regen unless already climbing
-            act["move"] = [0.0, 0.0]
+            if dist > 3.5:
+                me2 = dict(me)
+                me2["_t"] = t
+                move, yaw = self.steer(me2, climb_pt, 0.5)
+                act["move"] = move
+                act["aim"] = [yaw, -0.05]
+            else:
+                # circle along the wall while waiting for regen
+                along = yaw_in + math.pi / 2
+                act["move"] = [math.cos(along) * 0.45, math.sin(along) * 0.45]
+                act["aim"] = [yaw_in, 0.1]
+            act["boost"] = False
+            act["jump"] = False
             return act
 
-        dist = math.hypot(climb_pt[0] - x, climb_pt[1] - y)
         if dist > 3.5 and z < top - 1.0:
             me2 = dict(me)
             me2["_t"] = t
@@ -106,9 +145,8 @@ class Navigator:
             return act
 
         # at climb point: face roof center, jump, jet
-        yaw = math.atan2(roof["center"][1] - y, roof["center"][0] - x)
-        act["aim"] = [yaw, 0.2]
-        act["move"] = [math.cos(yaw), math.sin(yaw)]
+        act["aim"] = [yaw_in, 0.2]
+        act["move"] = [math.cos(yaw_in), math.sin(yaw_in)]
         if z < top + 1.0:
             act["jump"] = bool(me.get("grounded"))
             act["boost"] = True  # jet in air / run on ground toward wall
