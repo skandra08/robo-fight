@@ -119,6 +119,15 @@ def one(job):
             _world["w"] = engine.World(os.path.join(REPO, "arena"))
             _world["cfg"] = engine.load_config()
         botmod = load_bot(d)
+        # module-level tunables (rewrite line: RW_TUNE-style globals); restore defaults each job
+        g0 = botmod.__dict__.setdefault("_G0", {})
+        for k, v in g0.items():
+            setattr(botmod, k, v)
+        if knobs and not hasattr(botmod, "K"):
+            for k, v in knobs.items():
+                if k not in g0:
+                    g0[k] = getattr(botmod, k)
+                setattr(botmod, k, v)
         if hasattr(botmod, "K"):
             if not hasattr(botmod, "_K0"):
                 botmod._K0 = dict(botmod.K)
