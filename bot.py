@@ -1142,6 +1142,10 @@ class Bot:
             goal = visible[int(target["id"])]["pos"]
             if math.dist(goal[:2], me["pos"][:2]) <= self.loot_r - 0.3:
                 act["take"] = target["id"]
+                # L1: slot 1 is full, so a swap must name the slot it replaces, or the server
+                # answers take_failed "full" every tick and we stand on the pickup forever.
+                slot = _slot_of(me, second) if second else None
+                act["drop"] = 1 if slot is None else slot
         move, yaw = self.nav.steer(me, goal, 1.0, t)
         act["move"] = move
         act["aim"] = [math.atan2(goal[1] - me["pos"][1], goal[0] - me["pos"][0]), -0.05]

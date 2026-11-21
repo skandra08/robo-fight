@@ -8,6 +8,7 @@ class Memory:
     def __init__(self) -> None:
         self.enemies: Dict[int, Dict[str, Any]] = {}
         self.loot: Dict[int, Dict[str, Any]] = {}  # pickup id -> last known
+        self.loot_ban: Dict[int, float] = {}  # pickup id -> ignore until t (failed takes)
         self.damage_log: List[Dict[str, Any]] = []
         self.sound_log: List[Dict[str, Any]] = []
         self.shots_here = 0
@@ -118,6 +119,8 @@ class Memory:
             if p.get("kind") == "gun":
                 continue
             pid = int(p["id"])
+            if self.loot_ban.get(pid, -1e9) > t:
+                continue
             seen_loot.add(pid)
             self.loot[pid] = {
                 "id": pid,
@@ -129,6 +132,11 @@ class Memory:
             if e.get("type") == "took" and e.get("id") is not None:
                 self.loot.pop(int(e["id"]), None)
             if e.get("type") == "take_failed" and e.get("reason") == "gone" and e.get("id") is not None:
+                self.loot.pop(int(e["id"]), None)
+            elif e.get("type") == "take_failed" and e.get("id") is not None:
+                # L1: a take that keeps failing (full / have / range / busy) pinned the bot on
+                # the pickup for minutes in the sim (seed 27: 142 s). Forget it for a while.
+                self.loot_ban[int(e["id"])] = t + 20.0
                 self.loot.pop(int(e["id"]), None)
         # Bug #5 / R4: near-range vision is all-around, but buildings still block.
         # Only delete when we have eye LOS to the pickup (cap checks per tick).

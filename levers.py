@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-LABEL = "bf-noavoid"
+LABEL = "na-swapfix"
 
 LEVERS: Dict[str, bool] = {
     "S1": False,  # every loadout camps on a roof
