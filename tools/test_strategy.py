@@ -104,7 +104,7 @@ def mode_of(bot: Bot, obs: Dict[str, Any]) -> str:
 def test_upgrades(md: str) -> None:
     bot = fresh(md)
     offer = {"id": 1, "expires": 40, "choices": [{"id": "sensors"}, {"id": "nanites"}, {"id": "armor"}]}
-    check("greedy order picks armor first", bot._pick_upgrade(offer) == 2)
+    check("upgsus order picks nanites first", bot._pick_upgrade(offer) == 1)
 
 
 def test_zone(md: str) -> None:
